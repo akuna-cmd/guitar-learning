@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -15,6 +16,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -31,6 +35,7 @@ import com.example.thetest1.presentation.main.MainViewModel
 import com.example.thetest1.presentation.main.ThemeViewModel
 import com.example.thetest1.presentation.navigation.BottomNavItem
 import com.example.thetest1.presentation.navigation.LessonsNavHost
+import com.example.thetest1.presentation.settings.SettingsScreen
 import com.example.thetest1.presentation.ui.theme.TheTest1Theme
 
 class MainActivity : ComponentActivity() {
@@ -85,12 +90,22 @@ fun MainScreen(
                 val items = listOf(
                     BottomNavItem.Main,
                     BottomNavItem.GuitarTabs,
-                    BottomNavItem.Goals
+                    BottomNavItem.Goals,
+                    BottomNavItem.Settings
                 )
                 items.forEach { screen ->
                     NavigationBarItem(
                         icon = { Icon(screen.icon, contentDescription = null) },
-                        label = { Text(stringResource(id = screen.titleResId)) },
+                        label = {
+                            Text(
+                                text = stringResource(id = screen.titleResId),
+                                fontSize = 10.sp,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.Center
+                            )
+                        },
                         selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                         onClick = {
                             navController.navigate(screen.route) {
@@ -130,6 +145,9 @@ fun MainScreen(
             }
             composable(BottomNavItem.Goals.route) {
                 GoalsScreen(viewModelFactory = viewModelFactory)
+            }
+            composable(BottomNavItem.Settings.route) {
+                SettingsScreen()
             }
         }
     }

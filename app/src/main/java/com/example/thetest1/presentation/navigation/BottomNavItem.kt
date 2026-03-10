@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.thetest1.R
 
@@ -29,5 +30,11 @@ sealed class BottomNavItem(
         route = "goals",
         titleResId = R.string.goals,
         icon = Icons.Default.Check
+    )
+
+    object Settings : BottomNavItem(
+        route = "settings",
+        titleResId = R.string.settings,
+        icon = Icons.Default.Settings
     )
 }
