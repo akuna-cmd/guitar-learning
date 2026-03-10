@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -6,118 +5,387 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.3.0/dist/alphaTab.js"></script>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #ffffff; overflow: hidden; }
-        #alphaTab { width: 100%; }
-        .at-cursor-bar { background: red !important; width: 3px !important; z-index: 1000 !important; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #ffffff; }
+        body.dark  { background: #1c1b1f; }
+        #alphaTab { width: 100%; overflow: visible; }
+        body.dark #alphaTab canvas { filter: invert(1) brightness(0.88); }
+        .at-cursor-beat { background: rgba(225, 70, 70, 0.95) !important; width: 2px !important; z-index: 1000 !important; }
+        .at-cursor-bar { background: rgba(103, 80, 164, 0.18) !important; z-index: 999 !important; }
+        .at-selection div { background: rgba(103, 80, 164, 0.3) !important; }
     </style>
 </head>
 <body>
-    <div id="alphaTab"></div>
-    <script>
-        let api = null;
-        const element = document.querySelector("#alphaTab");
+<div id="alphaTab"></div>
+<script>
+// ══════════════════════════════════════════════════════════
+//  AlgorithmicTutor v6.5 — JavaScript port
+//  DP + Biomechanics + Expanded Techniques + Contextual Speed
+// ══════════════════════════════════════════════════════════
 
-        function signalReady() {
-            if (window.Android && window.Android.onJsReady) {
-                window.Android.onJsReady();
-            } else {
-                setTimeout(signalReady, 100);
+const STRING_NAMES = {1:'e (1)',2:'b (2)',3:'g (3)',4:'d (4)',5:'A (5)',6:'E (6)'};
+const STRING_SHORT = {1:'e',2:'b',3:'g',4:'d',5:'A',6:'E'};
+const LH_NAMES     = {1:'1 (вказ.)',2:'2 (серед.)',3:'3 (безім.)',4:'4 (мізин.)'};
+const DUR_BEATS    = {1:4,2:2,4:1,8:.5,16:.25,32:.125,64:.0625};
+const BIOMECH = {
+    1:{1:8,2:1,3:2,4:4}, 2:{1:1,2:8,3:1,4:2},
+    3:{1:3,2:1,3:8,4:1}, 4:{1:6,2:3,3:1,4:8}
+};
+
+const biomechCost = (f,t) => (BIOMECH[f]||{})[t]||5;
+const transCost   = (p1,p2,d) => ((p2-p1)**2)/Math.max(d,.125);
+
+function configCost(frets, pos) {
+    const pr=frets.filter(f=>f>0); if(!pr.length)return 0;
+    let c=0, span=Math.max(...pr)-Math.min(...pr);
+    if(span>4)c+=(span-4)**2*3;
+    for(const f of pr){const r=f-pos; if(r<0)c+=50; else if(r>4)c+=(r-4)**2*2;}
+    return c;
+}
+
+function detectBarre(notes) {
+    const pr=notes.filter(n=>n.fret>0); if(!pr.length)return null;
+    const mn=Math.min(...pr.map(n=>n.fret)), on=pr.filter(n=>n.fret===mn);
+    if(on.length>=3)return mn;
+    if(on.length===2){const s=on.map(n=>n.string); if(Math.max(...s)-Math.min(...s)>=2)return mn;}
+    return null;
+}
+
+function dpFingering(data) {
+    if(!data.length)return[];
+    const MAX=22;
+    function cands(d){
+        const pr=d.notes.filter(n=>n.fret>0).map(n=>n.fret);
+        if(!pr.length)return Array.from({length:MAX},(_,i)=>i+1);
+        const mn=Math.max(1,Math.min(...pr)),lo=Math.max(1,mn-3),hi=Math.min(MAX,mn+2);
+        return Array.from({length:hi-lo+1},(_,i)=>lo+i);
+    }
+    let dp=new Map();
+    for(const pos of cands(data[0]))dp.set(pos,{cost:configCost(data[0].notes.map(n=>n.fret),pos),path:[pos]});
+    for(let i=1;i<data.length;i++){
+        const d=data[i],fr=d.notes.map(n=>n.fret),pd=data[i-1].duration,nd=new Map();
+        for(const pos of cands(d)){
+            const cc=configCost(fr,pos);let bc=Infinity,bp=null;
+            for(const[pp,{cost:pc,path:pp2}]of dp){const t=pc+transCost(pp,pos,pd)+cc;if(t<bc){bc=t;bp=[...pp2,pos];}}
+            nd.set(pos,{cost:bc,path:bp||[]});
+        }
+        dp=nd;
+    }
+    let best=null; for(const v of dp.values())if(!best||v.cost<best.cost)best=v;
+    return best?best.path:[];
+}
+
+function assignLhFingers(notes, pos, barre, prevF) {
+    const sorted=[...notes].sort((a,b)=>b.string-a.string),used=new Set(),lhMap={},newF={};
+    if(barre!==null)used.add(1);
+    for(const{string:s,fret:f,isDead}of sorted){
+        if(f===0){lhMap[`${s}_${f}`]='-';continue;}
+        if(f===barre && !isDead){lhMap[`${s}_${f}`]='1 (баре)';newF[s]=1;continue;}
+        const ideal=Math.min(Math.max(f-pos+1,1),4);
+        let bf=null,bc=Infinity;
+        for(let i=1;i<=4;i++){
+            if(used.has(i))continue;
+            const tc=Math.abs(i-ideal)*2+(prevF[s]?biomechCost(prevF[s],i):0);
+            if(tc<bc){bc=tc;bf=i;}
+        }
+        if(!bf)bf=ideal; used.add(bf); newF[s]=bf;
+        lhMap[`${s}_${f}`]=LH_NAMES[bf]||String(bf);
+    }
+    return{lhMap,newF};
+}
+
+class RightHandSM {
+    constructor(){this._last='m';}
+    getFingers(notes){
+        const res={};
+        const FULL={p:'p (великий)',i:'i (вказівний)',m:'m (середній)',a:'a (безіменний)'};
+        const ARG={1:'a',2:'m',3:'i'};
+        const mel=notes.filter(n=>n.string<=3),bas=notes.filter(n=>n.string>=4);
+        for(const{string:s}of bas)res[s]=FULL.p;
+        if(!mel.length)return res;
+        if(notes.length>1&&bas.length>0){
+            for(const{string:s}of mel)res[s]=FULL[ARG[s]||'i'];
+            this._last='m';
+        } else {
+            for(const{string:s}of[...mel].sort((a,b)=>b.string-a.string)){
+                const nx=this._last==='m'?'i':'m'; res[s]=FULL[nx]; this._last=nx;
             }
         }
+        return res;
+    }
+}
 
-        function initAlphaTab() {
-            if (api) return;
-            try {
-                api = new alphaTab.AlphaTabApi(element, {
-                    core: { engine: 'html5' },
-                    display: { layoutMode: 'horizontal' },
-                    player: {
-                        enablePlayer: true,
-                        enableCursor: true,
-                        soundFont: "https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/soundfont/sonivox.sf2"
-                    }
-                });
+// ── Extended Techniques ─────────────────────────────────
 
-                api.settings.display.cursor.mode = 1; // Beat mode
-                api.updateSettings();
+function buildInstructions(notes, rawNotes, lhMap, rhMap, barre, pos, isTapping) {
+    const inst = [];
 
-                api.scoreLoaded.on((score) => {
-                    if (score.tracks.length > 0) {
-                        const firstBeat = score.tracks[0].staves[0].bars[0].voices[0].beats[0];
-                        analyze(firstBeat);
-                    }
-                });
+    if (isTapping) {
+        inst.push('🎸 ТЕППІНГ: права рука бере ноту прямо на грифі (замість медіатора).');
+        inst.push('👆 Різко вдар пальцем правої руки по ладу і одразу зірви струну вбік, щоб зазвучала нота лівої руки.');
+        return inst;
+    }
 
-                api.renderFinished.on(() => {
-                    api.resize();
-                });
+    const noteCount = notes.length;
 
-                api.cursorPositionChanged.on((args) => {
-                    if (args.beat) analyze(args.beat);
-                });
-
-                api.cursorChanged.on((args) => {
-                    if (args.beat) analyze(args.beat);
-                });
-            } catch (e) {
-                console.error("AlphaTab Init Error:", e);
-            }
+    // Position hints
+    if (barre !== null) {
+        inst.push(`📍 ПОЗИЦІЯ: БАРЕ на ${barre}-му ладі.`);
+        inst.push(`👉 Вказівний (1) лягає ПЛАСКО. Завалюй його трохи набік до кістки. Стискай струни біля залізного порожка.`);
+    } else if (pos > 0) {
+        const pr = notes.filter(n=>n.fret>0 && !n.isDead);
+        if(pr.length > 0) {
+            const span = Math.max(...pr.map(n=>n.fret)) - Math.min(...pr.map(n=>n.fret));
+            inst.push(`📍 ПОЗИЦІЯ: навколо ${pos}-го ладу.`);
+            if (span > 3) inst.push(`⚠️ Широка розтяжка! Великий палець ззаду опусти нижче до центру грифа, щоб пальці легше тягнулись розчепіреними.`);
         }
+    }
 
-        function analyze(beat) {
-            if (!beat || !beat.notes) return;
-            try {
-                const analysis = {
-                    barIndex: beat.voice.bar.index + 1,
-                    leftHand: [],
-                    rightHand: [],
-                    instructions: ["Слідкуйте за червоним курсором"]
-                };
-                const strings = ['E','B','G','D','A','E'];
-                beat.notes.forEach(n => {
-                    let f = (n.fret % 4) + 1;
-                    let sName = strings[n.string - 1] || n.string.toString();
-                    analysis.leftHand.push({
-                        finger: n.fret === 0 ? "0" : f.toString(),
-                        fingerName: n.fret === 0 ? "Відкрита" : "Палець " + f,
-                        string: sName,
-                        fret: n.fret.toString(),
-                        color: n.fret === 0 ? "#9E9E9E" : "#F57C00"
+    // LH / RH assignments
+    if (noteCount === 1) {
+        const {string:s, fret:f} = notes[0];
+        const lh = lhMap[`${s}_${f}`]||'?';
+        const rh = rhMap[s]||'i (вказівний)';
+        if(rawNotes[0].isDead) {
+            inst.push(`🖐 ЛІВА (Глуха нота): Поклади пальці на струну ${STRING_NAMES[s]} без притискання (приглуши).`);
+        } else if (f === 0) {
+            inst.push(`🖐 ЛІВА: Відкрита струна ${STRING_NAMES[s]} — гриф не зачіпати.`);
+        } else {
+            inst.push(`🖐 ЛІВА: Струна ${STRING_NAMES[s]}, ${f}-й лад ➜ Палець ${lh}. Дави кінчиком (подушечкою), рівно зверху.`);
+        }
+        inst.push(`👆 ПРАВА: ${rh} — ${s>=4?'вниз до наступної струни (апояндо)' : 'вгору (щипок)'}.`);
+    } else {
+        inst.push(`🎵 АКОРД: ${noteCount} струн одночасно.`);
+        const lhParts = notes.map(n=>{
+            if(n.isDead) return `${STRING_SHORT[n.string]}-глуха(x)`;
+            return `${STRING_SHORT[n.string]}-${n.fret===0?'відкр.':n.fret}(${lhMap[`${n.string}_${n.fret}`]||'?'})`;
+        });
+        inst.push(`🖐 ЛІВА: ${lhParts.join(', ')}.`);
+        if (notes.some(n=>n.string>=4) && notes.some(n=>n.string<=3)) {
+            inst.push(`👆 ПРАВА: Арпеджіато (перебір). Великий палець (p) — баси, інші (i, m, a) — нижні струни.`);
+        } else {
+            const dir = notes[0].string>=4 ? 'вниз' : 'вгору';
+            inst.push(`👆 ПРАВА: Страм (бій) ${dir}. Веди кисть розслаблено.` + (notes.some(n=>n.isDead) ? " Зачепи заглушені струни для перкусії." : ""));
+        }
+    }
+
+    // Rich Technique Details
+    let bend=false, vib=false, slIn=false, slOut=false, leg=false, pm=false, harm=false, trill=false;
+    let ghost=false, dead=false, letR=false, slap=false, pop=false, acc=false;
+    
+    for(const n of rawNotes){
+        if(n.hasBend) bend=true;
+        if(n.vibrato) vib=true;
+        if(n.slideIn) slIn=true;
+        if(n.slideOut) slOut=true;
+        if(n.isHammer) leg=true;
+        if(n.isPalmMute) pm=true;
+        if(n.hasHarmonic) harm=true;
+        if(n.isTrill) trill=true;
+        if(n.isGhost) ghost=true;
+        if(n.isDead) dead=true;
+        if(n.isLetRing) letR=true;
+        if(n.isSlap) slap=true;
+        if(n.isPop) pop=true;
+        if(n.accent > 0) acc=true;
+    }
+
+    if (acc) inst.push('💥 АКЦЕНТ: Виділи цю ноту! Вдар правою рукою сильніше, дай більше атаки.');
+    if (ghost) inst.push('👻 ПРИВИД (Ghost Note): Грай дуже-дуже тихо, ледь торкаючись струни. Вона створює пульсацію.');
+    if (dead) inst.push('❌ МЕРТВА НОТА (Dead Note): Ліва рука ліниво лежить на струні, глушачи її. Права рука вдаряє потужно (перкусійний «чпок»).');
+    if (slap) inst.push('👊 СЛЕП (Slap): Удар кісткою великого пальця правої руки об басову струну біля порожка! Струна має дзвякнути об лади.');
+    if (pop) inst.push('👆 ПОП (Pop): Підчепи струну вказівним пальцем правої руки відтягни її вгору і різко відпусти (ляскіт).');
+    if (letR) inst.push('🔔 LET RING: Дай ноті звучати! Не глуши її, коли переставляєш пальці для наступних нот.');
+
+    if (bend) inst.push('↑ BEND (Підтяжка): Зіграй ноту і одразу ПІДТЯГНИ струну ДО підлоги (або від неї). Допомагай сусідніми пальцями! Ціль: дотягнути звук до потрібної висоти.');
+    if (vib) inst.push('〰 ВІБРАТО: Після удару швидко розгойдуй палець вздовж грифа. Рух від передпліччя, а не від пальця. Звучить "живіше".');
+    if (slIn || slOut) inst.push('→ СЛАЙД (Ковзання): Збережи тиск пальця на струну і проведи по грифу ' + (slIn?'ДО ':'ВІД ') + 'потрібного ладу без відриву.');
+    if (leg) inst.push('⌒ ЛЕГАТО (Hammer/Pull): Не бий правою рукою. Лівою: різко "забий" палець на гриф (Hammer) або зірви вбік (Pull-off), щоб нота дзижчала сама.');
+    if (pm) inst.push('✋ PALM MUTE: Ребро правої долоні поклади на струни ПРЯМО НАД пластиковим поріжком (бриджем). Звук буде "дж-дж", агресивний, але глухий.');
+    if (harm) inst.push('◇ ФЛАЖОЛЕТ: НЕ притискай до грифа. Легенько доторкнись струни рівно над залізячкою ладу. Вдар і в ту ж мить відірви палець — чистий дзвін.');
+    if (trill) inst.push('🎵 ТРЕЛЬ: Безупинно роби Hammer-on і Pull-off між двома ладами. Грай довго і швидко як пташка.');
+
+    if (!inst.length) inst.push('🟢 Проста нота: грай чисто і впевнено.');
+    return inst;
+}
+
+function buildAnalysis(barIdx, notes, rawNotes, lhMap, rhMap, barre, pos, isTapping) {
+    const LH=[], RH=[];
+    for(const{string:s,fret:f,isDead}of[...notes].sort((a,b)=>b.string-a.string)){
+        const sn=STRING_SHORT[s]||String(s);
+        let lbl=lhMap[`${s}_${f}`]||'?';
+        if(isDead) lbl = 'Глуха (x)';
+        const open=f===0&&!isDead;
+        LH.push({finger:open?'0':lbl.charAt(0), fingerName:open?'Відкрита струна':lbl, string:sn, fret:isDead?'x':String(f), color:open?'#9E9E9E':(isDead?'#757575':'#D07B30')});
+        const rh=rhMap[s]||'i (вказівний)', th=s>=4;
+        RH.push({finger:rh.charAt(0), fingerName:rh, string:sn, direction:th?'вниз':'вгору', color:th?'#8B6350':'#3678B5'});
+    }
+    const instructions = buildInstructions(notes, rawNotes, lhMap, rhMap, barre, pos, isTapping);
+    return {barIndex:barIdx+1, leftHand:LH, rightHand:RH, instructions};
+}
+
+// ── Two-level beat cache ─────────────────────────────────
+const beatMap = new Map();  
+const tickArr = [];         
+
+function beatKey(beat){try{return`${beat.voice.bar.index}_${beat.index}`;}catch{return null;}}
+
+function runFullAnalysis(score) {
+    beatMap.clear(); tickArr.length=0;
+    try {
+        const track=score.tracks.find(t=>!t.isPercussionTrack)||score.tracks[0];
+        if(!track?.staves?.length)return;
+        const data=[];
+        for(const bar of track.staves[0].bars){
+            for(const voice of bar.voices){
+                if(voice.isEmpty)continue;
+                for(const beat of voice.beats){
+                    // We DO allow tied notes now, but handle carefully
+                    const notes=beat.notes.filter(n=>n.fret!=null);
+                    if(!notes.length)continue;
+                    const durVal=typeof beat.duration==='object'?beat.duration.value:beat.duration;
+                    data.push({
+                        beat,barIdx:bar.index,
+                        duration:DUR_BEATS[durVal]??1,
+                        notes:notes.map(n=>({string:n.string, fret:n.fret, isDead:!!n.isDead})),
+                        rawNotes:notes.map(n=>({
+                            hasBend:    !!n.hasBend,
+                            vibrato:    !!(n.vibrato&&n.vibrato!==0),
+                            slideIn:    !!(n.slideInType&&n.slideInType!==0),
+                            slideOut:   !!(n.slideOutType&&n.slideOutType!==0),
+                            isHammer:   !!n.isHammerPullOrigin,
+                            isPalmMute: !!(n.isPalmMute||n.effect?.palmMute),
+                            hasHarmonic:!!(n.harmonicType&&n.harmonicType!==0),
+                            isTrill:    !!n.isTrill,
+                            isGhost:    !!n.isGhost,
+                            isDead:     !!n.isDead,
+                            isLetRing:  !!(n.isLetRing || n.effect?.letRing),
+                            isSlap:     !!n.isSlap,
+                            isPop:      !!n.isPop,
+                            accent:     n.accentValue || 0
+                        })),
+                        isTapping:!!(beat.isTapping||beat.effect?.isTapping),
+                        isTiedBeat: notes.every(n=>n.isTiedNote)
                     });
-                    analysis.rightHand.push({
-                        finger: n.string >= 4 ? "p" : "i",
-                        fingerName: n.string >= 4 ? "Великий" : "Вказівний",
-                        string: sName,
-                        direction: n.string >= 4 ? "вниз" : "вгору",
-                        color: n.string >= 4 ? "#795548" : "#2196F3"
-                    });
-                });
-                if (window.Android && window.Android.postTabAnalysis) {
-                    window.Android.postTabAnalysis(JSON.stringify(analysis));
                 }
-            } catch (e) { console.error("Analyze Error:", e); }
-        }
-
-        window.loadTab = (path) => {
-            if (!api) initAlphaTab();
-            if (api.player.state === 1) api.player.stop();
-            api.load(path);
-        };
-
-        window.playPause = () => {
-            if (api) {
-                if (api.player.state !== 1) api.player.play();
-                else api.player.pause();
             }
-        };
+        }
+        if(!data.length)return;
+        // Filter out fully tied beats for DP to save logic, DP only cares about actual attacks
+        const attackData = data.filter(d=>!d.isTiedBeat);
+        const positions=dpFingering(attackData);
+        const rhSM=new RightHandSM();
+        
+        let prevLhF={}, atkIdx=0, firstJson=null;
+        for(let i=0;i<data.length;i++){
+            const{beat,barIdx,notes,rawNotes,isTapping,isTiedBeat}=data[i];
+            
+            let pos=1, barre=null, lhMap={}, newF={}, rhMap={};
+            if(isTiedBeat && atkIdx>0) {
+                // Repeat last instructions for tied notes
+            } else {
+                pos=positions[atkIdx]||1; barre=detectBarre(notes);
+                const a = assignLhFingers(notes,pos,barre,prevLhF);
+                lhMap = a.lhMap; newF = a.newF; rhMap=rhSM.getFingers(notes);
+                prevLhF=newF;
+                atkIdx++;
+            }
 
-        window.stopAudio = () => {
-            if (api && api.player) api.player.stop();
-        };
+            const json=JSON.stringify(buildAnalysis(barIdx,notes,rawNotes,lhMap,rhMap,barre,pos,isTapping));
+            const key=beatKey(beat); if(key)beatMap.set(key,json);
+            tickArr.push({tick:beat.start??beat.absoluteDisplayStart??(i*960),json});
+            if(!firstJson && !isTiedBeat)firstJson=json;
+        }
+        tickArr.sort((a,b)=>a.tick-b.tick);
+        if(firstJson)postToAndroid(firstJson);
+    }catch(e){console.error('runFullAnalysis:',e);}
+}
 
-        // Починаємо ініціалізацію відразу
-        initAlphaTab();
-        signalReady();
-    </script>
+function postToAndroid(json){if(json&&window.Android?.postTabAnalysis)window.Android.postTabAnalysis(json);}
+
+function sendForTick(t){
+    if(!tickArr.length)return;
+    let lo=0,hi=tickArr.length-1,best=-1;
+    while(lo<=hi){const mid=(lo+hi)>>1;if(tickArr[mid].tick<=t){best=mid;lo=mid+1;}else hi=mid-1;}
+    if(best>=0)postToAndroid(tickArr[best].json);
+}
+
+function sendForBeat(beat){
+    if(!beat)return;
+    const key=beatKey(beat);
+    if(key&&beatMap.has(key)){postToAndroid(beatMap.get(key));return;}
+    const t=beat.start??beat.absoluteDisplayStart;
+    if(t!=null)sendForTick(t);
+}
+
+// ── Dark-mode: invert only canvas, not container ─────────
+let _isDark=false;
+
+function applyCanvasTheme(){
+    document.querySelectorAll('#alphaTab canvas').forEach(c=>{
+        c.style.filter = _isDark ? 'invert(1) brightness(0.88)' : 'none';
+    });
+}
+const canvasObs = new MutationObserver(applyCanvasTheme);
+canvasObs.observe(document.getElementById('alphaTab'), {childList:true, subtree:true});
+
+window.setTheme = (isDark) => {
+    _isDark = isDark;
+    document.body.classList.toggle('dark', isDark);
+    applyCanvasTheme();
+};
+
+window.setPracticeModeSpeed = (isPractice) => {
+    if(!api) return;
+    // When practice mode is ON, set to 0.75x, otherwise 1x.
+    // Noticeably slower but optimal for reading instructions.
+    api.playbackSpeed = isPractice ? 0.75 : 1.0;
+};
+
+// ── AlphaTab setup ───────────────────────────────────────
+let api=null, _poll=null, _lastTick=-1;
+
+function signalReady(){if(window.Android?.onJsReady)window.Android.onJsReady();else setTimeout(signalReady,100);}
+function startPoller(){stopPoller();_lastTick=-1;_poll=setInterval(()=>{if(!api)return;try{const t=api.tickPosition;if(t==null||t===_lastTick)return;_lastTick=t;sendForTick(t);}catch{stopPoller();}},100);}
+function stopPoller(){if(_poll!=null){clearInterval(_poll);_poll=null;}}
+
+function initAlphaTab(){
+    if(api)return;
+    try{
+        api=new alphaTab.AlphaTabApi(document.querySelector('#alphaTab'),{
+            core:{engine:'html5'},
+            display:{
+                layoutMode: 0, 
+                staveProfile: (alphaTab.StaveProfile&&alphaTab.StaveProfile.Tab)||3 
+            },
+            player:{
+                enablePlayer:true,
+                enableCursor:true,
+                cursorMode:1,
+                soundFont:'https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/soundfont/sonivox.sf2'
+            }
+        });
+        api.scoreLoaded.on(score=>{runFullAnalysis(score);});
+        api.playerPositionChanged.on(args=>{if(args?.currentBeat)sendForBeat(args.currentBeat);});
+        api.playerStateChanged.on(args=>{if(args?.state===1)startPoller();else stopPoller();});
+        api.beatMouseDown.on(beat=>{
+            if(!beat)return;
+            sendForBeat(beat);
+            try{
+                const t=beat.start??beat.absoluteDisplayStart;
+                if(t!=null)api.tickPosition=t;
+            }catch{}
+        });
+    }catch(e){console.error('AlphaTab init:',e);}
+}
+
+window.loadTab=(path)=>{if(!api)initAlphaTab();api.load(path.startsWith('/')?'file://'+path:path);};
+window.playPause=()=>{if(api)api.playPause();};
+window.stopAudio=()=>{if(api){api.stop();stopPoller();}};
+window.setPlaybackSpeed=(s)=>{if(api)api.playbackSpeed=parseFloat(s);};
+
+initAlphaTab();
+signalReady();
+</script>
 </body>
 </html>

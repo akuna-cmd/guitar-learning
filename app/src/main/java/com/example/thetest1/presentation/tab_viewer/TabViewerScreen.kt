@@ -11,6 +11,9 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -143,18 +146,50 @@ fun TabViewerScreen(
                 when (uiState.selectedTab) {
                     LessonTab.THEORY -> TheoryScreen(text = uiState.lesson!!.text)
                     LessonTab.TABS -> {
+                        var isPracticeMode by remember { mutableStateOf(false) }
                         Column(modifier = Modifier.fillMaxSize()) {
+                            // ─── Mode Toggle ───────────────────────────
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                val modes = listOf(false to "Звичайна гра", true to "Режим розбору")
+                                modes.forEach { (practice, label) ->
+                                    val selected = isPracticeMode == practice
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier
+                                            .padding(horizontal = 4.dp)
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .clickable { isPracticeMode = practice }
+                                            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
+                                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                                    ) {
+                                        Text(label, color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+
+                            // ─── Tab Viewer ────────────────────────────
                             TabViewer(
                                 fileName = uiState.lesson!!.tabsGpPath,
+                                isPracticeMode = isPracticeMode,
                                 onAsciiTabGenerated = { ascii -> viewModel.setAsciiTab(ascii) },
                                 onTabAnalysis = { analysis -> viewModel.setTabAnalysis(analysis) },
-                                modifier = Modifier.fillMaxWidth().height(350.dp)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .let { if (isPracticeMode) it.height(250.dp) else it.weight(1f) }
                             )
-                            
-                            TabAnalysisView(
-                                analysis = uiState.tabAnalysis,
-                                modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())
-                            )
+
+                            // ─── Analysis View (Practice Mode Only) ────
+                            androidx.compose.animation.AnimatedVisibility(visible = isPracticeMode) {
+                                androidx.compose.animation.Crossfade(targetState = uiState.tabAnalysis, label = "analysis") { analysis ->
+                                    TabAnalysisView(
+                                        analysis = analysis,
+                                        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+                                    )
+                                }
+                            }
                         }
                     }
                     LessonTab.AI_ASSISTANT -> AiAssistantScreen(
@@ -255,13 +290,16 @@ fun FingerSection(title: String, fingers: List<FingerInfo>, modifier: Modifier =
 @Composable
 private fun TabViewer(
     fileName: String,
+    isPracticeMode: Boolean,
     onAsciiTabGenerated: (String) -> Unit,
     onTabAnalysis: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var isPlaying by remember { mutableStateOf(false) }
-    var isReady by remember { mutableStateOf(false) }
+    val isDark    = isSystemInDarkTheme()
+    var isPlaying  by remember { mutableStateOf(false) }
+    var isReady    by remember { mutableStateOf(false) }
+    var currentSpeed by remember { mutableStateOf(1f) }
     
     val webView = remember {
         WebView(context).apply {
@@ -288,7 +326,7 @@ private fun TabViewer(
                 @JavascriptInterface
                 fun postTabAnalysis(json: String) { onTabAnalysis(json) }
                 @JavascriptInterface
-                fun onJsReady() { 
+                fun onJsReady() {
                     Handler(Looper.getMainLooper()).post { isReady = true }
                 }
             }, "Android")
@@ -309,21 +347,80 @@ private fun TabViewer(
         }
     }
 
+    // Apply theme (and load tab) whenever page is ready or theme/file changes
     LaunchedEffect(fileName, isReady) {
         if (isReady) {
+            webView.evaluateJavascript("window.setTheme($isDark);", null)
             webView.evaluateJavascript("window.loadTab('$fileName');", null)
         }
     }
 
+    // React to practice mode toggle
+    LaunchedEffect(isPracticeMode, isReady) {
+        if (isReady) {
+            webView.evaluateJavascript("window.setPracticeModeSpeed($isPracticeMode);", null)
+            currentSpeed = if (isPracticeMode) 0.75f else 1f
+        }
+    }
+
+    // Re-apply theme if user switches dark/light mode while screen is open
+    LaunchedEffect(isDark) {
+        if (isReady) webView.evaluateJavascript("window.setTheme($isDark);", null)
+    }
+
     Box(modifier = modifier) {
-        Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-            IconButton(onClick = {
-                webView.evaluateJavascript("window.playPause();", null)
-                isPlaying = !isPlaying
-            }) {
-                Icon(imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = null)
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            AndroidView(factory = { webView }, modifier = Modifier.fillMaxWidth().weight(1f))
+
+            // ─── Playback controls ────────────────────────────────
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Play / Pause
+                IconButton(onClick = {
+                    webView.evaluateJavascript("window.playPause();", null)
+                    isPlaying = !isPlaying
+                }) {
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = null
+                    )
+                }
+
+                // Speed chips
+                val speeds = listOf(0.5f to "0.5×", 0.75f to "0.75×", 1f to "1×", 1.5f to "1.5×", 2f to "2×")
+                speeds.forEach { (speed, label) ->
+                    val selected = currentSpeed == speed
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .clickable {
+                                currentSpeed = speed
+                                webView.evaluateJavascript("window.setPlaybackSpeed($speed);", null)
+                            }
+                            .background(
+                                color = if (selected) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.surfaceVariant,
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                    ) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (selected) MaterialTheme.colorScheme.onPrimary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
-            AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize().weight(1f))
         }
 
         if (!isReady) {

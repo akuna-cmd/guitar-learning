@@ -24,6 +24,9 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -179,24 +182,35 @@ fun NotesScreen(
         }
 
         item {
+            Spacer(modifier = Modifier.height(16.dp))
             OutlinedTextField(
                 value = newTextNote,
                 onValueChange = { newTextNote = it },
-                label = { Text(stringResource(id = R.string.add_a_note)) },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(
-                onClick = {
-                    if (newTextNote.isNotBlank()) {
-                        onAddTextNote(newTextNote)
-                        newTextNote = ""
+                placeholder = { Text(stringResource(id = R.string.add_a_note)) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
+                trailingIcon = {
+                    IconButton(
+                        onClick = {
+                            if (newTextNote.isNotBlank()) {
+                                onAddTextNote(newTextNote)
+                                newTextNote = ""
+                            }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Send,
+                            contentDescription = stringResource(id = R.string.add_note),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(stringResource(id = R.string.add_note))
-            }
+                }
+            )
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
