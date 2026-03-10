@@ -1,0 +1,192 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/alphaTab.js"></script>
+    <style>
+        body, html {
+            margin: 0; padding: 0;
+            height: 100%; width: 100%;
+            overflow: hidden;
+            background-color: #ffffff;
+            font-family: Arial, sans-serif;
+        }
+        #wrapper {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        #alphaTab { width: 100%; min-height: 100%; }
+
+        .at-cursor-bar { background: rgba(255, 242, 0, 0.4) !important; }
+        .at-cursor-beat { background: rgba(64, 64, 255, 0.75) !important; border-radius: 2px; }
+    </style>
+</head>
+<body>
+
+<div id="wrapper">
+    <div id="alphaTab"></div>
+</div>
+
+<script>
+    const wrapper = document.querySelector('#wrapper');
+    const atContainer = document.querySelector('#alphaTab');
+
+    const settings = {
+        core: {
+            engine: 'html5',
+        },
+        display: {
+            layoutMode: 'page',
+            staveProfile: 'default',
+        },
+        notation: {
+            notationMode: 'GuitarPro',
+        },
+        player: {
+            enablePlayer: true,
+            enableCursor: true,
+            enableUserInteraction: true,
+            soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/soundfont/sonivox.sf2',
+            scrollElement: wrapper,
+            scrollMode: 'continuous'
+        }
+    };
+
+    const api = new alphaTab.AlphaTabApi(atContainer, settings);
+
+    api.scoreLoaded.on(score => {
+        try {
+            const ascii = generateAsciiTabs(score.tracks[0], 80);
+            if (window.Android && typeof window.Android.postAsciiTab === 'function') {
+                window.Android.postAsciiTab(ascii);
+            }
+        } catch(e) {
+            console.error('Error generating ASCII tabs', e);
+        }
+    });
+
+    window.loadTab = function(relativePath) {
+        try {
+            api.load(relativePath);
+        } catch (e) {
+            console.error("Помилка завантаження: ", e);
+        }
+    };
+
+    window.playPause = function() {
+        api.playPause();
+    };
+
+    function getNoteNameFromPitch(pitch) {
+        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const octave = Math.floor(pitch / 12) - 1;
+        const note = noteNames[pitch % 12];
+        return note + octave;
+    }
+
+    function generateAsciiTabs(track, charsPerBar) {
+        const staff = track.staves[0];
+        const tuning = [...staff.tuning];
+        const stringCount = tuning.length;
+
+        let result = '';
+        result += `${track.name}\n`;
+        result += '='.repeat(80) + '\n\n';
+
+        result += 'Строй:\n';
+        tuning.forEach((pitch, i) => {
+            result += `${getNoteNameFromPitch(pitch)} (String ${i + 1})\n`;
+        });
+        result += '\n';
+
+        const bars = track.staves[0].bars;
+
+        for (let barIndex = 0; barIndex < bars.length; barIndex++) {
+            const bar = bars[barIndex];
+
+            result += `\nТакт ${barIndex + 1}:\n`;
+
+            let events = [];
+
+            for (let voiceIndex = 0; voiceIndex < bar.voices.length; voiceIndex++) {
+                const voice = bar.voices[voiceIndex];
+                if (voice.isEmpty) continue;
+
+                let currentTick = 0;
+                for (let beatIndex = 0; beatIndex < voice.beats.length; beatIndex++) {
+                    const beat = voice.beats[beatIndex];
+                    events.push({
+                        tick: currentTick,
+                        beat: beat,
+                        duration: beat.playbackDuration
+                    });
+                    currentTick += beat.playbackDuration;
+                }
+            }
+
+            events.sort((a, b) => a.tick - b.tick);
+
+            if (events.length === 0) continue;
+
+            const maxTick = Math.max(...events.map(e => e.tick + e.duration));
+
+            const positions = events.map(e => ({
+                event: e,
+                startPos: Math.floor((e.tick / maxTick) * (charsPerBar - 4))
+            }));
+
+            let lines = [];
+            for (let i = 0; i < stringCount; i++) {
+                lines.push(new Array(charsPerBar).fill('-'));
+            }
+
+            for (let pos of positions) {
+                const beat = pos.event.beat;
+                const startPos = pos.startPos;
+
+                if (beat.isRest || beat.notes.length === 0) continue;
+
+                for (let note of beat.notes) {
+                    let stringIndex = stringCount - note.string;
+
+                    if (stringIndex < 0) stringIndex = 0;
+                    if (stringIndex >= stringCount) stringIndex = stringCount - 1;
+
+                    let fretStr = note.fret.toString();
+
+                    if (note.isHammerPullOrigin) fretStr += 'h';
+                    if (note.isSlideInFromBelow) fretStr = '/' + fretStr;
+                    if (note.isSlideInFromAbove) fretStr = '\\' + fretStr;
+                    if (note.isSlideOutDown) fretStr += '\\';
+                    if (note.isSlideOutUp) fretStr += '/';
+                    if (note.vibrato) fretStr += '~';
+                    if (note.isTrill) fretStr += 'tr';
+                    if (note.isGhost) fretStr = '(' + fretStr + ')';
+                    if (note.isDead) fretStr = 'x';
+
+                    if (startPos < charsPerBar) {
+                        for (let i = 0; i < fretStr.length && startPos + i < charsPerBar; i++) {
+                            lines[stringIndex][startPos + i] = fretStr[i];
+                        }
+                    }
+                }
+            }
+
+            for (let i = 0; i < stringCount; i++) {
+                const line = lines[i].join('');
+                const noteName = tuning[i] ? getNoteNameFromPitch(tuning[i]) : '?';
+                const prefix = (noteName + '|').padStart(4, ' ');
+                result += `${prefix}${line}|\n`;
+            }
+        }
+
+        result += '\n' + '='.repeat(80) + '\n';
+        return result;
+    }
+</script>
+</body>
+</html>

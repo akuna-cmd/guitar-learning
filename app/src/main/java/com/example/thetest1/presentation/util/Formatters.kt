@@ -1,0 +1,10 @@
+package com.example.thetest1.presentation.util
+
+import java.util.concurrent.TimeUnit
+
+fun formatDuration(millis: Long): String {
+    val hours = TimeUnit.MILLISECONDS.toHours(millis)
+    val minutes = TimeUnit.MILLISECONDS.toMinutes(millis) % 60
+    val seconds = TimeUnit.MILLISECONDS.toSeconds(millis) % 60
+    return String.format("%02d:%02d:%02d", hours, minutes, seconds)
+}
