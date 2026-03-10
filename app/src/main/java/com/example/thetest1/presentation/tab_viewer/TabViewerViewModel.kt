@@ -2,6 +2,7 @@ package com.example.thetest1.presentation.tab_viewer
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.thetest1.data.model.Lesson
@@ -19,6 +20,7 @@ import com.example.thetest1.domain.usecase.UpdateTextNoteUseCase
 import com.example.thetest1.presentation.audio_notes.AudioPlayer
 import com.example.thetest1.presentation.audio_notes.AudioRecorder
 import com.example.thetest1.presentation.audio_notes.PlayerState
+import com.google.gson.Gson
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,6 +37,22 @@ enum class LessonTab {
     NOTES
 }
 
+data class FingerInfo(
+    val finger: String,
+    val fingerName: String,
+    val string: String,
+    val fret: String? = null,
+    val direction: String? = null,
+    val color: String
+)
+
+data class TabAnalysis(
+    val barIndex: Int,
+    val leftHand: List<FingerInfo>,
+    val rightHand: List<FingerInfo>,
+    val instructions: List<String>
+)
+
 data class TabViewerUiState(
     val lesson: Lesson? = null,
     val isUserTab: Boolean = false,
@@ -45,7 +63,8 @@ data class TabViewerUiState(
     val textNotes: List<TextNote> = emptyList(),
     val isRecording: Boolean = false,
     val playerState: PlayerState = PlayerState(),
-    val asciiTab: String? = null
+    val asciiTab: String? = null,
+    val tabAnalysis: TabAnalysis? = null
 )
 
 class TabViewerViewModel(
@@ -69,6 +88,7 @@ class TabViewerViewModel(
     private var audioFile: File? = null
     private var audioNotesJob: Job? = null
     private var textNotesJob: Job? = null
+    private val gson = Gson()
 
     init {
         viewModelScope.launch {
@@ -124,6 +144,17 @@ class TabViewerViewModel(
 
     fun setAsciiTab(ascii: String) {
         _uiState.update { it.copy(asciiTab = ascii) }
+    }
+
+    fun setTabAnalysis(analysisJson: String) {
+        Log.d("TabViewerViewModel", "Received analysis JSON: $analysisJson")
+        try {
+            val analysis = gson.fromJson(analysisJson, TabAnalysis::class.java)
+            Log.d("TabViewerViewModel", "Parsed analysis: $analysis")
+            _uiState.update { it.copy(tabAnalysis = analysis) }
+        } catch (e: Exception) {
+            Log.e("TabViewerViewModel", "Error parsing analysis", e)
+        }
     }
 
     fun onPlayAudio(audioNote: AudioNote) {

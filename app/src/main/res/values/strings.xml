@@ -73,6 +73,11 @@
     <string name="completed_this_level">Пройдено на цьому рівні: %1$d з %2$d</string>
     <string name="total_progress">Загальний прогрес: %1$d з %2$d</string>
     <string name="settings">Налаштування</string>
+    <string name="fingering">Аплікатура</string>
+    <string name="left_hand">Ліва рука</string>
+    <string name="right_hand">Права рука</string>
+    <string name="technique">Техніка виконання</string>
+    <string name="select_bar_hint">Оберіть такт для аналізу</string>
     <string-array name="week_days">
         <item>Нд</item>
         <item>Пн</item>
