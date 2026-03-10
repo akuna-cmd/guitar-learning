@@ -6,6 +6,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.3.0/dist/alphaTab.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
+        /* Solid background prevents grey anti-aliasing of tabs */
         body { background: #ffffff; }
         body.dark  { background: #1c1b1f; }
         #alphaTab { width: 100%; overflow: visible; }
@@ -19,13 +20,13 @@
 <div id="alphaTab"></div>
 <script>
 // ══════════════════════════════════════════════════════════
-//  AlgorithmicTutor v6.5 — JavaScript port
+//  AlgorithmicTutor v6.6 — JavaScript port
 //  DP + Biomechanics + Expanded Techniques + Contextual Speed
 // ══════════════════════════════════════════════════════════
 
 const STRING_NAMES = {1:'e (1)',2:'b (2)',3:'g (3)',4:'d (4)',5:'A (5)',6:'E (6)'};
 const STRING_SHORT = {1:'e',2:'b',3:'g',4:'d',5:'A',6:'E'};
-const LH_NAMES     = {1:'1 (вказ.)',2:'2 (серед.)',3:'3 (безім.)',4:'4 (мізин.)'};
+const LH_NAMES     = {1:'1 (вказівний)',2:'2 (середній)',3:'3 (безіменний)',4:'4 (мізинець)'};
 const DUR_BEATS    = {1:4,2:2,4:1,8:.5,16:.25,32:.125,64:.0625};
 const BIOMECH = {
     1:{1:8,2:1,3:2,4:4}, 2:{1:1,2:8,3:1,4:2},
@@ -115,61 +116,57 @@ class RightHandSM {
     }
 }
 
-// ── Extended Techniques ─────────────────────────────────
+// ── Strict Neutral Instructions ─────────────────────────
 
 function buildInstructions(notes, rawNotes, lhMap, rhMap, barre, pos, isTapping) {
     const inst = [];
 
     if (isTapping) {
-        inst.push('🎸 ТЕППІНГ: права рука бере ноту прямо на грифі (замість медіатора).');
-        inst.push('👆 Різко вдар пальцем правої руки по ладу і одразу зірви струну вбік, щоб зазвучала нота лівої руки.');
+        inst.push('Теппінг: Нота виконується ударом пальця правої руки безпосередньо по ладу на грифі.');
         return inst;
     }
 
     const noteCount = notes.length;
 
-    // Position hints
     if (barre !== null) {
-        inst.push(`📍 ПОЗИЦІЯ: БАРЕ на ${barre}-му ладі.`);
-        inst.push(`👉 Вказівний (1) лягає ПЛАСКО. Завалюй його трохи набік до кістки. Стискай струни біля залізного порожка.`);
+        inst.push(`Позиція: Баре на ${barre}-му ладі.`);
+        inst.push('Вказівний палець розміщується поперек струн, інші пальці додаються за схемою.');
     } else if (pos > 0) {
         const pr = notes.filter(n=>n.fret>0 && !n.isDead);
         if(pr.length > 0) {
             const span = Math.max(...pr.map(n=>n.fret)) - Math.min(...pr.map(n=>n.fret));
-            inst.push(`📍 ПОЗИЦІЯ: навколо ${pos}-го ладу.`);
-            if (span > 3) inst.push(`⚠️ Широка розтяжка! Великий палець ззаду опусти нижче до центру грифа, щоб пальці легше тягнулись розчепіреними.`);
+            inst.push(`Позиція: Навколо ${pos}-го ладу.`);
+            if (span > 3) inst.push('Широка розтяжка: Великий палець лівої руки слід опустити ближче до центру грифа для полегшення позиції.');
         }
     }
 
-    // LH / RH assignments
     if (noteCount === 1) {
         const {string:s, fret:f} = notes[0];
         const lh = lhMap[`${s}_${f}`]||'?';
         const rh = rhMap[s]||'i (вказівний)';
         if(rawNotes[0].isDead) {
-            inst.push(`🖐 ЛІВА (Глуха нота): Поклади пальці на струну ${STRING_NAMES[s]} без притискання (приглуши).`);
+            inst.push(`Ліва рука: Заглушена нота на струні ${STRING_NAMES[s]}. Пальці торкаються струни без притискання.`);
         } else if (f === 0) {
-            inst.push(`🖐 ЛІВА: Відкрита струна ${STRING_NAMES[s]} — гриф не зачіпати.`);
+            inst.push(`Ліва рука: Відкрита струна ${STRING_NAMES[s]}.`);
         } else {
-            inst.push(`🖐 ЛІВА: Струна ${STRING_NAMES[s]}, ${f}-й лад ➜ Палець ${lh}. Дави кінчиком (подушечкою), рівно зверху.`);
+            inst.push(`Ліва рука: Палець ${lh} на струні ${STRING_NAMES[s]}, лад ${f}.`);
         }
-        inst.push(`👆 ПРАВА: ${rh} — ${s>=4?'вниз до наступної струни (апояндо)' : 'вгору (щипок)'}.`);
+        inst.push(`Права рука: Палець ${rh}, напрямок удару — ${s>=4 ? 'вниз' : 'вгору'}.`);
     } else {
-        inst.push(`🎵 АКОРД: ${noteCount} струн одночасно.`);
+        inst.push(`Акорд: Одночасне звучання ${noteCount} струн.`);
         const lhParts = notes.map(n=>{
-            if(n.isDead) return `${STRING_SHORT[n.string]}-глуха(x)`;
+            if(n.isDead) return `${STRING_SHORT[n.string]}-глуха`;
             return `${STRING_SHORT[n.string]}-${n.fret===0?'відкр.':n.fret}(${lhMap[`${n.string}_${n.fret}`]||'?'})`;
         });
-        inst.push(`🖐 ЛІВА: ${lhParts.join(', ')}.`);
+        inst.push(`Ліва рука: ${lhParts.join(', ')}.`);
         if (notes.some(n=>n.string>=4) && notes.some(n=>n.string<=3)) {
-            inst.push(`👆 ПРАВА: Арпеджіато (перебір). Великий палець (p) — баси, інші (i, m, a) — нижні струни.`);
+            inst.push('Права рука: Виконується перебором (арпеджіо).');
         } else {
             const dir = notes[0].string>=4 ? 'вниз' : 'вгору';
-            inst.push(`👆 ПРАВА: Страм (бій) ${dir}. Веди кисть розслаблено.` + (notes.some(n=>n.isDead) ? " Зачепи заглушені струни для перкусії." : ""));
+            inst.push(`Права рука: Удар по всім струнам (страм) ${dir}.`);
         }
     }
 
-    // Rich Technique Details
     let bend=false, vib=false, slIn=false, slOut=false, leg=false, pm=false, harm=false, trill=false;
     let ghost=false, dead=false, letR=false, slap=false, pop=false, acc=false;
     
@@ -190,22 +187,22 @@ function buildInstructions(notes, rawNotes, lhMap, rhMap, barre, pos, isTapping)
         if(n.accent > 0) acc=true;
     }
 
-    if (acc) inst.push('💥 АКЦЕНТ: Виділи цю ноту! Вдар правою рукою сильніше, дай більше атаки.');
-    if (ghost) inst.push('👻 ПРИВИД (Ghost Note): Грай дуже-дуже тихо, ледь торкаючись струни. Вона створює пульсацію.');
-    if (dead) inst.push('❌ МЕРТВА НОТА (Dead Note): Ліва рука ліниво лежить на струні, глушачи її. Права рука вдаряє потужно (перкусійний «чпок»).');
-    if (slap) inst.push('👊 СЛЕП (Slap): Удар кісткою великого пальця правої руки об басову струну біля порожка! Струна має дзвякнути об лади.');
-    if (pop) inst.push('👆 ПОП (Pop): Підчепи струну вказівним пальцем правої руки відтягни її вгору і різко відпусти (ляскіт).');
-    if (letR) inst.push('🔔 LET RING: Дай ноті звучати! Не глуши її, коли переставляєш пальці для наступних нот.');
+    if (acc) inst.push('Акцент: Ця нота виконується з підвищеною динамікою (гучніше).');
+    if (ghost) inst.push('Нота-привид (Ghost): Виконується дуже тихо, ледь відчутно, створюючи фонову пульсацію.');
+    if (dead) inst.push('Мертва нота (Dead Note): Струна повністю приглушена лівою рукою; удар правої руки генерує перкусійний звук.');
+    if (slap) inst.push('Слеп (Slap): Виконується різким ударом суглоба великого пальця правої руки по басовій струні.');
+    if (pop) inst.push('Поп (Pop): Струна підчіплюється вказівним пальцем правої руки і різко відпускається, створюючи характерний ляскіт.');
+    if (letR) inst.push('Let Ring: Нота залишається звучати; струну не слід глушити під час переходу до наступних нот.');
 
-    if (bend) inst.push('↑ BEND (Підтяжка): Зіграй ноту і одразу ПІДТЯГНИ струну ДО підлоги (або від неї). Допомагай сусідніми пальцями! Ціль: дотягнути звук до потрібної висоти.');
-    if (vib) inst.push('〰 ВІБРАТО: Після удару швидко розгойдуй палець вздовж грифа. Рух від передпліччя, а не від пальця. Звучить "живіше".');
-    if (slIn || slOut) inst.push('→ СЛАЙД (Ковзання): Збережи тиск пальця на струну і проведи по грифу ' + (slIn?'ДО ':'ВІД ') + 'потрібного ладу без відриву.');
-    if (leg) inst.push('⌒ ЛЕГАТО (Hammer/Pull): Не бий правою рукою. Лівою: різко "забий" палець на гриф (Hammer) або зірви вбік (Pull-off), щоб нота дзижчала сама.');
-    if (pm) inst.push('✋ PALM MUTE: Ребро правої долоні поклади на струни ПРЯМО НАД пластиковим поріжком (бриджем). Звук буде "дж-дж", агресивний, але глухий.');
-    if (harm) inst.push('◇ ФЛАЖОЛЕТ: НЕ притискай до грифа. Легенько доторкнись струни рівно над залізячкою ладу. Вдар і в ту ж мить відірви палець — чистий дзвін.');
-    if (trill) inst.push('🎵 ТРЕЛЬ: Безупинно роби Hammer-on і Pull-off між двома ладами. Грай довго і швидко як пташка.');
+    if (bend) inst.push('Підтяжка (Bend): Після удару по струні підтягніть її пальцями лівої руки для досягнення потрібної висоти тону.');
+    if (vib) inst.push('Вібрато: Виконується ритмічним розгойдуванням притиснутого пальця для коливання висоти тону.');
+    if (slIn || slOut) inst.push('Слайд (Glissando): Палець ковзає по струні до потрібного ладу без повторного удару медіатором.');
+    if (leg) inst.push('Легато (Hammer-on/Pull-off): Наступна нота береться без удару правої руки (ударом пальця лівої руки по грифу або зривом струни).');
+    if (pm) inst.push('Palm Mute (Глушіння долонею): Ребро правої долоні злегка торкається струн біля підставки, приглушуючи їх резонанс.');
+    if (harm) inst.push('Флажолет (Harmonics): Палець лівої руки злегка торкається струни рівно над порожком (без притискання), генеруючи обертон.');
+    if (trill) inst.push('Трель: Швидке безперервне чергування двох нот методом Hammer-on та Pull-off.');
 
-    if (!inst.length) inst.push('🟢 Проста нота: грай чисто і впевнено.');
+    if (!inst.length) inst.push('Звичайна нота без додаткових артикуляцій.');
     return inst;
 }
 
@@ -240,7 +237,6 @@ function runFullAnalysis(score) {
             for(const voice of bar.voices){
                 if(voice.isEmpty)continue;
                 for(const beat of voice.beats){
-                    // We DO allow tied notes now, but handle carefully
                     const notes=beat.notes.filter(n=>n.fret!=null);
                     if(!notes.length)continue;
                     const durVal=typeof beat.duration==='object'?beat.duration.value:beat.duration;
@@ -271,7 +267,6 @@ function runFullAnalysis(score) {
             }
         }
         if(!data.length)return;
-        // Filter out fully tied beats for DP to save logic, DP only cares about actual attacks
         const attackData = data.filter(d=>!d.isTiedBeat);
         const positions=dpFingering(attackData);
         const rhSM=new RightHandSM();
@@ -282,7 +277,6 @@ function runFullAnalysis(score) {
             
             let pos=1, barre=null, lhMap={}, newF={}, rhMap={};
             if(isTiedBeat && atkIdx>0) {
-                // Repeat last instructions for tied notes
             } else {
                 pos=positions[atkIdx]||1; barre=detectBarre(notes);
                 const a = assignLhFingers(notes,pos,barre,prevLhF);
@@ -337,9 +331,8 @@ window.setTheme = (isDark) => {
 
 window.setPracticeModeSpeed = (isPractice) => {
     if(!api) return;
-    // When practice mode is ON, set to 0.75x, otherwise 1x.
-    // Noticeably slower but optimal for reading instructions.
-    api.playbackSpeed = isPractice ? 0.75 : 1.0;
+    // Practice mode defaults to 0.5x
+    api.playbackSpeed = isPractice ? 0.5 : 1.0;
 };
 
 // ── AlphaTab setup ───────────────────────────────────────

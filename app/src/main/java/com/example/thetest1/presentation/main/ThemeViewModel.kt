@@ -2,8 +2,9 @@ package com.example.thetest1.presentation.main
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.SharingStarted
@@ -12,19 +13,27 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+enum class ThemeMode { SYSTEM, LIGHT, DARK }
+
 data class ThemeUiState(
-    val isDarkTheme: Boolean = false,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val normalSpeed: Float = 1.0f,
+    val practiceSpeed: Float = 0.5f,
     val isLoading: Boolean = true
 )
 
 class ThemeViewModel(private val dataStore: DataStore<Preferences>) : ViewModel() {
 
-    private val isDarkThemeKey = booleanPreferencesKey("is_dark_theme")
+    private val themeModeKey = stringPreferencesKey("theme_mode")
+    private val normalSpeedKey = floatPreferencesKey("normal_speed")
+    private val practiceSpeedKey = floatPreferencesKey("practice_speed")
 
     val uiState: StateFlow<ThemeUiState> = dataStore.data
         .map { preferences ->
             ThemeUiState(
-                isDarkTheme = preferences[isDarkThemeKey] ?: false,
+                themeMode = ThemeMode.valueOf(preferences[themeModeKey] ?: ThemeMode.SYSTEM.name),
+                normalSpeed = preferences[normalSpeedKey] ?: 1.0f,
+                practiceSpeed = preferences[practiceSpeedKey] ?: 0.5f,
                 isLoading = false
             )
         }
@@ -34,11 +43,26 @@ class ThemeViewModel(private val dataStore: DataStore<Preferences>) : ViewModel(
             initialValue = ThemeUiState()
         )
 
-    fun toggleTheme() {
+    fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch {
             dataStore.edit { preferences ->
-                val currentTheme = preferences[isDarkThemeKey] ?: false
-                preferences[isDarkThemeKey] = !currentTheme
+                preferences[themeModeKey] = mode.name
+            }
+        }
+    }
+
+    fun setNormalSpeed(speed: Float) {
+        viewModelScope.launch {
+            dataStore.edit { preferences ->
+                preferences[normalSpeedKey] = speed
+            }
+        }
+    }
+
+    fun setPracticeSpeed(speed: Float) {
+        viewModelScope.launch {
+            dataStore.edit { preferences ->
+                preferences[practiceSpeedKey] = speed
             }
         }
     }

@@ -25,9 +25,13 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -98,21 +102,35 @@ fun NotesScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Button(onClick = { pickAudioLauncher.launch("audio/*") }) {
+                FilledTonalButton(
+                    onClick = { pickAudioLauncher.launch("audio/*") },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(stringResource(id = R.string.add_audio_file))
                 }
-                Button(
+                FilledTonalButton(
                     onClick = {
                         if (recordAudioPermissionState.status.isGranted) {
                             onRecordAudio()
                         } else {
                             recordAudioPermissionState.launchPermissionRequest()
                         }
-                    }
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                        containerColor = if (isRecording) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = if (isRecording) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                    )
                 ) {
+                    Icon(if (isRecording) Icons.Filled.Stop else Icons.Filled.Mic, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(stringResource(id = if (isRecording) R.string.stop_recording else R.string.record_audio))
                 }
             }
@@ -120,18 +138,20 @@ fun NotesScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 12.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         text = stringResource(id = R.string.recording_in_progress),
-                        color = Color.Red
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
             }
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
         if (audioNotes.isEmpty()) {
@@ -271,11 +291,11 @@ private fun AudioNoteItem(
             ) {
                 val currentPosition = (duration * progress).toLong()
                 Text(
-                    text = formatDuration(currentPosition),
+                    text = if (duration > 0 || isCurrentlyPlaying) formatDuration(currentPosition) else "--:--",
                     style = MaterialTheme.typography.bodySmall
                 )
                 Text(
-                    text = formatDuration(duration.toLong()),
+                    text = if (duration > 0) formatDuration(duration.toLong()) else "--:--",
                     style = MaterialTheme.typography.bodySmall
                 )
             }

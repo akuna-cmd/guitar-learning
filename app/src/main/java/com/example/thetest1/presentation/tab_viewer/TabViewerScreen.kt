@@ -71,6 +71,7 @@ import com.example.thetest1.presentation.ai_assistant.AiAssistantScreen
 import com.example.thetest1.presentation.main.MainViewModel
 import com.example.thetest1.presentation.notes.NotesScreen
 import com.example.thetest1.presentation.theory.TheoryScreen
+import com.example.thetest1.presentation.main.ThemeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,6 +83,9 @@ fun TabViewerScreen(
 ) {
     val viewModel: TabViewerViewModel = viewModel(factory = viewModelFactory)
     val uiState by viewModel.uiState.collectAsState()
+    val themeViewModel: ThemeViewModel = viewModel(factory = viewModelFactory)
+    val themeUiState by themeViewModel.uiState.collectAsState()
+    
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
     LaunchedEffect(lessonId) {
@@ -174,6 +178,7 @@ fun TabViewerScreen(
                             TabViewer(
                                 fileName = uiState.lesson!!.tabsGpPath,
                                 isPracticeMode = isPracticeMode,
+                                themeUiState = themeUiState,
                                 onAsciiTabGenerated = { ascii -> viewModel.setAsciiTab(ascii) },
                                 onTabAnalysis = { analysis -> viewModel.setTabAnalysis(analysis) },
                                 modifier = Modifier
@@ -183,12 +188,10 @@ fun TabViewerScreen(
 
                             // ─── Analysis View (Practice Mode Only) ────
                             androidx.compose.animation.AnimatedVisibility(visible = isPracticeMode) {
-                                androidx.compose.animation.Crossfade(targetState = uiState.tabAnalysis, label = "analysis") { analysis ->
-                                    TabAnalysisView(
-                                        analysis = analysis,
-                                        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
-                                    )
-                                }
+                                TabAnalysisView(
+                                    analysis = uiState.tabAnalysis,
+                                    modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+                                )
                             }
                         }
                     }
@@ -291,6 +294,7 @@ fun FingerSection(title: String, fingers: List<FingerInfo>, modifier: Modifier =
 private fun TabViewer(
     fileName: String,
     isPracticeMode: Boolean,
+    themeUiState: com.example.thetest1.presentation.main.ThemeUiState,
     onAsciiTabGenerated: (String) -> Unit,
     onTabAnalysis: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -303,6 +307,7 @@ private fun TabViewer(
     
     val webView = remember {
         WebView(context).apply {
+            setBackgroundColor(android.graphics.Color.TRANSPARENT)
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             settings.apply {
                 javaScriptEnabled = true
@@ -352,14 +357,22 @@ private fun TabViewer(
         if (isReady) {
             webView.evaluateJavascript("window.setTheme($isDark);", null)
             webView.evaluateJavascript("window.loadTab('$fileName');", null)
+            val initialSpeed = if (isPracticeMode) themeUiState.practiceSpeed else themeUiState.normalSpeed
+            currentSpeed = initialSpeed
         }
     }
 
     // React to practice mode toggle
     LaunchedEffect(isPracticeMode, isReady) {
         if (isReady) {
-            webView.evaluateJavascript("window.setPracticeModeSpeed($isPracticeMode);", null)
-            currentSpeed = if (isPracticeMode) 0.75f else 1f
+            currentSpeed = if (isPracticeMode) themeUiState.practiceSpeed else themeUiState.normalSpeed
+        }
+    }
+
+    // React to currentSpeed changes explicitly
+    LaunchedEffect(currentSpeed, isReady) {
+        if (isReady) {
+            webView.evaluateJavascript("window.setPlaybackSpeed($currentSpeed);", null)
         }
     }
 
@@ -395,7 +408,7 @@ private fun TabViewer(
                 }
 
                 // Speed chips
-                val speeds = listOf(0.5f to "0.5×", 0.75f to "0.75×", 1f to "1×", 1.5f to "1.5×", 2f to "2×")
+                val speeds = listOf(0.25f to "0.25×", 0.5f to "0.5×", 0.75f to "0.75×", 1f to "1×", 1.5f to "1.5×", 2f to "2×")
                 speeds.forEach { (speed, label) ->
                     val selected = currentSpeed == speed
                     Box(
@@ -403,7 +416,6 @@ private fun TabViewer(
                         modifier = Modifier
                             .clickable {
                                 currentSpeed = speed
-                                webView.evaluateJavascript("window.setPlaybackSpeed($speed);", null)
                             }
                             .background(
                                 color = if (selected) MaterialTheme.colorScheme.primary

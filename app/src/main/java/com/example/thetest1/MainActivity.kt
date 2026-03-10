@@ -52,11 +52,18 @@ class MainActivity : ComponentActivity() {
 
             splashScreen.setKeepOnScreenCondition { themeUiState.isLoading }
 
-            TheTest1Theme(darkTheme = themeUiState.isDarkTheme) {
+            val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
+            val isDarkTheme = when (themeUiState.themeMode) {
+                com.example.thetest1.presentation.main.ThemeMode.DARK -> true
+                com.example.thetest1.presentation.main.ThemeMode.LIGHT -> false
+                com.example.thetest1.presentation.main.ThemeMode.SYSTEM -> isSystemDark
+            }
+
+            TheTest1Theme(darkTheme = isDarkTheme) {
                 MainScreen(
                     viewModelFactory = viewModelFactory,
                     themeViewModel = themeViewModel,
-                    isDarkTheme = themeUiState.isDarkTheme
+                    isDarkTheme = isDarkTheme
                 )
             }
         }
@@ -135,9 +142,7 @@ fun MainScreen(
                     lessonsCompleted = mainUiState.lessonsCompleted,
                     totalLessons = mainUiState.totalLessons,
                     userTabsCount = mainUiState.userTabsCount,
-                    viewModelFactory = viewModelFactory,
-                    onToggleTheme = themeViewModel::toggleTheme,
-                    isDarkTheme = isDarkTheme
+                    viewModelFactory = viewModelFactory
                 )
             }
             composable(BottomNavItem.GuitarTabs.route) {
@@ -147,7 +152,7 @@ fun MainScreen(
                 GoalsScreen(viewModelFactory = viewModelFactory)
             }
             composable(BottomNavItem.Settings.route) {
-                SettingsScreen()
+                SettingsScreen(viewModelFactory = viewModelFactory)
             }
         }
     }
