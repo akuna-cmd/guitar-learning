@@ -7,10 +7,10 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         /* Solid background prevents grey anti-aliasing of tabs */
-        body { background: #ffffff; }
-        body.dark  { background: #1c1b1f; }
-        #alphaTab { width: 100%; overflow: visible; }
-        body.dark #alphaTab canvas { filter: invert(1) brightness(0.88); }
+        html, body { min-height: 100vh; background-color: #ffffff !important; color: #000000 !important; }
+        html.dark, body.dark { background-color: #1c1b1f !important; color: #ffffff !important; }
+        #alphaTab { width: 100%; min-height: 100vh; overflow: visible; }
+        body.dark #alphaTab canvas, body.dark #alphaTab svg { filter: invert(1) brightness(0.88); }
         .at-cursor-beat { background: rgba(225, 70, 70, 0.95) !important; width: 2px !important; z-index: 1000 !important; }
         .at-cursor-bar { background: rgba(103, 80, 164, 0.18) !important; z-index: 999 !important; }
         .at-selection div { background: rgba(103, 80, 164, 0.3) !important; }
@@ -316,7 +316,7 @@ function sendForBeat(beat){
 let _isDark=false;
 
 function applyCanvasTheme(){
-    document.querySelectorAll('#alphaTab canvas').forEach(c=>{
+    document.querySelectorAll('#alphaTab canvas, #alphaTab svg').forEach(c=>{
         c.style.filter = _isDark ? 'invert(1) brightness(0.88)' : 'none';
     });
 }
@@ -326,6 +326,7 @@ canvasObs.observe(document.getElementById('alphaTab'), {childList:true, subtree:
 window.setTheme = (isDark) => {
     _isDark = isDark;
     document.body.classList.toggle('dark', isDark);
+    document.documentElement.classList.toggle('dark', isDark);
     applyCanvasTheme();
 };
 
@@ -346,7 +347,7 @@ function initAlphaTab(){
     if(api)return;
     try{
         api=new alphaTab.AlphaTabApi(document.querySelector('#alphaTab'),{
-            core:{engine:'html5'},
+            core:{engine:'svg'},
             display:{
                 layoutMode: 0, 
                 staveProfile: (alphaTab.StaveProfile&&alphaTab.StaveProfile.Tab)||3 
@@ -358,7 +359,12 @@ function initAlphaTab(){
                 soundFont:'https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/soundfont/sonivox.sf2'
             }
         });
-        api.scoreLoaded.on(score=>{runFullAnalysis(score);});
+        api.scoreLoaded.on(score=>{
+            setTimeout(() => runFullAnalysis(score), 400); // give UI time to animate fade-in
+        });
+        api.renderFinished.on(()=>{
+            if(window.Android?.onScoreLoaded) window.Android.onScoreLoaded();
+        });
         api.playerPositionChanged.on(args=>{if(args?.currentBeat)sendForBeat(args.currentBeat);});
         api.playerStateChanged.on(args=>{if(args?.state===1)startPoller();else stopPoller();});
         api.beatMouseDown.on(beat=>{

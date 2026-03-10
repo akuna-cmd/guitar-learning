@@ -55,6 +55,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -300,14 +301,19 @@ private fun TabViewer(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val isDark    = isSystemInDarkTheme()
+    val isSystemDark = isSystemInDarkTheme()
+    val isDark = when (themeUiState.themeMode) {
+        com.example.thetest1.presentation.main.ThemeMode.DARK -> true
+        com.example.thetest1.presentation.main.ThemeMode.LIGHT -> false
+        com.example.thetest1.presentation.main.ThemeMode.SYSTEM -> isSystemDark
+    }
     var isPlaying  by remember { mutableStateOf(false) }
     var isReady    by remember { mutableStateOf(false) }
+    var isScoreLoaded by remember { mutableStateOf(false) }
     var currentSpeed by remember { mutableStateOf(1f) }
     
     val webView = remember {
         WebView(context).apply {
-            setBackgroundColor(android.graphics.Color.TRANSPARENT)
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             settings.apply {
                 javaScriptEnabled = true
@@ -333,6 +339,10 @@ private fun TabViewer(
                 @JavascriptInterface
                 fun onJsReady() {
                     Handler(Looper.getMainLooper()).post { isReady = true }
+                }
+                @JavascriptInterface
+                fun onScoreLoaded() {
+                    Handler(Looper.getMainLooper()).post { isScoreLoaded = true }
                 }
             }, "Android")
             
@@ -378,6 +388,7 @@ private fun TabViewer(
 
     // Re-apply theme if user switches dark/light mode while screen is open
     LaunchedEffect(isDark) {
+        webView.setBackgroundColor(if (isDark) android.graphics.Color.parseColor("#1c1b1f") else android.graphics.Color.WHITE)
         if (isReady) webView.evaluateJavascript("window.setTheme($isDark);", null)
     }
 
@@ -386,7 +397,37 @@ private fun TabViewer(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            AndroidView(factory = { webView }, modifier = Modifier.fillMaxWidth().weight(1f))
+            Box(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                AndroidView(
+                    factory = { webView },
+                    modifier = Modifier.fillMaxSize(),
+                    update = { view -> 
+                        view.setBackgroundColor(if (isDark) android.graphics.Color.parseColor("#1c1b1f") else android.graphics.Color.WHITE)
+                    }
+                )
+                
+                // Loading overlay
+                val alpha by androidx.compose.animation.core.animateFloatAsState(
+                    targetValue = if (isScoreLoaded) 0f else 1f,
+                    animationSpec = androidx.compose.animation.core.tween(durationMillis = 500)
+                )
+                if (alpha > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .alpha(alpha)
+                            .background(if (isDark) Color(0xFF1C1B1F) else Color.White),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
 
             // ─── Playback controls ────────────────────────────────
             Row(
@@ -435,10 +476,5 @@ private fun TabViewer(
             }
         }
 
-        if (!isReady) {
-            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        }
     }
 }
