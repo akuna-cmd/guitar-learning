@@ -6,9 +6,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.3.0/dist/alphaTab.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        /* Solid background prevents grey anti-aliasing of tabs */
-        html, body { min-height: 100vh; background-color: #ffffff !important; color: #000000 !important; }
-        html.dark, body.dark { background-color: #1c1b1f !important; color: #ffffff !important; }
+        /* Transparent background lets Android WebView native color show through immediately */
+        html, body { min-height: 100vh; background-color: transparent !important; color: #000000 !important; }
+        html.dark, body.dark { background-color: transparent !important; color: #ffffff !important; }
         #alphaTab { width: 100%; min-height: 100vh; overflow: visible; }
         body.dark #alphaTab canvas, body.dark #alphaTab svg { filter: invert(1) brightness(0.88); }
         .at-cursor-beat { background: rgba(225, 70, 70, 0.95) !important; width: 2px !important; z-index: 1000 !important; }

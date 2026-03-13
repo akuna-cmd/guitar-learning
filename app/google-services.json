@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "913583876009",
+    "project_id": "guitar-learning-379a2",
+    "storage_bucket": "guitar-learning-379a2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:913583876009:android:540ffac2874bdc98fd46b8",
+        "android_client_info": {
+          "package_name": "com.example.thetest1"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "913583876009-qtd8b4svkb01no2in6h4crsi0f74o9q2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.thetest1",
+            "certificate_hash": "8bb2ebc1718c3a261d6b7ef20d9e0e19a2bcf650"
+          }
+        },
+        {
+          "client_id": "913583876009-627okct7t80oie79uicvi6cncf8d12qs.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDr-mgRdTo2lE8diA4t9q6y4mHX9q2FWZ8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "913583876009-627okct7t80oie79uicvi6cncf8d12qs.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

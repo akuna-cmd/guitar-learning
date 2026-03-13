@@ -31,6 +31,7 @@ import com.example.thetest1.domain.usecase.UpdateGoalUseCase
 import com.example.thetest1.domain.usecase.UpdateTabUseCase
 import com.example.thetest1.domain.usecase.UpdateTextNoteUseCase
 import com.example.thetest1.presentation.ai_assistant.AiAssistantViewModel
+import com.example.thetest1.presentation.auth.AuthViewModel
 import com.example.thetest1.presentation.goals.GoalsViewModel
 import com.example.thetest1.presentation.main.MainViewModel
 import com.example.thetest1.presentation.main.PracticeHeatmapViewModel
@@ -128,6 +129,10 @@ class ViewModelFactory(
                     getCompletedLessonsCountUseCase = getCompletedLessonsCountUseCase,
                     getAllSessionsUseCase = getAllSessionsUseCase
                 ) as T
+            }
+
+            modelClass.isAssignableFrom(AuthViewModel::class.java) -> {
+                AuthViewModel() as T
             }
 
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

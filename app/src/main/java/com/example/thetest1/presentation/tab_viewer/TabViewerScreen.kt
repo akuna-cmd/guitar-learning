@@ -312,9 +312,11 @@ private fun TabViewer(
     var isScoreLoaded by remember { mutableStateOf(false) }
     var currentSpeed by remember { mutableStateOf(1f) }
     
-    val webView = remember {
+    val webView = remember(isDark) {
         WebView(context).apply {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(if (isDark) android.graphics.Color.parseColor("#1c1b1f") else android.graphics.Color.WHITE)
+            
             settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true
