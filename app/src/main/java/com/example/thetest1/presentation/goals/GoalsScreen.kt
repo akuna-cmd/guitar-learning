@@ -14,10 +14,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
@@ -57,6 +60,31 @@ fun GoalsScreen(
 ) {
     val viewModel: GoalsViewModel = viewModel(factory = viewModelFactory)
     val uiState by viewModel.uiState.collectAsState()
+    var goalToDelete by remember { mutableStateOf<Goal?>(null) }
+
+    if (goalToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { goalToDelete = null },
+            title = { Text("Видалити ціль?") },
+            text = { Text("Ви впевнені, що хочете видалити цю ціль?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        goalToDelete?.let { viewModel.deleteGoal(it) }
+                        goalToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Видалити")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { goalToDelete = null }) {
+                    Text("Скасувати")
+                }
+            }
+        )
+    }
 
     Scaffold(
         floatingActionButton = {
@@ -93,7 +121,7 @@ fun GoalsScreen(
                 items(uiState.goals) { goal ->
                     GoalItem(
                         goal = goal,
-                        onDelete = { viewModel.deleteGoal(goal) },
+                        onDelete = { goalToDelete = goal },
                         onToggle = { viewModel.toggleCustomGoal(goal) },
                         onEdit = { viewModel.onEditGoalClicked(goal) }
                     )
@@ -150,6 +178,7 @@ fun GoalItem(goal: Goal, onDelete: () -> Unit, onToggle: () -> Unit, onEdit: () 
                 ) {
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.edit)) },
+                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
                         onClick = {
                             onEdit()
                             showMenu = false
@@ -157,6 +186,7 @@ fun GoalItem(goal: Goal, onDelete: () -> Unit, onToggle: () -> Unit, onEdit: () 
                     )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.delete)) },
+                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
                         onClick = {
                             onDelete()
                             showMenu = false

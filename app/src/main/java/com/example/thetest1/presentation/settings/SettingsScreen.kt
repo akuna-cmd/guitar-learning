@@ -49,14 +49,6 @@ fun SettingsScreen(viewModelFactory: ViewModelFactory) {
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        item {
-            Text(
-                text = stringResource(id = R.string.settings),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
         // ─── Profile / Auth ───────────────────────────────────────
         item {
             val user = authState.user
@@ -92,7 +84,7 @@ fun SettingsScreen(viewModelFactory: ViewModelFactory) {
 
         item {
             SettingsSection(title = "Швидкість за замовчуванням (Звичайна гра)") {
-                listOf(0.5f, 0.75f, 1f, 1.5f, 2f).forEach { speed ->
+                listOf(0.1f, 0.5f, 0.75f, 1f, 1.5f, 2f).forEach { speed ->
                     SettingsOptionsRow("${speed}x", uiState.normalSpeed == speed) { themeViewModel.setNormalSpeed(speed) }
                 }
             }
@@ -100,7 +92,7 @@ fun SettingsScreen(viewModelFactory: ViewModelFactory) {
 
         item {
             SettingsSection(title = "Швидкість за замовчуванням (Режим розбору)") {
-                listOf(0.25f, 0.5f, 0.75f, 1f).forEach { speed ->
+                listOf(0.1f, 0.25f, 0.5f, 0.75f, 1f).forEach { speed ->
                     SettingsOptionsRow("${speed}x", uiState.practiceSpeed == speed) { themeViewModel.setPracticeSpeed(speed) }
                 }
             }

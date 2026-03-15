@@ -17,6 +17,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.School
@@ -106,6 +108,7 @@ private fun UserTabsScreen(
 ) {
     var showMenu by remember { mutableStateOf<String?>(null) }
     var showRenameDialog by remember { mutableStateOf<TabItem?>(null) }
+    var tabToDelete by remember { mutableStateOf<TabItem?>(null) }
     var newTabName by remember { mutableStateOf("") }
 
     if (showRenameDialog != null) {
@@ -130,8 +133,32 @@ private fun UserTabsScreen(
                 }
             },
             dismissButton = {
-                Button(onClick = { showRenameDialog = null }) {
+                TextButton(onClick = { showRenameDialog = null }) {
                     Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    if (tabToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { tabToDelete = null },
+            title = { Text("Видалити таб?") },
+            text = { Text("Ви впевнені, що хочете видалити цей таб? Цю дію неможливо скасувати.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        tabToDelete?.let { onDeleteTab(it) }
+                        tabToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Видалити")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { tabToDelete = null }) {
+                    Text("Скасувати")
                 }
             }
         )
@@ -176,6 +203,7 @@ private fun UserTabsScreen(
                             ) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.rename)) },
+                                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
                                     onClick = {
                                         newTabName = tab.name
                                         showRenameDialog = tab
@@ -184,8 +212,9 @@ private fun UserTabsScreen(
                                 )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.delete)) },
+                                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
                                     onClick = {
-                                        onDeleteTab(tab)
+                                        tabToDelete = tab
                                         showMenu = null
                                     }
                                 )

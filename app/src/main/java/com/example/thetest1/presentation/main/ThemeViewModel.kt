@@ -18,7 +18,7 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 data class ThemeUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val normalSpeed: Float = 1.0f,
-    val practiceSpeed: Float = 0.5f,
+    val practiceSpeed: Float = 0.25f,
     val isLoading: Boolean = true
 )
 
@@ -33,7 +33,7 @@ class ThemeViewModel(private val dataStore: DataStore<Preferences>) : ViewModel(
             ThemeUiState(
                 themeMode = ThemeMode.valueOf(preferences[themeModeKey] ?: ThemeMode.SYSTEM.name),
                 normalSpeed = preferences[normalSpeedKey] ?: 1.0f,
-                practiceSpeed = preferences[practiceSpeedKey] ?: 0.5f,
+                practiceSpeed = preferences[practiceSpeedKey] ?: 0.25f,
                 isLoading = false
             )
         }
