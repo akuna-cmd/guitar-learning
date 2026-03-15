@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -55,6 +56,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -99,6 +104,15 @@ fun TabViewerScreen(
     
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
+    LaunchedEffect(Unit) {
+        mainViewModel.setShowBottomBar(false)
+    }
+
+    BackHandler {
+        mainViewModel.setShowBottomBar(true)
+        onBack()
+    }
+
     LaunchedEffect(lessonId) {
         viewModel.loadLesson(lessonId)
     }
@@ -111,6 +125,11 @@ fun TabViewerScreen(
 
     var showAiSheet by remember { mutableStateOf(false) }
     var showNotesSheet by remember { mutableStateOf(false) }
+    var showLoopSheet by remember { mutableStateOf(false) }
+    var totalMeasures by remember { mutableStateOf(1) }
+    var loopStartMeasure by remember { mutableStateOf(1) }
+    var loopEndMeasure by remember { mutableStateOf(1) }
+    var isLoopEnabled by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     Scaffold(
@@ -119,7 +138,10 @@ fun TabViewerScreen(
             TopAppBar(
                 title = { },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { 
+                        mainViewModel.setShowBottomBar(true)
+                        onBack() 
+                    }) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(id = R.string.back_arrow))
                     }
                 },
@@ -138,6 +160,14 @@ fun TabViewerScreen(
                             onClick = {
                                 expandedMenu = false
                                 showNotesSheet = true
+                            }
+                        )
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text("Зациклити") },
+                            leadingIcon = { Icon(Icons.Filled.Repeat, contentDescription = null) },
+                            onClick = {
+                                expandedMenu = false
+                                showLoopSheet = true
                             }
                         )
                         androidx.compose.material3.DropdownMenuItem(
@@ -200,10 +230,20 @@ fun TabViewerScreen(
                         onPlayStateChange = { isPlaying = it },
                         onAsciiTabGenerated = { ascii -> viewModel.setAsciiTab(ascii) },
                         onTabAnalysis = { analysis -> viewModel.setTabAnalysis(analysis) },
+                        onCompactTabsGenerated = { tabs -> viewModel.setCompactTabs(tabs) },
+                        loopStartMeasure = loopStartMeasure,
+                        loopEndMeasure = loopEndMeasure,
+                        isLoopEnabled = isLoopEnabled,
+                        onTotalMeasuresLoaded = { measures ->
+                            totalMeasures = measures
+                            if (loopEndMeasure == 1 && measures > 1) {
+                                loopEndMeasure = measures
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
+                            .weight(1f)
                             .padding(top = 16.dp, start = 8.dp, end = 8.dp)
-                            .let { if (isPracticeMode) it.height(200.dp) else it.weight(1f) }
                     )
 
                     // ─── Analysis View (Practice Mode Only) ────
@@ -221,24 +261,27 @@ fun TabViewerScreen(
                 if (showAiSheet) {
                     ModalBottomSheet(
                         onDismissRequest = { showAiSheet = false },
-                        sheetState = sheetState,
-                        modifier = Modifier.fillMaxHeight(0.9f)
+                        sheetState = sheetState
                     ) {
-                        AiAssistantScreen(
-                            lesson = uiState.lesson!!,
-                            viewModelFactory = viewModelFactory,
-                            asciiTab = uiState.asciiTab
-                        )
+                        Box(modifier = Modifier.fillMaxHeight(0.9f).imePadding()) {
+                            AiAssistantScreen(
+                                lesson = uiState.lesson!!,
+                                viewModelFactory = viewModelFactory,
+                                asciiTab = uiState.asciiTab,
+                                compactTabs = uiState.compactTabs,
+                                totalMeasures = totalMeasures
+                            )
+                        }
                     }
                 }
 
                 if (showNotesSheet) {
                     ModalBottomSheet(
                         onDismissRequest = { showNotesSheet = false },
-                        sheetState = sheetState,
-                        modifier = Modifier.fillMaxHeight(0.9f)
+                        sheetState = sheetState
                     ) {
-                        NotesScreen(
+                        Box(modifier = Modifier.fillMaxHeight(0.9f).imePadding()) {
+                            NotesScreen(
                             audioNotes = uiState.audioNotes,
                             textNotes = uiState.textNotes,
                             isRecording = uiState.isRecording,
@@ -252,6 +295,26 @@ fun TabViewerScreen(
                             onUpdateTextNote = { note -> viewModel.updateTextNote(note) },
                             onDeleteTextNote = { note -> viewModel.deleteTextNote(note) }
                         )
+                        }
+                    }
+                }
+
+                if (showLoopSheet) {
+                    ModalBottomSheet(
+                        onDismissRequest = { showLoopSheet = false },
+                        sheetState = sheetState
+                    ) {
+                        Box(modifier = Modifier.fillMaxWidth().imePadding()) {
+                            LoopConfigurator(
+                                totalMeasures = totalMeasures,
+                                startMeasure = loopStartMeasure,
+                                endMeasure = loopEndMeasure,
+                                isLoopEnabled = isLoopEnabled,
+                                onStartChange = { loopStartMeasure = it },
+                                onEndChange = { loopEndMeasure = it },
+                                onToggleLoop = { isLoopEnabled = it }
+                            )
+                        }
                     }
                 }
             }
@@ -272,6 +335,11 @@ private fun TabViewer(
     onPlayStateChange: (Boolean) -> Unit,
     onAsciiTabGenerated: (String) -> Unit,
     onTabAnalysis: (String) -> Unit,
+    onCompactTabsGenerated: (String) -> Unit,
+    loopStartMeasure: Int,
+    loopEndMeasure: Int,
+    isLoopEnabled: Boolean,
+    onTotalMeasuresLoaded: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -311,12 +379,17 @@ private fun TabViewer(
                 @JavascriptInterface
                 fun postTabAnalysis(json: String) { onTabAnalysis(json) }
                 @JavascriptInterface
+                fun postCompactTabs(tabs: String) { onCompactTabsGenerated(tabs) }
+                @JavascriptInterface
                 fun onJsReady() {
                     Handler(Looper.getMainLooper()).post { isReady = true }
                 }
                 @JavascriptInterface
-                fun onScoreLoaded() {
-                    Handler(Looper.getMainLooper()).post { isScoreLoaded = true }
+                fun onScoreLoaded(totalMeasures: Int) {
+                    Handler(Looper.getMainLooper()).post { 
+                        isScoreLoaded = true 
+                        onTotalMeasuresLoaded(totalMeasures)
+                    }
                 }
             }, "Android")
             
@@ -356,6 +429,12 @@ private fun TabViewer(
     LaunchedEffect(currentSpeed, isReady) {
         if (isReady) {
             webView.evaluateJavascript("window.setPlaybackSpeed($currentSpeed);", null)
+        }
+    }
+
+    LaunchedEffect(isLoopEnabled, loopStartMeasure, loopEndMeasure, isReady) {
+        if (isReady) {
+            webView.evaluateJavascript("window.setLoopRange($loopStartMeasure, $loopEndMeasure, $isLoopEnabled);", null)
         }
     }
 
@@ -459,5 +538,56 @@ private fun speedString(speed: Float): String {
         String.format("%.1f", speed).replace(',', '.')
     } else {
         speed.toString().replace(',', '.')
+    }
+}
+
+@Composable
+private fun LoopConfigurator(
+    totalMeasures: Int,
+    startMeasure: Int,
+    endMeasure: Int,
+    isLoopEnabled: Boolean,
+    onStartChange: (Int) -> Unit,
+    onEndChange: (Int) -> Unit,
+    onToggleLoop: (Boolean) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        androidx.compose.material3.Text("Зациклити відрізок", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable { onToggleLoop(!isLoopEnabled) }.padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            androidx.compose.material3.Text("Увімкнути зациклення", style = MaterialTheme.typography.bodyLarge)
+            androidx.compose.material3.Switch(
+                checked = isLoopEnabled,
+                onCheckedChange = { onToggleLoop(it) }
+            )
+        }
+        Spacer(Modifier.height(16.dp))
+        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            androidx.compose.material3.Text("Початковий такт: $startMeasure", fontWeight = FontWeight.Bold)
+            androidx.compose.material3.Slider(
+                value = startMeasure.toFloat(),
+                onValueChange = { onStartChange(it.toInt().coerceAtMost(endMeasure)) },
+                valueRange = 1f..totalMeasures.toFloat().coerceAtLeast(1f),
+                steps = if (totalMeasures > 2) totalMeasures - 2 else 0
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            androidx.compose.material3.Text("Кінцевий такт: $endMeasure", fontWeight = FontWeight.Bold)
+            androidx.compose.material3.Slider(
+                value = endMeasure.toFloat(),
+                onValueChange = { onEndChange(it.toInt().coerceAtLeast(startMeasure)) },
+                valueRange = 1f..totalMeasures.toFloat().coerceAtLeast(1f),
+                steps = if (totalMeasures > 2) totalMeasures - 2 else 0
+            )
+        }
+        Spacer(Modifier.height(32.dp))
     }
 }

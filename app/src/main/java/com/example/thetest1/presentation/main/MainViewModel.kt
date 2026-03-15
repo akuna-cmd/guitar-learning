@@ -30,6 +30,7 @@ data class MainUiState(
     val userTabsCount: Int = 0,
     val practicedTabs: List<PracticedTab> = emptyList(),
     val currentTab: PracticedTab? = null,
+    val showBottomBar: Boolean = true
 )
 
 class MainViewModel(
@@ -147,5 +148,9 @@ class MainViewModel(
                 }
             }
         }
+    }
+
+    fun setShowBottomBar(show: Boolean) {
+        _uiState.update { it.copy(showBottomBar = show) }
     }
 }

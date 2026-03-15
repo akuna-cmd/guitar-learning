@@ -1,11 +1,20 @@
 package com.example.thetest1.presentation.ai_assistant
 
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.RangeSlider
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.thetest1.R
 import com.example.thetest1.data.model.Lesson
@@ -45,11 +55,16 @@ import com.example.thetest1.presentation.components.MarkdownView
 fun AiAssistantScreen(
     lesson: Lesson,
     viewModelFactory: ViewModelFactory,
-    asciiTab: String?
+    asciiTab: String?,
+    compactTabs: String?,
+    totalMeasures: Int
 ) {
     val viewModel: AiAssistantViewModel = viewModel(factory = viewModelFactory)
     val uiState by viewModel.uiState.collectAsState()
     var question by remember { mutableStateOf("") }
+    
+    var isFullContext by remember { mutableStateOf(true) }
+    var measureRange by remember { mutableStateOf(1f..totalMeasures.coerceAtLeast(1).toFloat()) }
 
     Column(
         modifier = Modifier
@@ -70,6 +85,43 @@ fun AiAssistantScreen(
                     .align(Alignment.CenterHorizontally)
                     .padding(bottom = 16.dp)
             )
+        }
+
+        @OptIn(ExperimentalMaterial3Api::class)
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                val options = listOf("Вся пісня", "Вибрати такти")
+                options.forEachIndexed { index, label ->
+                    SegmentedButton(
+                        selected = if (index == 0) isFullContext else !isFullContext,
+                        onClick = { isFullContext = index == 0 },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size)
+                    ) {
+                        Text(label)
+                    }
+                }
+            }
+            if (!isFullContext && totalMeasures > 1) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Від: ${measureRange.start.toInt()}", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                        Text("До: ${measureRange.endInclusive.toInt()}", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                    }
+                    RangeSlider(
+                        value = measureRange,
+                        onValueChange = { measureRange = it },
+                        valueRange = 1f..totalMeasures.toFloat(),
+                        steps = if (totalMeasures > 2) totalMeasures - 2 else 0
+                    )
+                }
+            }
         }
 
         Card(
@@ -99,7 +151,23 @@ fun AiAssistantScreen(
                 )
                 IconButton(
                     onClick = {
-                        viewModel.askQuestion(question, lesson.text, asciiTab ?: lesson.tabsAscii)
+                        val mRange = if (isFullContext) null else measureRange.start.toInt()..measureRange.endInclusive.toInt()
+                        
+                        val tabsToSend = if (isFullContext || compactTabs == null) {
+                            asciiTab ?: lesson.tabsAscii
+                        } else {
+                            val sliced = compactTabs.split("Measure ")
+                                .filter { it.isNotBlank() }
+                                .filter {
+                                    val idx = it.substringBefore(":").toIntOrNull()
+                                    idx != null && idx in mRange!!
+                                }
+                                .map { "Measure $it" }
+                                .joinToString("")
+                            if (sliced.isBlank()) asciiTab ?: lesson.tabsAscii else sliced
+                        }
+                        
+                        viewModel.askQuestion(question, lesson.text, tabsToSend, mRange)
                         question = ""
                     },
                     enabled = question.isNotBlank()

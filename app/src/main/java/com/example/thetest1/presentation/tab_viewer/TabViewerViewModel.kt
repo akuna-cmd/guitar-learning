@@ -74,6 +74,7 @@ data class TabViewerUiState(
     val isRecording: Boolean = false,
     val playerState: PlayerState = PlayerState(),
     val asciiTab: String? = null,
+    val compactTabs: String? = null,
     val tabAnalysis: TabAnalysis? = null
 )
 
@@ -154,6 +155,10 @@ class TabViewerViewModel(
 
     fun setAsciiTab(ascii: String) {
         _uiState.update { it.copy(asciiTab = ascii) }
+    }
+
+    fun setCompactTabs(tabs: String) {
+        _uiState.update { it.copy(compactTabs = tabs) }
     }
 
     fun setTabAnalysis(analysisJson: String) {

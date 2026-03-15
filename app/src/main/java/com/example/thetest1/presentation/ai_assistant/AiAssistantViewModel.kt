@@ -34,7 +34,7 @@ class AiAssistantViewModel : ViewModel() {
         apiKey = BuildConfig.GEMINI_API_KEY
     )
 
-    fun askQuestion(question: String, theory: String, tabs: String) {
+    fun askQuestion(question: String, theory: String, tabs: String, measureRange: IntRange? = null) {
         viewModelScope.launch {
             _uiState.update {
                 it.copy(
@@ -43,10 +43,18 @@ class AiAssistantViewModel : ViewModel() {
                 )
             }
             try {
+                val contextInstruction = if (measureRange != null) {
+                    "УВАГА: Користувач питає КОНКРЕТНО про такти з ${measureRange.first} по ${measureRange.last}. Аналізуй ТІЛЬКИ ЦІ ТАКТИ і повністю ігноруй всі інші. Формат переданих табів: 'Beat X: [Струна Y [Назва] (лад Z), ...]' де Струна 1 - це найтонша 'e' струна (ВЕРХНЯ лінія на класичних малюнках табів), а Струна 6 - найтовща басова 'E' струна (НИЖНЯ лінія на табах). Ноти, згруповані в одних дужках 'Beat X: [...]', граються ОДНОЧАСНО (в один удар). Відповідай так, ніби інших тактів не існує."
+                } else {
+                    ""
+                }
+
                 val prompt = """
                 Ти - високопрофейсійних викладач з гітари, який інтегрований в Android застосунок для навчання гри на гітарі. 
                 На основі поданої теорії/табів дай відповіді на запитання учня. 
                 Коротко (максимум 10-15 речень), професійно, нейтрально, без вступних слів, українською мовою.
+
+                $contextInstruction
 
                 Теорія:
                 $theory
