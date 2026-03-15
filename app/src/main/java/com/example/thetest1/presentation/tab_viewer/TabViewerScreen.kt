@@ -16,8 +16,10 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,7 +32,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.NoteAdd
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -44,7 +50,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -99,20 +109,49 @@ fun TabViewerScreen(
         }
     }
 
+    var showAiSheet by remember { mutableStateOf(false) }
+    var showNotesSheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text(uiState.lesson?.title ?: "") },
+            TopAppBar(
+                title = { },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.Filled.ArrowBack,
-                            contentDescription = stringResource(id = R.string.back_arrow)
+                        Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(id = R.string.back_arrow))
+                    }
+                },
+                actions = {
+                    var expandedMenu by remember { mutableStateOf(false) }
+                    IconButton(onClick = { expandedMenu = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Меню")
+                    }
+                    androidx.compose.material3.DropdownMenu(
+                        expanded = expandedMenu,
+                        onDismissRequest = { expandedMenu = false }
+                    ) {
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text("Нотатки") },
+                            leadingIcon = { Icon(Icons.Filled.NoteAdd, contentDescription = null) },
+                            onClick = {
+                                expandedMenu = false
+                                showNotesSheet = true
+                            }
+                        )
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text("AI помічник") },
+                            leadingIcon = { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
+                            onClick = {
+                                expandedMenu = false
+                                showAiSheet = true
+                            }
                         )
                     }
                 },
-                scrollBehavior = scrollBehavior
+                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         }
     ) { padding ->
@@ -122,167 +161,97 @@ fun TabViewerScreen(
             }
         } else {
             Column(modifier = Modifier.padding(padding)) {
-                if (uiState.selectedTabIndex != -1) {
-                    ScrollableTabRow(
-                        selectedTabIndex = uiState.selectedTabIndex,
-                        edgePadding = 16.dp,
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        contentColor = MaterialTheme.colorScheme.primary,
-                        divider = {}
+                var isPracticeMode by remember { mutableStateOf(false) }
+                var currentSpeed by remember(isPracticeMode) { mutableStateOf(if (isPracticeMode) themeUiState.practiceSpeed else themeUiState.normalSpeed) }
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // ─── Mode Toggle ───────────────────────────
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(8.dp),
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        uiState.tabs.forEach { tab ->
-                            Tab(
-                                selected = uiState.selectedTab == tab,
-                                onClick = { viewModel.selectTab(tab) },
-                                text = {
-                                    val text = when (tab) {
-                                        LessonTab.THEORY -> stringResource(id = R.string.theory)
-                                        LessonTab.TABS -> stringResource(id = R.string.tabs)
-                                        LessonTab.AI_ASSISTANT -> stringResource(id = R.string.ai_assistant)
-                                        LessonTab.NOTES -> stringResource(id = R.string.notes)
-                                    }
-                                    Text(text)
-                                }
-                            )
-                        }
-                    }
-                }
-
-                when (uiState.selectedTab) {
-                    LessonTab.THEORY -> TheoryScreen(text = uiState.lesson!!.text)
-                    LessonTab.TABS -> {
-                        var isPracticeMode by remember { mutableStateOf(false) }
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            // ─── Mode Toggle ───────────────────────────
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(8.dp),
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                val modes = listOf(false to "Звичайна гра", true to "Режим розбору")
-                                modes.forEach { (practice, label) ->
-                                    val selected = isPracticeMode == practice
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier
-                                            .padding(horizontal = 4.dp)
-                                            .clip(RoundedCornerShape(16.dp))
-                                            .clickable { isPracticeMode = practice }
-                                            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
-                                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                                    ) {
-                                        Text(label, color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            }
-
-                            // ─── Tab Viewer ────────────────────────────
-                            TabViewer(
-                                fileName = uiState.lesson!!.tabsGpPath,
-                                isPracticeMode = isPracticeMode,
-                                themeUiState = themeUiState,
-                                onAsciiTabGenerated = { ascii -> viewModel.setAsciiTab(ascii) },
-                                onTabAnalysis = { analysis -> viewModel.setTabAnalysis(analysis) },
+                        val modes = listOf(false to "Звичайна гра", true to "Режим розбору")
+                        modes.forEach { (practice, label) ->
+                            val selected = isPracticeMode == practice
+                            Box(
+                                contentAlignment = Alignment.Center,
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .let { if (isPracticeMode) it.height(250.dp) else it.weight(1f) }
-                            )
-
-                            // ─── Analysis View (Practice Mode Only) ────
-                            androidx.compose.animation.AnimatedVisibility(visible = isPracticeMode) {
-                                TabAnalysisView(
-                                    analysis = uiState.tabAnalysis,
-                                    modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
-                                )
+                                    .padding(horizontal = 4.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable { isPracticeMode = practice }
+                                    .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Text(label, color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
-                    LessonTab.AI_ASSISTANT -> AiAssistantScreen(
-                        lesson = uiState.lesson!!,
-                        viewModelFactory = viewModelFactory,
-                        asciiTab = uiState.asciiTab
+
+                    var isPlaying by remember { mutableStateOf(false) }
+
+                    // ─── Tab Viewer ────────────────────────────
+                    TabViewer(
+                        fileName = uiState.lesson!!.tabsGpPath,
+                        tabTitle = uiState.lesson!!.title,
+                        isPracticeMode = isPracticeMode,
+                        currentSpeed = currentSpeed,
+                        onSpeedChange = { currentSpeed = it },
+                        themeUiState = themeUiState,
+                        isPlaying = isPlaying,
+                        onPlayStateChange = { isPlaying = it },
+                        onAsciiTabGenerated = { ascii -> viewModel.setAsciiTab(ascii) },
+                        onTabAnalysis = { analysis -> viewModel.setTabAnalysis(analysis) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp, start = 8.dp, end = 8.dp)
+                            .let { if (isPracticeMode) it.height(200.dp) else it.weight(1f) }
                     )
-                    LessonTab.NOTES -> NotesScreen(
-                        audioNotes = uiState.audioNotes,
-                        textNotes = uiState.textNotes,
-                        isRecording = uiState.isRecording,
-                        playerState = uiState.playerState,
-                        onAddAudioNote = { uri -> viewModel.addAudioNoteFromFile(uiState.lesson!!.id, uri) },
-                        onRecordAudio = { viewModel.onRecordAudio(uiState.lesson!!.id) },
-                        onDeleteAudioNote = { id -> viewModel.deleteAudioNote(id) },
-                        onPlayAudio = { note -> viewModel.onPlayAudio(note) },
-                        onSeekAudio = { id, prog -> viewModel.onSeekAudio(id, prog) },
-                        onAddTextNote = { content -> viewModel.addTextNote(uiState.lesson!!.id, content) },
-                        onUpdateTextNote = { note -> viewModel.updateTextNote(note) },
-                        onDeleteTextNote = { note -> viewModel.deleteTextNote(note) }
-                    )
-                }
-            }
-        }
-    }
-}
 
-@Composable
-fun TabAnalysisView(analysis: TabAnalysis?, modifier: Modifier = Modifier) {
-    if (analysis == null) {
-        Box(modifier = modifier, contentAlignment = Alignment.Center) {
-            Text("Торкніться ноти для аналізу", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        return
-    }
-
-    Column(modifier = modifier.padding(16.dp)) {
-        Text("Аналіз такту ${analysis.barIndex}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(modifier = Modifier.fillMaxWidth()) {
-            FingerSection(stringResource(R.string.left_hand), analysis.leftHand, Modifier.weight(1f))
-            Spacer(modifier = Modifier.width(12.dp))
-            FingerSection(stringResource(R.string.right_hand), analysis.rightHand, Modifier.weight(1f))
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-        Text(stringResource(R.string.technique), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                analysis.instructions.forEachIndexed { index, instruction ->
-                    Row(modifier = Modifier.padding(vertical = 4.dp)) {
-                        Text("${index + 1}.", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(instruction, fontSize = 14.sp)
+                    // ─── Analysis View (Practice Mode Only) ────
+                    androidx.compose.animation.AnimatedVisibility(visible = isPracticeMode) {
+                        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                            GuitarFretboard(
+                                analysis = uiState.tabAnalysis,
+                                isPlaying = isPlaying,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+                            )
+                        }
                     }
                 }
-            }
-        }
-    }
-}
 
-@Composable
-fun FingerSection(title: String, fingers: List<FingerInfo>, modifier: Modifier = Modifier) {
-    Column(modifier = modifier) {
-        Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        Card(elevation = CardDefaults.cardElevation(defaultElevation = 1.dp), shape = RoundedCornerShape(12.dp)) {
-            Column(modifier = Modifier.padding(10.dp)) {
-                fingers.forEach { finger ->
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
-                        Box(
-                            modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(android.graphics.Color.parseColor(finger.color))),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(finger.finger, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(finger.fingerName, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            val detail = if (finger.fret != null) "${finger.string} • ${finger.fret} лад" else "${finger.string} • ${finger.direction}"
-                            Text(detail, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+                if (showAiSheet) {
+                    ModalBottomSheet(
+                        onDismissRequest = { showAiSheet = false },
+                        sheetState = sheetState,
+                        modifier = Modifier.fillMaxHeight(0.9f)
+                    ) {
+                        AiAssistantScreen(
+                            lesson = uiState.lesson!!,
+                            viewModelFactory = viewModelFactory,
+                            asciiTab = uiState.asciiTab
+                        )
+                    }
+                }
+
+                if (showNotesSheet) {
+                    ModalBottomSheet(
+                        onDismissRequest = { showNotesSheet = false },
+                        sheetState = sheetState,
+                        modifier = Modifier.fillMaxHeight(0.9f)
+                    ) {
+                        NotesScreen(
+                            audioNotes = uiState.audioNotes,
+                            textNotes = uiState.textNotes,
+                            isRecording = uiState.isRecording,
+                            playerState = uiState.playerState,
+                            onAddAudioNote = { uri -> viewModel.addAudioNoteFromFile(uiState.lesson!!.id, uri) },
+                            onRecordAudio = { viewModel.onRecordAudio(uiState.lesson!!.id) },
+                            onDeleteAudioNote = { id -> viewModel.deleteAudioNote(id) },
+                            onPlayAudio = { note -> viewModel.onPlayAudio(note) },
+                            onSeekAudio = { id, prog -> viewModel.onSeekAudio(id, prog) },
+                            onAddTextNote = { content -> viewModel.addTextNote(uiState.lesson!!.id, content) },
+                            onUpdateTextNote = { note -> viewModel.updateTextNote(note) },
+                            onDeleteTextNote = { note -> viewModel.deleteTextNote(note) }
+                        )
                     }
                 }
             }
@@ -294,8 +263,13 @@ fun FingerSection(title: String, fingers: List<FingerInfo>, modifier: Modifier =
 @Composable
 private fun TabViewer(
     fileName: String,
+    tabTitle: String,
     isPracticeMode: Boolean,
+    currentSpeed: Float,
+    onSpeedChange: (Float) -> Unit,
     themeUiState: com.example.thetest1.presentation.main.ThemeUiState,
+    isPlaying: Boolean,
+    onPlayStateChange: (Boolean) -> Unit,
     onAsciiTabGenerated: (String) -> Unit,
     onTabAnalysis: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -307,10 +281,8 @@ private fun TabViewer(
         com.example.thetest1.presentation.main.ThemeMode.LIGHT -> false
         com.example.thetest1.presentation.main.ThemeMode.SYSTEM -> isSystemDark
     }
-    var isPlaying  by remember { mutableStateOf(false) }
     var isReady    by remember { mutableStateOf(false) }
     var isScoreLoaded by remember { mutableStateOf(false) }
-    var currentSpeed by remember { mutableStateOf(1f) }
     
     val webView = remember(isDark) {
         WebView(context).apply {
@@ -368,16 +340,15 @@ private fun TabViewer(
     LaunchedEffect(fileName, isReady) {
         if (isReady) {
             webView.evaluateJavascript("window.setTheme($isDark);", null)
+            webView.evaluateJavascript("window.setPracticeModeLayout($isPracticeMode);", null)
             webView.evaluateJavascript("window.loadTab('$fileName');", null)
-            val initialSpeed = if (isPracticeMode) themeUiState.practiceSpeed else themeUiState.normalSpeed
-            currentSpeed = initialSpeed
         }
     }
 
     // React to practice mode toggle
     LaunchedEffect(isPracticeMode, isReady) {
         if (isReady) {
-            currentSpeed = if (isPracticeMode) themeUiState.practiceSpeed else themeUiState.normalSpeed
+            webView.evaluateJavascript("window.setPracticeModeLayout($isPracticeMode);", null)
         }
     }
 
@@ -391,7 +362,9 @@ private fun TabViewer(
     // Re-apply theme if user switches dark/light mode while screen is open
     LaunchedEffect(isDark) {
         webView.setBackgroundColor(if (isDark) android.graphics.Color.parseColor("#1c1b1f") else android.graphics.Color.WHITE)
-        if (isReady) webView.evaluateJavascript("window.setTheme($isDark);", null)
+        if (isReady) {
+            webView.evaluateJavascript("window.setTheme($isDark);", null)
+        }
     }
 
     Box(modifier = modifier) {
@@ -420,7 +393,7 @@ private fun TabViewer(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .alpha(alpha)
+                            .padding(top = 8.dp) // Added padding to prevent overlap with tabs/title
                             .background(if (isDark) Color(0xFF1C1B1F) else Color.White),
                         contentAlignment = Alignment.Center
                     ) {
@@ -442,7 +415,7 @@ private fun TabViewer(
                 // Play / Pause
                 IconButton(onClick = {
                     webView.evaluateJavascript("window.playPause();", null)
-                    isPlaying = !isPlaying
+                    onPlayStateChange(!isPlaying)
                 }) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
@@ -450,33 +423,41 @@ private fun TabViewer(
                     )
                 }
 
-                // Speed chips
-                val speeds = listOf(0.25f to "0.25×", 0.5f to "0.5×", 0.75f to "0.75×", 1f to "1×", 1.5f to "1.5×", 2f to "2×")
-                speeds.forEach { (speed, label) ->
-                    val selected = currentSpeed == speed
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .clickable {
-                                currentSpeed = speed
-                            }
-                            .background(
-                                color = if (selected) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.surfaceVariant,
-                                shape = RoundedCornerShape(16.dp)
-                            )
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                // Speed dropdown
+                var expanded by remember { mutableStateOf(false) }
+                val speeds = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+                Box {
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = { expanded = true },
+                        modifier = Modifier.height(36.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp)
                     ) {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (selected) MaterialTheme.colorScheme.onPrimary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Text("${speedString(currentSpeed)}x", fontWeight = FontWeight.Bold)
+                    }
+                    androidx.compose.material3.DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        speeds.forEach { speed ->
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text("${speedString(speed)}x") },
+                                onClick = {
+                                    onSpeedChange(speed)
+                                    expanded = false
+                                }
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+}
 
+private fun speedString(speed: Float): String {
+    return if (speed % 1.0f == 0f) {
+        String.format("%.1f", speed).replace(',', '.')
+    } else {
+        speed.toString().replace(',', '.')
     }
 }

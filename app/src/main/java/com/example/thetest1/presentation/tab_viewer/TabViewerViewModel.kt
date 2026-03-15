@@ -43,14 +43,24 @@ data class FingerInfo(
     val string: String,
     val fret: String? = null,
     val direction: String? = null,
-    val color: String
+    val color: String,
+    // Advanced articulations
+    val isHammer: Boolean = false,
+    val isPullOff: Boolean = false,
+    val isSlide: Boolean = false,
+    val isVibrato: Boolean = false,
+    val isGhost: Boolean = false
 )
 
 data class TabAnalysis(
     val barIndex: Int,
     val leftHand: List<FingerInfo>,
     val rightHand: List<FingerInfo>,
-    val instructions: List<String>
+    val instructions: List<String>,
+    // Advanced context
+    val barreFret: Int? = null,
+    val nextLeftHand: List<FingerInfo> = emptyList(),
+    val contextHint: String? = null
 )
 
 data class TabViewerUiState(
