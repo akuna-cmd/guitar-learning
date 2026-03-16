@@ -21,6 +21,9 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.*
@@ -43,6 +46,7 @@ import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.presentation.auth.AuthViewModel
 import com.example.thetest1.presentation.main.ThemeMode
 import com.example.thetest1.presentation.main.ThemeViewModel
+import com.example.thetest1.presentation.main.TabDisplayMode
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -85,11 +89,14 @@ fun SettingsScreen(viewModelFactory: ViewModelFactory) {
 
         // ─── Theme ────────────────────────────────────────────────
         item {
-            SettingsSection(title = "Тема застосунку") {
-                listOf(ThemeMode.SYSTEM to "Системна", ThemeMode.LIGHT to "Світла", ThemeMode.DARK to "Темна")
-                    .forEach { (mode, label) ->
-                        SettingsOptionsRow(label, uiState.themeMode == mode) { themeViewModel.setThemeMode(mode) }
-                    }
+            SettingsSection(title = stringResource(R.string.settings_theme_title)) {
+                listOf(
+                    ThemeMode.SYSTEM to stringResource(R.string.settings_theme_system),
+                    ThemeMode.LIGHT to stringResource(R.string.settings_theme_light),
+                    ThemeMode.DARK to stringResource(R.string.settings_theme_dark)
+                ).forEach { (mode, label) ->
+                    SettingsOptionsRow(label, uiState.themeMode == mode) { themeViewModel.setThemeMode(mode) }
+                }
             }
         }
 
@@ -112,6 +119,31 @@ fun SettingsScreen(viewModelFactory: ViewModelFactory) {
                     onSpeedChange = themeViewModel::setPracticeSpeed,
                     onScaleChange = themeViewModel::setPracticeTabScale
                 )
+            }
+        }
+
+        item {
+            SettingsSection(title = stringResource(R.string.tab_display_mode_title)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SettingsIconOptionRow(
+                        label = stringResource(R.string.tab_display_mode_tab_and_notes),
+                        selected = uiState.tabDisplayMode == TabDisplayMode.TAB_AND_NOTES,
+                        icon = Icons.Default.LibraryMusic,
+                        onClick = { themeViewModel.setTabDisplayMode(TabDisplayMode.TAB_AND_NOTES) }
+                    )
+                    SettingsIconOptionRow(
+                        label = stringResource(R.string.tab_display_mode_notes_only),
+                        selected = uiState.tabDisplayMode == TabDisplayMode.NOTES_ONLY,
+                        icon = Icons.Default.MusicNote,
+                        onClick = { themeViewModel.setTabDisplayMode(TabDisplayMode.NOTES_ONLY) }
+                    )
+                    SettingsIconOptionRow(
+                        label = stringResource(R.string.tab_display_mode_tab_only),
+                        selected = uiState.tabDisplayMode == TabDisplayMode.TAB_ONLY,
+                        icon = Icons.Default.QueueMusic,
+                        onClick = { themeViewModel.setTabDisplayMode(TabDisplayMode.TAB_ONLY) }
+                    )
+                }
             }
         }
     }
@@ -531,5 +563,39 @@ fun SettingsOptionsRow(label: String, selected: Boolean, onClick: () -> Unit) {
     ) {
         Text(text = label, modifier = Modifier.weight(1f))
         RadioButton(selected = selected, onClick = null)
+    }
+}
+
+@Composable
+fun SettingsIconOptionRow(
+    label: String,
+    selected: Boolean,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .background(
+                if (selected) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surfaceVariant
+            )
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

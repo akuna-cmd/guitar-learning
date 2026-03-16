@@ -10,6 +10,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.webkit.WebViewAssetLoader
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -38,6 +39,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Repeat
@@ -66,6 +70,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -97,6 +103,7 @@ import com.example.thetest1.presentation.main.MainViewModel
 import com.example.thetest1.presentation.notes.NotesScreen
 import com.example.thetest1.presentation.theory.TheoryScreen
 import com.example.thetest1.presentation.main.ThemeViewModel
+import com.example.thetest1.presentation.main.TabDisplayMode
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -242,10 +249,14 @@ fun TabViewerScreen(
                     // ─── Tab Viewer ────────────────────────────
                     TabViewer(
                         fileName = uiState.lesson!!.tabsGpPath,
+                        tabBytesBase64 = uiState.tabBytesBase64,
+                        soundFontBase64 = uiState.soundFontBase64,
                         tabTitle = uiState.lesson!!.title,
                         isPracticeMode = isPracticeMode,
                         currentSpeed = currentSpeed,
                         onSpeedChange = { currentSpeed = it },
+                        tabDisplayMode = themeUiState.tabDisplayMode,
+                        onTabDisplayModeChange = { mode -> themeViewModel.setTabDisplayMode(mode) },
                         themeUiState = themeUiState,
                         isPlaying = isPlaying,
                         onPlayStateChange = { isPlaying = it },
@@ -358,10 +369,14 @@ fun TabViewerScreen(
 @Composable
 private fun TabViewer(
     fileName: String,
+    tabBytesBase64: String?,
+    soundFontBase64: String?,
     tabTitle: String,
     isPracticeMode: Boolean,
     currentSpeed: Float,
     onSpeedChange: (Float) -> Unit,
+    tabDisplayMode: TabDisplayMode,
+    onTabDisplayModeChange: (TabDisplayMode) -> Unit,
     currentScale: Float,
     onScaleChange: (Float) -> Unit,
     themeUiState: com.example.thetest1.presentation.main.ThemeUiState,
@@ -383,6 +398,11 @@ private fun TabViewer(
         com.example.thetest1.presentation.main.ThemeMode.LIGHT -> false
         com.example.thetest1.presentation.main.ThemeMode.SYSTEM -> isSystemDark
     }
+    val assetLoader = remember {
+        WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
+            .build()
+    }
     var isReady    by remember { mutableStateOf(false) }
     var isScoreLoaded by remember { mutableStateOf(false) }
     
@@ -398,6 +418,7 @@ private fun TabViewer(
                 allowContentAccess = true
                 allowFileAccessFromFileURLs = true
                 allowUniversalAccessFromFileURLs = true
+                mediaPlaybackRequiresUserGesture = false
             }
             
             webChromeClient = object : WebChromeClient() {
@@ -425,14 +446,21 @@ private fun TabViewer(
                         onTotalMeasuresLoaded(totalMeasures)
                     }
                 }
+                @JavascriptInterface
+                fun onAlphaTabStatus(message: String) {
+                    Log.d("AlphaTabStatus", message)
+                }
             }, "Android")
             
             webViewClient = object : WebViewClient() {
+                override fun shouldInterceptRequest(view: WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
+                    val url = request?.url ?: return null
+                    return assetLoader.shouldInterceptRequest(url)
+                }
                 override fun onPageFinished(view: WebView?, url: String?) {
-                    view?.evaluateJavascript("window.loadTab('$fileName');", null)
                 }
             }
-            loadUrl("file:///android_asset/tab_viewer.html")
+            loadUrl("https://appassets.androidplatform.net/assets/tab_viewer.html")
         }
     }
 
@@ -444,11 +472,21 @@ private fun TabViewer(
     }
 
     // Apply theme (and load tab) whenever page is ready or theme/file changes
-    LaunchedEffect(fileName, isReady) {
+    LaunchedEffect(fileName, tabBytesBase64, soundFontBase64, isReady) {
         if (isReady) {
             webView.evaluateJavascript("window.setTheme($isDark);", null)
             webView.evaluateJavascript("window.setPracticeModeLayout($isPracticeMode);", null)
-            webView.evaluateJavascript("window.loadTab('$fileName');", null)
+            isScoreLoaded = false
+            val soundFont = soundFontBase64
+            if (soundFont != null) {
+                webView.evaluateJavascript("window.loadSoundFontFromBase64('$soundFont');", null)
+            }
+            val base64 = tabBytesBase64
+            if (base64 != null) {
+                webView.evaluateJavascript("window.loadTabFromBase64('$base64');", null)
+            } else {
+                webView.evaluateJavascript("window.loadTab('$fileName');", null)
+            }
         }
     }
 
@@ -469,6 +507,17 @@ private fun TabViewer(
     LaunchedEffect(currentScale, isReady) {
         if (isReady) {
             webView.evaluateJavascript("window.setTabScale($currentScale);", null)
+        }
+    }
+
+    LaunchedEffect(tabDisplayMode, isReady) {
+        if (isReady) {
+            val mode = when (tabDisplayMode) {
+                TabDisplayMode.NOTES_ONLY -> "Score"
+                TabDisplayMode.TAB_ONLY -> "Tab"
+                TabDisplayMode.TAB_AND_NOTES -> "ScoreTab"
+            }
+            webView.evaluateJavascript("window.setTabDisplayMode('$mode');", null)
         }
     }
 
@@ -521,6 +570,7 @@ private fun TabViewer(
                         )
                     }
                 }
+
             }
 
             Row(
@@ -545,6 +595,10 @@ private fun TabViewer(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Start
                 ) {
+                    TabDisplayModeMenu(
+                        currentMode = tabDisplayMode,
+                        onModeChange = onTabDisplayModeChange
+                    )
                     SpeedScaleMenu(
                         icon = Icons.Default.Speed,
                         valueText = stringResource(R.string.speed_value_format, speedString(currentSpeed)),
@@ -583,6 +637,65 @@ private fun scaleString(scale: Float): String {
 private fun stepScale(value: Float, delta: Float): Float {
     val stepped = ((value + delta) * 10f).toInt() / 10f
     return stepped.coerceIn(0.5f, 2.0f)
+}
+
+@Composable
+private fun TabDisplayModeMenu(
+    currentMode: TabDisplayMode,
+    onModeChange: (TabDisplayMode) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier
+                .clip(RoundedCornerShape(16.dp))
+                .clickable { expanded = true }
+                .padding(horizontal = 8.dp, vertical = 6.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.QueueMusic,
+                contentDescription = stringResource(R.string.tab_display_mode_toggle),
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                text = when (currentMode) {
+                    TabDisplayMode.TAB_AND_NOTES -> stringResource(R.string.tab_display_mode_tab_and_notes)
+                    TabDisplayMode.NOTES_ONLY -> stringResource(R.string.tab_display_mode_notes_only)
+                    TabDisplayMode.TAB_ONLY -> stringResource(R.string.tab_display_mode_tab_only)
+                },
+                style = MaterialTheme.typography.labelLarge
+            )
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.tab_display_mode_tab_and_notes)) },
+                onClick = {
+                    expanded = false
+                    onModeChange(TabDisplayMode.TAB_AND_NOTES)
+                }
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.tab_display_mode_notes_only)) },
+                onClick = {
+                    expanded = false
+                    onModeChange(TabDisplayMode.NOTES_ONLY)
+                }
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.tab_display_mode_tab_only)) },
+                onClick = {
+                    expanded = false
+                    onModeChange(TabDisplayMode.TAB_ONLY)
+                }
+            )
+        }
+    }
 }
 
 @Composable

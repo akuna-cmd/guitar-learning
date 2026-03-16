@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
+enum class TabDisplayMode { TAB_ONLY, TAB_AND_NOTES, NOTES_ONLY }
 
 data class ThemeUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -21,6 +22,7 @@ data class ThemeUiState(
     val practiceSpeed: Float = 0.25f,
     val normalTabScale: Float = 1.0f,
     val practiceTabScale: Float = 1.0f,
+    val tabDisplayMode: TabDisplayMode = TabDisplayMode.TAB_AND_NOTES,
     val isLoading: Boolean = true
 )
 
@@ -31,6 +33,7 @@ class ThemeViewModel(private val dataStore: DataStore<Preferences>) : ViewModel(
     private val practiceSpeedKey = floatPreferencesKey("practice_speed")
     private val normalTabScaleKey = floatPreferencesKey("normal_tab_scale")
     private val practiceTabScaleKey = floatPreferencesKey("practice_tab_scale")
+    private val tabDisplayModeKey = stringPreferencesKey("tab_display_mode")
 
     val uiState: StateFlow<ThemeUiState> = dataStore.data
         .map { preferences ->
@@ -40,6 +43,7 @@ class ThemeViewModel(private val dataStore: DataStore<Preferences>) : ViewModel(
                 practiceSpeed = preferences[practiceSpeedKey] ?: 0.25f,
                 normalTabScale = preferences[normalTabScaleKey] ?: 1.0f,
                 practiceTabScale = preferences[practiceTabScaleKey] ?: 1.0f,
+                tabDisplayMode = TabDisplayMode.valueOf(preferences[tabDisplayModeKey] ?: TabDisplayMode.TAB_AND_NOTES.name),
                 isLoading = false
             )
         }
@@ -85,6 +89,14 @@ class ThemeViewModel(private val dataStore: DataStore<Preferences>) : ViewModel(
         viewModelScope.launch {
             dataStore.edit { preferences ->
                 preferences[practiceTabScaleKey] = scale
+            }
+        }
+    }
+
+    fun setTabDisplayMode(mode: TabDisplayMode) {
+        viewModelScope.launch {
+            dataStore.edit { preferences ->
+                preferences[tabDisplayModeKey] = mode.name
             }
         }
     }

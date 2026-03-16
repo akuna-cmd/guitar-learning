@@ -3,6 +3,7 @@ package com.example.thetest1.presentation.tab_viewer
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import android.util.Base64
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.thetest1.domain.model.Lesson
@@ -14,6 +15,8 @@ import com.example.thetest1.domain.usecase.DeleteAudioNoteUseCase
 import com.example.thetest1.domain.usecase.DeleteTextNoteUseCase
 import com.example.thetest1.domain.usecase.GetAudioNotesUseCase
 import com.example.thetest1.domain.usecase.GetLessonUseCase
+import com.example.thetest1.domain.usecase.GetSoundFontBytesUseCase
+import com.example.thetest1.domain.usecase.GetTabFileBytesUseCase
 import com.example.thetest1.domain.usecase.GetTabItemUseCase
 import com.example.thetest1.domain.usecase.GetTextNotesUseCase
 import com.example.thetest1.domain.usecase.UpdateTextNoteUseCase
@@ -22,6 +25,7 @@ import com.example.thetest1.presentation.audio_notes.AudioRecorder
 import com.example.thetest1.presentation.audio_notes.PlayerState
 import com.google.gson.Gson
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -75,13 +79,18 @@ data class TabViewerUiState(
     val playerState: PlayerState = PlayerState(),
     val asciiTab: String? = null,
     val compactTabs: String? = null,
-    val tabAnalysis: TabAnalysis? = null
+    val tabAnalysis: TabAnalysis? = null,
+    val tabBytesBase64: String? = null,
+    val tabBytesPath: String? = null,
+    val soundFontBase64: String? = null
 )
 
 class TabViewerViewModel(
     private val context: Context,
     private val getLessonUseCase: GetLessonUseCase,
     private val getTabItemUseCase: GetTabItemUseCase,
+    private val getTabFileBytesUseCase: GetTabFileBytesUseCase,
+    private val getSoundFontBytesUseCase: GetSoundFontBytesUseCase,
     private val getAudioNotesUseCase: GetAudioNotesUseCase,
     private val addAudioNoteUseCase: AddAudioNoteUseCase,
     private val deleteAudioNoteUseCase: DeleteAudioNoteUseCase,
@@ -107,6 +116,7 @@ class TabViewerViewModel(
                 _uiState.update { it.copy(playerState = playerState) }
             }
         }
+        loadSoundFont()
     }
 
     fun loadLesson(id: String) {
@@ -136,6 +146,10 @@ class TabViewerViewModel(
                     selectedTabIndex = if (selectedTabIndex != -1) selectedTabIndex else 0
                 )
             }
+            val tabPath = lesson?.tabsGpPath ?: tabItem?.filePath
+            if (tabPath != null) {
+                loadTabBytes(tabPath)
+            }
             lesson?.let {
                 audioNotesJob?.cancel()
                 audioNotesJob = viewModelScope.launch {
@@ -150,6 +164,26 @@ class TabViewerViewModel(
                     }
                 }
             }
+        }
+    }
+
+    fun loadTabBytes(path: String) {
+        if (_uiState.value.tabBytesPath == path) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val base64 = getTabFileBytesUseCase(path).getOrNull()?.let { bytes ->
+                Base64.encodeToString(bytes, Base64.NO_WRAP)
+            }
+            _uiState.update { it.copy(tabBytesBase64 = base64, tabBytesPath = path) }
+        }
+    }
+
+    private fun loadSoundFont() {
+        if (_uiState.value.soundFontBase64 != null) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val base64 = getSoundFontBytesUseCase().getOrNull()?.let { bytes ->
+                Base64.encodeToString(bytes, Base64.NO_WRAP)
+            }
+            _uiState.update { it.copy(soundFontBase64 = base64) }
         }
     }
 

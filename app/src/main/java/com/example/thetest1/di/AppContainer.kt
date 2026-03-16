@@ -12,12 +12,16 @@ import com.example.thetest1.data.repository.AudioNoteRepositoryImpl
 import com.example.thetest1.data.repository.AiAssistantRepositoryImpl
 import com.example.thetest1.data.repository.GoalRepositoryImpl
 import com.example.thetest1.data.repository.SessionRepositoryImpl
+import com.example.thetest1.data.repository.SoundFontRepositoryImpl
+import com.example.thetest1.data.repository.TabFileRepositoryImpl
 import com.example.thetest1.data.repository.TabRepositoryImpl
 import com.example.thetest1.data.repository.TextNoteRepositoryImpl
 import com.example.thetest1.domain.repository.AiAssistantRepository
 import com.example.thetest1.domain.repository.AudioNoteRepository
 import com.example.thetest1.domain.repository.GoalRepository
 import com.example.thetest1.domain.repository.SessionRepository
+import com.example.thetest1.domain.repository.SoundFontRepository
+import com.example.thetest1.domain.repository.TabFileRepository
 import com.example.thetest1.domain.repository.TabRepository
 import com.example.thetest1.domain.repository.TextNoteRepository
 import com.example.thetest1.domain.usecase.AskAiAssistantUseCase
@@ -36,6 +40,8 @@ import com.example.thetest1.domain.usecase.GetCompletedLessonsCountUseCase
 import com.example.thetest1.domain.usecase.GetGoalsUseCase
 import com.example.thetest1.domain.usecase.GetLessonUseCase
 import com.example.thetest1.domain.usecase.GetSessionsForLastMonthUseCase
+import com.example.thetest1.domain.usecase.GetSoundFontBytesUseCase
+import com.example.thetest1.domain.usecase.GetTabFileBytesUseCase
 import com.example.thetest1.domain.usecase.GetTabItemUseCase
 import com.example.thetest1.domain.usecase.GetTabsUseCase
 import com.example.thetest1.domain.usecase.GetTextNotesUseCase
@@ -67,6 +73,8 @@ class AppContainer(val context: Context) {
     private val goalDao by lazy { appDatabase.goalDao() }
 
     private val tabRepository: TabRepository by lazy { TabRepositoryImpl(context, tabDao) }
+    private val tabFileRepository: TabFileRepository by lazy { TabFileRepositoryImpl(context) }
+    private val soundFontRepository: SoundFontRepository by lazy { SoundFontRepositoryImpl(context) }
     private val aiAssistantRepository: AiAssistantRepository by lazy {
         AiAssistantRepositoryImpl(
             GenerativeModel(
@@ -88,6 +96,8 @@ class AppContainer(val context: Context) {
     private val getLessonUseCase by lazy { GetLessonUseCase(tabRepository) }
     private val getTabItemUseCase by lazy { GetTabItemUseCase(tabRepository) }
     private val updateTabUseCase by lazy { UpdateTabUseCase(tabRepository) }
+    private val getTabFileBytesUseCase by lazy { GetTabFileBytesUseCase(tabFileRepository) }
+    private val getSoundFontBytesUseCase by lazy { GetSoundFontBytesUseCase(soundFontRepository) }
     private val getCompletedLessonsCountUseCase by lazy {
         GetCompletedLessonsCountUseCase(
             tabRepository
@@ -137,6 +147,8 @@ class AppContainer(val context: Context) {
             getTabsUseCase = getTabsUseCase,
             getLessonUseCase = getLessonUseCase,
             getTabItemUseCase = getTabItemUseCase,
+            getTabFileBytesUseCase = getTabFileBytesUseCase,
+            getSoundFontBytesUseCase = getSoundFontBytesUseCase,
             updateTabUseCase = updateTabUseCase,
             getAudioNotesUseCase = getAudioNotesUseCase,
             addAudioNoteUseCase = addAudioNoteUseCase,

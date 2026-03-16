@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.3.0/dist/alphaTab.js"></script>
+    <script src="alphatab_local.js"></script>
     <style>
         html, body { 
             margin: 0; 
@@ -29,7 +29,7 @@
             overflow-x: hidden;
         }
         #alphaTab { 
-            padding: 0 28px 0 32px; 
+            padding: 0 24px; 
             box-sizing: border-box; 
         }
         #alphaTab svg, #alphaTab canvas { 
@@ -84,6 +84,19 @@ const BIOMECH = {
 
 const biomechCost = (f,t) => (BIOMECH[f]||{})[t]||5;
 const transCost   = (p1,p2,d) => ((p2-p1)**2)/Math.max(d,.125);
+
+function ensureBody(){
+    if(!document.body){
+        const body = document.getElementsByTagName('body')[0] || document.documentElement || document.createElement('body');
+        document.body = body;
+        if(document.documentElement && !body.parentNode){
+            document.documentElement.appendChild(body);
+        }
+    }
+    if(document.body && !document.body.addEventListener){
+        document.body.addEventListener = function(){};
+    }
+}
 
 function configCost(frets, pos) {
     const pr=frets.filter(f=>f>0); if(!pr.length)return 0;
@@ -496,9 +509,25 @@ window.setLoopRange = (startMeasure, endMeasure, isLooping) => {
 };
 
 // ── AlphaTab setup ───────────────────────────────────────
-let api=null, _poll=null, _lastTick=-1, _followCursor=true, _lastFollowAt=0, _pendingScale=null;
+let api=null, _poll=null, _lastTick=-1, _followCursor=true, _lastFollowAt=0, _pendingScale=null, _scoreLoadedFired=false, _pendingSoundFontBase64=null, _pendingTabBase64=null, _pendingTabPath=null, _initRetry=null, _restoreTick=null, _restorePlay=false, _initialCursorSet=false;
 
 function signalReady(){if(window.Android?.onJsReady)window.Android.onJsReady();else setTimeout(signalReady,100);}
+function postStatus(msg){
+    console.log('AlphaTabStatus:' + msg);
+    if(window.Android?.onAlphaTabStatus)window.Android.onAlphaTabStatus(msg);
+}
+window.onerror = function(message, source, lineno, colno, error) {
+    const details = error?.stack ? (' | ' + error.stack.split('\n')[0]) : '';
+    postStatus('jsError:' + message + details);
+    return false;
+};
+window.addEventListener('error', function(e){
+    const src = e.filename ? (' @' + e.filename + ':' + e.lineno + ':' + e.colno) : '';
+    postStatus('errorEvent:' + e.message + src);
+});
+window.addEventListener('unhandledrejection', function(e){
+    postStatus('promiseRejection:' + (e?.reason?.message || e?.reason || 'unknown'));
+});
 function startPoller(){stopPoller();_lastTick=-1;_poll=setInterval(()=>{if(!api)return;try{const t=api.tickPosition;if(t==null||t===_lastTick)return;_lastTick=t;sendForTick(t);}catch{stopPoller();}},100);}
 function stopPoller(){if(_poll!=null){clearInterval(_poll);_poll=null;}}
 function followCursor(){
@@ -523,8 +552,23 @@ function followCursor(){
 function initAlphaTab(){
     if(api)return;
     try{
+        postStatus('init');
+        if(!window.alphaTab || !window.alphaTab.AlphaTabApi){
+            postStatus('noAlphaTab');
+            if(!_initRetry){
+                _initRetry = setTimeout(()=>{ _initRetry=null; initAlphaTab(); }, 120);
+            }
+            return;
+        }
+        ensureBody();
+        postStatus('creatingApi');
         api=new alphaTab.AlphaTabApi(document.querySelector('#alphaTab'),{
-            core:{engine:'svg'},
+            core:{
+                engine:'svg',
+                scriptFile:'https://appassets.androidplatform.net/assets/alphatab_local.js',
+                fontDirectory:'https://appassets.androidplatform.net/assets/alphatab_font/',
+                useWorkers:false
+            },
             display:{
                 layoutMode: 0, 
                 staveProfile: 'Tab',
@@ -533,25 +577,84 @@ function initAlphaTab(){
             player:{
                 enablePlayer:true,
                 enableCursor:true,
+                enableAnimatedBeatCursor:true,
                 cursorMode:1,
                 scrollElement: document.querySelector('#alphaTabContainer'),
                 scrollOffsetX: 0,
                 scrollOffsetY: -120,
-                soundFont:'https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/soundfont/sonivox.sf2'
+                outputMode: 1
             }
         });
+        api.settings.player.enableCursor = true;
+        api.settings.player.enableAnimatedBeatCursor = true;
+        api.updateSettings();
+        postStatus('apiReady');
+        if(_pendingSoundFontBase64){
+            const bytes = base64ToUint8Array(_pendingSoundFontBase64);
+            api.loadSoundFont(bytes, false);
+            _pendingSoundFontBase64 = null;
+            postStatus('soundFontLoad:queued');
+        }
+        if(_pendingTabBase64){
+            const bytes = base64ToUint8Array(_pendingTabBase64);
+            _pendingTabBase64 = null;
+            api.load(bytes);
+            postStatus('tabLoad:queued');
+        } else if (_pendingTabPath){
+            const path = _pendingTabPath;
+            _pendingTabPath = null;
+            api.load(path.startsWith('/')?'file://'+path:path);
+            postStatus('tabLoad:queued');
+        }
+        api.playerReady.on(()=>{
+            postStatus('playerReady');
+            if(_pendingSoundFontBase64){
+                const bytes = base64ToUint8Array(_pendingSoundFontBase64);
+                api.loadSoundFont(bytes, false);
+                _pendingSoundFontBase64 = null;
+                postStatus('soundFontLoad:queued');
+            }
+        });
+        api.soundFontLoaded.on(()=>{ postStatus('soundFontLoaded'); });
+        if(api.soundFontLoadFailed){
+            api.soundFontLoadFailed.on(()=>{ postStatus('soundFontLoadFailed'); });
+        }
+        api.playerStateChanged.on(args=>{ postStatus('playerState:'+args?.state); });
         api.scoreLoaded.on(score=>{
             setTimeout(() => runFullAnalysis(score), 400); // give UI time to animate fade-in
             if(_pendingScale != null){
                 api.settings.display.scale = _pendingScale;
                 api.updateSettings();
             }
+            if(!_initialCursorSet){
+                try{ api.tickPosition = 0; }catch{}
+                _initialCursorSet = true;
+            }
+            api.settings.player.enableCursor = true;
+            api.settings.player.enableAnimatedBeatCursor = true;
+            api.updateSettings();
         });
         api.renderFinished.on(()=>{
+            _scoreLoadedFired = true;
             if(window.Android?.onScoreLoaded) {
                 const totalMeasures = api.score && api.score.masterBars ? api.score.masterBars.length : 0;
                 window.Android.onScoreLoaded(totalMeasures);
             }
+            if(_restoreTick != null){
+                try{ api.tickPosition = _restoreTick; }catch{}
+                if(_restorePlay){
+                    tryResumeAudio();
+                    api.play();
+                }
+                _restoreTick = null;
+                _restorePlay = false;
+            } else if(!_initialCursorSet){
+                try{ api.tickPosition = 0; }catch{}
+                _initialCursorSet = true;
+            }
+            api.settings.player.enableCursor = true;
+            api.settings.player.enableAnimatedBeatCursor = true;
+            api.updateSettings();
         });
         api.playerPositionChanged.on(args=>{
             if(args?.currentBeat) sendForBeat(args.currentBeat);
@@ -566,7 +669,17 @@ function initAlphaTab(){
                 if(t!=null)api.tickPosition=t;
             }catch{}
         });
-    }catch(e){console.error('AlphaTab init:',e);}
+        api.error.on(e=>{
+            postStatus('error');
+            _scoreLoadedFired = true;
+            if(window.Android?.onScoreLoaded) {
+                window.Android.onScoreLoaded(0);
+            }
+        });
+    }catch(e){
+        postStatus('initError:' + (e?.message || 'unknown'));
+        console.error('AlphaTab init:',e);
+    }
     
     // Force cursor visibility and thickness even when alphaTab attempts to hide it (e.g. on pause)
     setInterval(() => {
@@ -586,14 +699,106 @@ function initAlphaTab(){
     }, 100);
 }
 
-window.loadTab=(path)=>{if(!api)initAlphaTab();api.load(path.startsWith('/')?'file://'+path:path);};
-window.playPause=()=>{if(api)api.playPause();};
+function base64ToUint8Array(base64){
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for(let i=0;i<binary.length;i++){
+        bytes[i]=binary.charCodeAt(i);
+    }
+    return bytes;
+}
+
+function ensureApi(){
+    if(!api) initAlphaTab();
+    return !!api;
+}
+
+window.loadSoundFontFromBase64=(base64)=>{
+    if(!ensureApi()){
+        postStatus('apiNotReady');
+        _pendingSoundFontBase64 = base64;
+        return;
+    }
+    if(!api?.player){
+        _pendingSoundFontBase64 = base64;
+        postStatus('soundFontLoad:pending');
+        return;
+    }
+    const bytes = base64ToUint8Array(base64);
+    api.loadSoundFont(bytes, false);
+};
+
+window.loadTab=(path)=>{
+    if(!ensureApi()){
+        postStatus('apiNotReady');
+        _pendingTabPath = path;
+        if(window.Android?.onScoreLoaded){ window.Android.onScoreLoaded(0); }
+        return;
+    }
+    _scoreLoadedFired = false;
+    api.load(path.startsWith('/')?'file://'+path:path);
+    setTimeout(()=>{
+        if(!_scoreLoadedFired && window.Android?.onScoreLoaded){
+            const totalMeasures = api?.score?.masterBars ? api.score.masterBars.length : 0;
+            window.Android.onScoreLoaded(totalMeasures);
+        }
+    }, 3000);
+};
+window.loadTabFromBase64=(base64)=>{
+    if(!ensureApi()){
+        postStatus('apiNotReady');
+        _pendingTabBase64 = base64;
+        if(window.Android?.onScoreLoaded){ window.Android.onScoreLoaded(0); }
+        return;
+    }
+    _scoreLoadedFired = false;
+    const bytes = base64ToUint8Array(base64);
+    api.load(bytes);
+    setTimeout(()=>{
+        if(!_scoreLoadedFired && window.Android?.onScoreLoaded){
+            const totalMeasures = api?.score?.masterBars ? api.score.masterBars.length : 0;
+            window.Android.onScoreLoaded(totalMeasures);
+        }
+    }, 3000);
+};
+function tryResumeAudio(){
+    try{
+        const output = api?.player?.output;
+        if(output?.activate){ output.activate(); }
+        const ctx = output?._context;
+        if(ctx && (ctx.state === 'suspended' || ctx.state === 'interrupted')) {
+            ctx.resume();
+        }
+    }catch(e){}
+}
+window.playPause=()=>{if(api){tryResumeAudio();api.playPause();}};
 window.stopAudio=()=>{if(api){api.stop();stopPoller();}};
 window.setPlaybackSpeed=(s)=>{if(api)api.playbackSpeed=parseFloat(s);};
 window.setTabScale=(s)=>{
     _pendingScale = parseFloat(s);
     if(!api) return;
+    const wasPlaying = api.playerState === 1;
+    const tick = api.tickPosition ?? 0;
+    _restoreTick = tick;
+    _restorePlay = wasPlaying;
     api.settings.display.scale = _pendingScale;
+    api.updateSettings();
+    if(api.score){
+        api.render();
+    }
+};
+
+window.setTabDisplayMode=(mode)=>{
+    if(!api) return;
+    const wasPlaying = api.playerState === 1;
+    const tick = api.tickPosition ?? 0;
+    _restoreTick = tick;
+    _restorePlay = wasPlaying;
+    if (window.alphaTab && window.alphaTab.StaveProfile) {
+        api.settings.display.staveProfile = window.alphaTab.StaveProfile[mode] ?? api.settings.display.staveProfile;
+    } else {
+        api.settings.display.staveProfile = mode;
+    }
     api.updateSettings();
     if(api.score){
         api.render();

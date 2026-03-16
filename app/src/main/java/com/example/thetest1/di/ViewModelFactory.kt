@@ -20,6 +20,8 @@ import com.example.thetest1.domain.usecase.GetAudioNotesUseCase
 import com.example.thetest1.domain.usecase.GetCompletedLessonsCountUseCase
 import com.example.thetest1.domain.usecase.GetLessonUseCase
 import com.example.thetest1.domain.usecase.GetSessionsForLastMonthUseCase
+import com.example.thetest1.domain.usecase.GetSoundFontBytesUseCase
+import com.example.thetest1.domain.usecase.GetTabFileBytesUseCase
 import com.example.thetest1.domain.usecase.GetTabItemUseCase
 import com.example.thetest1.domain.usecase.GetTabsUseCase
 import com.example.thetest1.domain.usecase.GetTextNotesUseCase
@@ -47,6 +49,8 @@ class ViewModelFactory(
     private val getTabsUseCase: GetTabsUseCase,
     private val getLessonUseCase: GetLessonUseCase,
     private val getTabItemUseCase: GetTabItemUseCase,
+    private val getTabFileBytesUseCase: GetTabFileBytesUseCase,
+    private val getSoundFontBytesUseCase: GetSoundFontBytesUseCase,
     private val updateTabUseCase: UpdateTabUseCase,
     private val getAudioNotesUseCase: GetAudioNotesUseCase,
     private val addAudioNoteUseCase: AddAudioNoteUseCase,
@@ -100,6 +104,8 @@ class ViewModelFactory(
                     context = context,
                     getLessonUseCase = getLessonUseCase,
                     getTabItemUseCase = getTabItemUseCase,
+                    getTabFileBytesUseCase = getTabFileBytesUseCase,
+                    getSoundFontBytesUseCase = getSoundFontBytesUseCase,
                     getAudioNotesUseCase = getAudioNotesUseCase,
                     addAudioNoteUseCase = addAudioNoteUseCase,
                     deleteAudioNoteUseCase = deleteAudioNoteUseCase,
