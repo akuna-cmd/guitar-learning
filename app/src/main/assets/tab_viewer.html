@@ -24,7 +24,7 @@
         }
         #alphaTabContainer {
             width: 100%;
-            height: 100vh;
+            height: 100%;
             overflow-y: auto;
             overflow-x: hidden;
         }
@@ -435,7 +435,6 @@ function sendForTick(t){
     let lo=0,hi=tickArr.length-1,best=-1;
     while(lo<=hi){const mid=(lo+hi)>>1;if(tickArr[mid].tick<=t){best=mid;lo=mid+1;}else hi=mid-1;}
     if(best>=0)postToAndroid(tickArr[best].json);
-    followCursor();
 }
 
 function sendForBeat(beat){
@@ -444,7 +443,6 @@ function sendForBeat(beat){
     if(key&&beatMap.has(key)){postToAndroid(beatMap.get(key));return;}
     const t=beat.start??beat.absoluteDisplayStart;
     if(t!=null)sendForTick(t);
-    followCursor();
 }
 
 // ── Dark-mode: invert only canvas, not container ─────────
@@ -477,8 +475,7 @@ window.setPracticeModeLayout = (isPractice) => {
     if(!api) return;
     api.settings.display.layoutMode = 0;
     api.settings.player.scrollOffsetX = 0;
-    api.settings.player.scrollOffsetY = -120;
-    _followCursor = true;
+    api.settings.player.scrollOffsetY = 0;
     api.updateSettings();
 };
 
@@ -509,7 +506,7 @@ window.setLoopRange = (startMeasure, endMeasure, isLooping) => {
 };
 
 // ── AlphaTab setup ───────────────────────────────────────
-let api=null, _poll=null, _lastTick=-1, _followCursor=true, _lastFollowAt=0, _pendingScale=null, _scoreLoadedFired=false, _pendingSoundFontBase64=null, _pendingTabBase64=null, _pendingTabPath=null, _initRetry=null, _restoreTick=null, _restorePlay=false, _initialCursorSet=false;
+let api=null, _poll=null, _lastTick=-1, _pendingScale=null, _scoreLoadedFired=false, _pendingSoundFontBase64=null, _pendingTabBase64=null, _pendingTabPath=null, _initRetry=null, _restoreTick=null, _restorePlay=false, _initialCursorSet=false, _tickReportTimer=null;
 
 function signalReady(){if(window.Android?.onJsReady)window.Android.onJsReady();else setTimeout(signalReady,100);}
 function postStatus(msg){
@@ -530,24 +527,23 @@ window.addEventListener('unhandledrejection', function(e){
 });
 function startPoller(){stopPoller();_lastTick=-1;_poll=setInterval(()=>{if(!api)return;try{const t=api.tickPosition;if(t==null||t===_lastTick)return;_lastTick=t;sendForTick(t);}catch{stopPoller();}},100);}
 function stopPoller(){if(_poll!=null){clearInterval(_poll);_poll=null;}}
-function followCursor(){
-    if(!_followCursor) return;
-    const now=Date.now();
-    if(now-_lastFollowAt<120) return;
-    _lastFollowAt=now;
-    const cursor=document.querySelector('.at-cursor-bar')||document.querySelector('.at-cursor-beat');
-    if(!cursor) return;
-    const container = document.querySelector('#alphaTabContainer');
-    if(!container) return;
-    const cRect = cursor.getBoundingClientRect();
-    const pRect = container.getBoundingClientRect();
-    const margin = 80;
-    if(cRect.top < pRect.top + margin){
-        container.scrollTop -= (pRect.top + margin - cRect.top);
-    } else if(cRect.bottom > pRect.bottom - margin){
-        container.scrollTop += (cRect.bottom - (pRect.bottom - margin));
-    }
-}
+
+window.setRestorePlayback=(tick, isPlaying)=>{
+    _restoreTick = tick;
+    _restorePlay = isPlaying;
+};
+
+window.setOrientation=(isLandscape)=>{
+    document.body.classList.toggle('landscape', isLandscape);
+};
+
+window.getPlaybackState=()=>{
+    if(!api) return JSON.stringify({tick:0, playing:false});
+    return JSON.stringify({
+        tick: api.tickPosition ?? 0,
+        playing: api.playerState === 1
+    });
+};
 
 function initAlphaTab(){
     if(api)return;
@@ -570,9 +566,9 @@ function initAlphaTab(){
                 useWorkers:false
             },
             display:{
-                layoutMode: 0, 
+                layoutMode: 0,
                 staveProfile: 'Tab',
-                padding: [12, 60, 12, 60]
+                padding: [8, 16, 8, 16]
             },
             player:{
                 enablePlayer:true,
@@ -581,7 +577,8 @@ function initAlphaTab(){
                 cursorMode:1,
                 scrollElement: document.querySelector('#alphaTabContainer'),
                 scrollOffsetX: 0,
-                scrollOffsetY: -120,
+                scrollOffsetY: 0,
+                scrollMode: alphaTab.ScrollMode.OffScreen,
                 outputMode: 1
             }
         });
@@ -658,9 +655,29 @@ function initAlphaTab(){
         });
         api.playerPositionChanged.on(args=>{
             if(args?.currentBeat) sendForBeat(args.currentBeat);
-            followCursor();
+            try{
+                if(window.Android?.onTickPosition){
+                    window.Android.onTickPosition(api.tickPosition ?? 0, api.playerState === 1);
+                }
+            }catch{}
         });
-        api.playerStateChanged.on(args=>{if(args?.state===1)startPoller();else stopPoller();});
+        api.playerStateChanged.on(args=>{
+            if(args?.state===1)startPoller();else stopPoller();
+            try{
+                if(window.Android?.onTickPosition){
+                    window.Android.onTickPosition(api.tickPosition ?? 0, api.playerState === 1);
+                }
+            }catch{}
+        });
+        if(_tickReportTimer==null){
+            _tickReportTimer = setInterval(() => {
+                try{
+                    if(window.Android?.onTickPosition && api){
+                        window.Android.onTickPosition(api.tickPosition ?? 0, api.playerState === 1);
+                    }
+                }catch{}
+            }, 500);
+        }
         api.beatMouseDown.on(beat=>{
             if(!beat)return;
             sendForBeat(beat);

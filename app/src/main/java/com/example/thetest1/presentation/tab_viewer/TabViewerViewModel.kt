@@ -82,7 +82,9 @@ data class TabViewerUiState(
     val tabAnalysis: TabAnalysis? = null,
     val tabBytesBase64: String? = null,
     val tabBytesPath: String? = null,
-    val soundFontBase64: String? = null
+    val soundFontBase64: String? = null,
+    val lastTickPosition: Long? = null,
+    val wasPlaying: Boolean = false
 )
 
 class TabViewerViewModel(
@@ -204,6 +206,10 @@ class TabViewerViewModel(
         } catch (e: Exception) {
             Log.e("TabViewerViewModel", "Error parsing analysis", e)
         }
+    }
+
+    fun updatePlaybackState(tick: Long, isPlaying: Boolean) {
+        _uiState.update { it.copy(lastTickPosition = tick, wasPlaying = isPlaying) }
     }
 
     fun onPlayAudio(audioNote: AudioNote) {

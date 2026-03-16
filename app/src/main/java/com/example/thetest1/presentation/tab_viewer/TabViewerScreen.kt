@@ -31,6 +31,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -107,6 +108,7 @@ import com.example.thetest1.presentation.main.TabDisplayMode
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -257,6 +259,9 @@ fun TabViewerScreen(
                         onSpeedChange = { currentSpeed = it },
                         tabDisplayMode = themeUiState.tabDisplayMode,
                         onTabDisplayModeChange = { mode -> themeViewModel.setTabDisplayMode(mode) },
+                        lastTickPosition = uiState.lastTickPosition,
+                        wasPlaying = uiState.wasPlaying,
+                        onTickPosition = { tick, playing -> viewModel.updatePlaybackState(tick, playing) },
                         themeUiState = themeUiState,
                         isPlaying = isPlaying,
                         onPlayStateChange = { isPlaying = it },
@@ -377,6 +382,9 @@ private fun TabViewer(
     onSpeedChange: (Float) -> Unit,
     tabDisplayMode: TabDisplayMode,
     onTabDisplayModeChange: (TabDisplayMode) -> Unit,
+    lastTickPosition: Long?,
+    wasPlaying: Boolean,
+    onTickPosition: (Long, Boolean) -> Unit,
     currentScale: Float,
     onScaleChange: (Float) -> Unit,
     themeUiState: com.example.thetest1.presentation.main.ThemeUiState,
@@ -392,6 +400,8 @@ private fun TabViewer(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val isSystemDark = isSystemInDarkTheme()
     val isDark = when (themeUiState.themeMode) {
         com.example.thetest1.presentation.main.ThemeMode.DARK -> true
@@ -406,7 +416,7 @@ private fun TabViewer(
     var isReady    by remember { mutableStateOf(false) }
     var isScoreLoaded by remember { mutableStateOf(false) }
     
-    val webView = remember(isDark) {
+    val webView = remember {
         WebView(context).apply {
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             setBackgroundColor(if (isDark) android.graphics.Color.parseColor("#1c1b1f") else android.graphics.Color.WHITE)
@@ -449,6 +459,10 @@ private fun TabViewer(
                 @JavascriptInterface
                 fun onAlphaTabStatus(message: String) {
                     Log.d("AlphaTabStatus", message)
+                }
+                @JavascriptInterface
+                fun onTickPosition(tick: Long, isPlaying: Boolean) {
+                    onTickPosition(tick, isPlaying)
                 }
             }, "Android")
             
@@ -518,6 +532,38 @@ private fun TabViewer(
                 TabDisplayMode.TAB_AND_NOTES -> "ScoreTab"
             }
             webView.evaluateJavascript("window.setTabDisplayMode('$mode');", null)
+        }
+    }
+
+    LaunchedEffect(lastTickPosition, wasPlaying, isReady) {
+        if (isReady) {
+            val tick = lastTickPosition ?: 0L
+            val playFlag = if (wasPlaying) "true" else "false"
+            webView.evaluateJavascript("window.setRestorePlayback($tick, $playFlag);", null)
+        }
+    }
+
+    LaunchedEffect(isReady) {
+        if (isReady) {
+            while (true) {
+                webView.evaluateJavascript("window.getPlaybackState();") { json ->
+                    try {
+                        val obj = JSONObject(json)
+                        val tick = obj.optLong("tick", 0L)
+                        val playing = obj.optBoolean("playing", false)
+                        onTickPosition(tick, playing)
+                    } catch (_: Exception) {
+                    }
+                }
+                delay(500)
+            }
+        }
+    }
+
+    LaunchedEffect(isLandscape, isReady) {
+        if (isReady) {
+            val flag = if (isLandscape) "true" else "false"
+            webView.evaluateJavascript("window.setOrientation($flag);", null)
         }
     }
 
