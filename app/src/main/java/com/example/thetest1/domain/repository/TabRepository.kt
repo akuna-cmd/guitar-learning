@@ -1,7 +1,6 @@
 package com.example.thetest1.domain.repository
 
-import android.net.Uri
-import com.example.thetest1.data.model.Lesson
+import com.example.thetest1.domain.model.Lesson
 import com.example.thetest1.domain.model.TabItem
 import kotlinx.coroutines.flow.Flow
 
@@ -11,7 +10,7 @@ interface TabRepository {
     suspend fun updateTab(tab: TabItem)
     fun getCompletedLessonsCount(): Flow<Int>
     fun getTotalLessonsCount(): Flow<Int>
-    suspend fun addUserTab(uri: Uri)
+    suspend fun addUserTab(uriString: String)
     suspend fun getUserTabs(): List<TabItem>
     fun getUserTabsCount(): Flow<Int>
     suspend fun deleteUserTab(tab: TabItem)

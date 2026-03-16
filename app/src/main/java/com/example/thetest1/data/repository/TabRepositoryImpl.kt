@@ -3,9 +3,12 @@ package com.example.thetest1.data.repository
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import com.example.thetest1.R
 import com.example.thetest1.data.local.TabDao
 import com.example.thetest1.data.model.Lesson
+import com.example.thetest1.data.model.toDomain
 import com.example.thetest1.domain.model.Difficulty
+import com.example.thetest1.domain.model.Lesson as DomainLesson
 import com.example.thetest1.domain.model.TabItem
 import com.example.thetest1.domain.repository.TabRepository
 import com.google.gson.Gson
@@ -23,6 +26,10 @@ class TabRepositoryImpl(
     private val context: Context,
     private val tabDao: TabDao
 ) : TabRepository {
+
+    private companion object {
+        const val UserTabFileExtension = "gp"
+    }
 
     private val lessonsFromJson: List<Lesson> by lazy {
         try {
@@ -61,11 +68,11 @@ class TabRepositoryImpl(
         }
     }
 
-    override suspend fun getLesson(id: String): Lesson? {
+    override suspend fun getLesson(id: String): DomainLesson? {
         val tab = tabDao.getTabById(id)
         if (tab?.isUserTab == true) {
             return tab.filePath?.let {
-                Lesson(
+                DomainLesson(
                     id = tab.id,
                     level = tab.difficulty.name.lowercase(),
                     order = tab.lessonNumber,
@@ -77,7 +84,7 @@ class TabRepositoryImpl(
                 )
             }
         }
-        return lessonsFromJson.find { it.id == id }
+        return lessonsFromJson.find { it.id == id }?.toDomain()
     }
 
     override suspend fun updateTab(tab: TabItem) {
@@ -92,21 +99,25 @@ class TabRepositoryImpl(
         return tabDao.getTabs().map { it.size }
     }
 
-    override suspend fun addUserTab(uri: Uri) {
-        val fileName = getFileName(uri) ?: "user_tab_${UUID.randomUUID()}"
-        val file = File(context.filesDir, "${UUID.randomUUID()}.gp")
+    override suspend fun addUserTab(uriString: String) {
+        val uri = Uri.parse(uriString)
+        val fileName = getFileName(uri) ?: context.getString(
+            R.string.user_tab_default_name,
+            UUID.randomUUID().toString()
+        )
+        val file = File(context.filesDir, "${UUID.randomUUID()}.$UserTabFileExtension")
         context.contentResolver.openInputStream(uri)?.use { inputStream ->
             FileOutputStream(file).use { outputStream ->
                 inputStream.copyTo(outputStream)
             }
         }
 
-        val asciiTabs = "Parsed ASCII tabs for $fileName"
+        val asciiTabs = context.getString(R.string.user_tab_ascii_placeholder, fileName)
 
         val tabItem = TabItem(
             id = UUID.randomUUID().toString(),
             name = fileName,
-            description = "User Tab",
+            description = context.getString(R.string.user_tab_description),
             difficulty = Difficulty.BEGINNER,
             lessonNumber = 0,
             isCompleted = false,

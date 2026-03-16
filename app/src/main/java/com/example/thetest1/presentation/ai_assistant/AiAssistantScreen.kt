@@ -47,9 +47,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.thetest1.R
-import com.example.thetest1.data.model.Lesson
 import com.example.thetest1.di.ViewModelFactory
+import com.example.thetest1.domain.model.Lesson
+import com.example.thetest1.presentation.common.asString
 import com.example.thetest1.presentation.components.MarkdownView
+
+private const val MeasurePrefix = "Measure "
 
 @Composable
 fun AiAssistantScreen(
@@ -93,14 +96,14 @@ fun AiAssistantScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                val options = listOf("Вся пісня", "Вибрати такти")
-                options.forEachIndexed { index, label ->
+                val options = listOf(R.string.ai_full_context, R.string.ai_select_measures)
+                options.forEachIndexed { index, labelRes ->
                     SegmentedButton(
                         selected = if (index == 0) isFullContext else !isFullContext,
                         onClick = { isFullContext = index == 0 },
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size)
                     ) {
-                        Text(label)
+                        Text(stringResource(labelRes))
                     }
                 }
             }
@@ -111,8 +114,16 @@ fun AiAssistantScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Від: ${measureRange.start.toInt()}", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                        Text("До: ${measureRange.endInclusive.toInt()}", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                        Text(
+                            stringResource(R.string.measure_from, measureRange.start.toInt()),
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            stringResource(R.string.measure_to, measureRange.endInclusive.toInt()),
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp
+                        )
                     }
                     RangeSlider(
                         value = measureRange,
@@ -156,13 +167,13 @@ fun AiAssistantScreen(
                         val tabsToSend = if (isFullContext || compactTabs == null) {
                             asciiTab ?: lesson.tabsAscii
                         } else {
-                            val sliced = compactTabs.split("Measure ")
+                            val sliced = compactTabs.split(MeasurePrefix)
                                 .filter { it.isNotBlank() }
                                 .filter {
                                     val idx = it.substringBefore(":").toIntOrNull()
                                     idx != null && idx in mRange!!
                                 }
-                                .map { "Measure $it" }
+                                .map { "$MeasurePrefix$it" }
                                 .joinToString("")
                             if (sliced.isBlank()) asciiTab ?: lesson.tabsAscii else sliced
                         }
@@ -195,7 +206,11 @@ fun ChatMessageItem(message: ChatMessage) {
     ) {
         Row(verticalAlignment = Alignment.Top) {
             val icon = if (isUser) Icons.Filled.Person else Icons.Filled.SmartToy
-            val contentDescription = if (isUser) "User Icon" else "AI Icon"
+            val contentDescription = if (isUser) {
+                stringResource(R.string.user_icon_description)
+            } else {
+                stringResource(R.string.ai_icon_description)
+            }
 
             Icon(
                 imageVector = icon,
@@ -205,7 +220,7 @@ fun ChatMessageItem(message: ChatMessage) {
             )
             Spacer(modifier = Modifier.width(8.dp))
             Column {
-                MarkdownView(markdown = message.text)
+                MarkdownView(markdown = message.text.asString())
             }
         }
     }

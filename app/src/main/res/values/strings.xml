@@ -62,6 +62,13 @@
     <string name="custom">Користувацька</string>
     <string name="ask_question_hint">Поставте питання...</string>
     <string name="send">Надіслати</string>
+    <string name="ai_full_context">Вся пісня</string>
+    <string name="ai_select_measures">Вибрати такти</string>
+    <string name="measure_from">Від: %1$d</string>
+    <string name="measure_to">До: %1$d</string>
+    <string name="user_icon_description">Іконка користувача</string>
+    <string name="ai_icon_description">Іконка AI</string>
+    <string name="ai_error_generic">Сталася помилка. Спробуйте ще раз.</string>
     <string name="profile_picture_description">Profile picture</string>
     <string name="add_tab">Додати табулатуру</string>
     <string name="my_tabs_tab">Мої табулатури</string>
@@ -72,6 +79,9 @@
     <string name="rename">Перейменувати</string>
     <string name="completed_this_level">Пройдено на цьому рівні: %1$d з %2$d</string>
     <string name="total_progress">Загальний прогрес: %1$d з %2$d</string>
+    <string name="user_tab_default_name">Таб користувача %1$s</string>
+    <string name="user_tab_description">Користувацька табулатура</string>
+    <string name="user_tab_ascii_placeholder">ASCII таби для %1$s</string>
     <string name="settings">Налаштування</string>
     <string name="fingering">Аплікатура</string>
     <string name="left_hand">Ліва рука</string>

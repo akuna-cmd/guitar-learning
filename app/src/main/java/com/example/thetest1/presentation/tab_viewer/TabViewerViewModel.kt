@@ -5,7 +5,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.thetest1.data.model.Lesson
+import com.example.thetest1.domain.model.Lesson
 import com.example.thetest1.domain.model.AudioNote
 import com.example.thetest1.domain.model.TextNote
 import com.example.thetest1.domain.usecase.AddAudioNoteUseCase

@@ -5,17 +5,22 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
+import com.example.thetest1.BuildConfig
 import com.example.thetest1.data.local.AppDatabase
+import com.example.thetest1.data.remote.AiAssistantConfig
 import com.example.thetest1.data.repository.AudioNoteRepositoryImpl
+import com.example.thetest1.data.repository.AiAssistantRepositoryImpl
 import com.example.thetest1.data.repository.GoalRepositoryImpl
 import com.example.thetest1.data.repository.SessionRepositoryImpl
 import com.example.thetest1.data.repository.TabRepositoryImpl
 import com.example.thetest1.data.repository.TextNoteRepositoryImpl
+import com.example.thetest1.domain.repository.AiAssistantRepository
 import com.example.thetest1.domain.repository.AudioNoteRepository
 import com.example.thetest1.domain.repository.GoalRepository
 import com.example.thetest1.domain.repository.SessionRepository
 import com.example.thetest1.domain.repository.TabRepository
 import com.example.thetest1.domain.repository.TextNoteRepository
+import com.example.thetest1.domain.usecase.AskAiAssistantUseCase
 import com.example.thetest1.domain.usecase.AddAudioNoteUseCase
 import com.example.thetest1.domain.usecase.AddGoalUseCase
 import com.example.thetest1.domain.usecase.AddSessionUseCase
@@ -37,10 +42,12 @@ import com.example.thetest1.domain.usecase.GetTextNotesUseCase
 import com.example.thetest1.domain.usecase.GetTotalLessonsCountUseCase
 import com.example.thetest1.domain.usecase.GetUserTabsCountUseCase
 import com.example.thetest1.domain.usecase.GetUserTabsUseCase
+import com.example.thetest1.domain.usecase.ObserveGoalsProgressUseCase
 import com.example.thetest1.domain.usecase.RenameUserTabUseCase
 import com.example.thetest1.domain.usecase.UpdateGoalUseCase
 import com.example.thetest1.domain.usecase.UpdateTabUseCase
 import com.example.thetest1.domain.usecase.UpdateTextNoteUseCase
+import com.google.ai.client.generativeai.GenerativeModel
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
@@ -60,6 +67,14 @@ class AppContainer(val context: Context) {
     private val goalDao by lazy { appDatabase.goalDao() }
 
     private val tabRepository: TabRepository by lazy { TabRepositoryImpl(context, tabDao) }
+    private val aiAssistantRepository: AiAssistantRepository by lazy {
+        AiAssistantRepositoryImpl(
+            GenerativeModel(
+                modelName = AiAssistantConfig.ModelName,
+                apiKey = BuildConfig.GEMINI_API_KEY
+            )
+        )
+    }
     private val audioNoteRepository: AudioNoteRepository by lazy {
         AudioNoteRepositoryImpl(
             audioNoteDao
@@ -84,6 +99,7 @@ class AppContainer(val context: Context) {
     private val deleteUserTabUseCase by lazy { DeleteUserTabUseCase(tabRepository) }
     private val renameUserTabUseCase by lazy { RenameUserTabUseCase(tabRepository) }
     private val getUserTabsCountUseCase by lazy { GetUserTabsCountUseCase(tabRepository) }
+    private val askAiAssistantUseCase by lazy { AskAiAssistantUseCase(aiAssistantRepository) }
 
     private val getAudioNotesUseCase by lazy { GetAudioNotesUseCase(audioNoteRepository) }
     private val addAudioNoteUseCase by lazy { AddAudioNoteUseCase(audioNoteRepository) }
@@ -106,6 +122,13 @@ class AppContainer(val context: Context) {
     private val addGoalUseCase by lazy { AddGoalUseCase(goalRepository) }
     private val updateGoalUseCase by lazy { UpdateGoalUseCase(goalRepository) }
     private val deleteGoalUseCase by lazy { DeleteGoalUseCase(goalRepository) }
+    private val observeGoalsProgressUseCase by lazy {
+        ObserveGoalsProgressUseCase(
+            getGoalsUseCase = getGoalsUseCase,
+            getCompletedLessonsCountUseCase = getCompletedLessonsCountUseCase,
+            getAllSessionsUseCase = getAllSessionsUseCase
+        )
+    }
 
     val viewModelFactory: ViewModelFactory by lazy {
         ViewModelFactory(
@@ -132,10 +155,11 @@ class AppContainer(val context: Context) {
             deleteUserTabUseCase = deleteUserTabUseCase,
             renameUserTabUseCase = renameUserTabUseCase,
             getUserTabsCountUseCase = getUserTabsCountUseCase,
-            getGoalsUseCase = getGoalsUseCase,
             addGoalUseCase = addGoalUseCase,
             updateGoalUseCase = updateGoalUseCase,
-            deleteGoalUseCase = deleteGoalUseCase
+            deleteGoalUseCase = deleteGoalUseCase,
+            askAiAssistantUseCase = askAiAssistantUseCase,
+            observeGoalsProgressUseCase = observeGoalsProgressUseCase
         )
     }
 }

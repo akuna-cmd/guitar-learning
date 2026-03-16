@@ -86,7 +86,7 @@ class TabListViewModel(
 
     fun addUserTab(uri: Uri) {
         viewModelScope.launch {
-            addUserTabUseCase(uri)
+            addUserTabUseCase(uri.toString())
             loadUserTabs()
         }
     }
