@@ -4,18 +4,25 @@ import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,12 +36,16 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.thetest1.R
 import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.presentation.auth.AuthViewModel
 import com.example.thetest1.presentation.main.ThemeMode
 import com.example.thetest1.presentation.main.ThemeViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(viewModelFactory: ViewModelFactory) {
@@ -83,20 +94,143 @@ fun SettingsScreen(viewModelFactory: ViewModelFactory) {
         }
 
         item {
-            SettingsSection(title = "Швидкість за замовчуванням (Звичайна гра)") {
-                listOf(0.1f, 0.5f, 0.75f, 1f, 1.5f, 2f).forEach { speed ->
-                    SettingsOptionsRow("${speed}x", uiState.normalSpeed == speed) { themeViewModel.setNormalSpeed(speed) }
-                }
+            SettingsSection(title = stringResource(R.string.settings_mode_normal)) {
+                CompactSpeedScale(
+                    speed = uiState.normalSpeed,
+                    scale = uiState.normalTabScale,
+                    onSpeedChange = themeViewModel::setNormalSpeed,
+                    onScaleChange = themeViewModel::setNormalTabScale
+                )
             }
         }
 
         item {
-            SettingsSection(title = "Швидкість за замовчуванням (Режим розбору)") {
-                listOf(0.1f, 0.25f, 0.5f, 0.75f, 1f).forEach { speed ->
-                    SettingsOptionsRow("${speed}x", uiState.practiceSpeed == speed) { themeViewModel.setPracticeSpeed(speed) }
-                }
+            SettingsSection(title = stringResource(R.string.settings_mode_practice)) {
+                CompactSpeedScale(
+                    speed = uiState.practiceSpeed,
+                    scale = uiState.practiceTabScale,
+                    onSpeedChange = themeViewModel::setPracticeSpeed,
+                    onScaleChange = themeViewModel::setPracticeTabScale
+                )
             }
         }
+    }
+}
+
+private fun speedString(speed: Float): String {
+    return String.format("%.1f", speed).replace(',', '.')
+}
+
+private fun stepSpeed(value: Float, delta: Float): Float {
+    val stepped = ((value + delta) * 10f).toInt() / 10f
+    return stepped.coerceIn(0.1f, 2.5f)
+}
+
+private fun scaleString(scale: Float): String {
+    return String.format("%.1f", scale).replace(',', '.')
+}
+
+private fun stepScale(value: Float, delta: Float): Float {
+    val stepped = ((value + delta) * 10f).toInt() / 10f
+    return stepped.coerceIn(0.5f, 2.0f)
+}
+
+@Composable
+private fun CompactSpeedScale(
+    speed: Float,
+    scale: Float,
+    onSpeedChange: (Float) -> Unit,
+    onScaleChange: (Float) -> Unit
+) {
+    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Speed,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(text = stringResource(R.string.speed_value_format, speedString(speed)))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HoldableIconButton(
+                    onClick = { onSpeedChange(stepSpeed(speed, -0.1f)) },
+                    contentDescription = stringResource(R.string.speed_decrease),
+                    icon = Icons.Default.Remove
+                )
+                HoldableIconButton(
+                    onClick = { onSpeedChange(stepSpeed(speed, 0.1f)) },
+                    contentDescription = stringResource(R.string.speed_increase),
+                    icon = Icons.Default.Add
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.ZoomIn,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(text = stringResource(R.string.scale_value_format, scaleString(scale)))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HoldableIconButton(
+                    onClick = { onScaleChange(stepScale(scale, -0.1f)) },
+                    contentDescription = stringResource(R.string.scale_decrease),
+                    icon = Icons.Default.Remove
+                )
+                HoldableIconButton(
+                    onClick = { onScaleChange(stepScale(scale, 0.1f)) },
+                    contentDescription = stringResource(R.string.scale_increase),
+                    icon = Icons.Default.Add
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HoldableIconButton(
+    onClick: () -> Unit,
+    contentDescription: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    val scope = rememberCoroutineScope()
+    var job by remember { mutableStateOf<Job?>(null) }
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(36.dp)
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val down = awaitFirstDown()
+                        job?.cancel()
+                        job = scope.launch {
+                            delay(250)
+                            while (down.pressed) {
+                                onClick()
+                                delay(80)
+                            }
+                        }
+                        waitForUpOrCancellation()
+                        job?.cancel()
+                    }
+                }
+            }
+    ) {
+        Icon(imageVector = icon, contentDescription = contentDescription)
     }
 }
 

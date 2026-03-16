@@ -34,11 +34,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -60,13 +64,17 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,6 +82,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -88,6 +97,9 @@ import com.example.thetest1.presentation.main.MainViewModel
 import com.example.thetest1.presentation.notes.NotesScreen
 import com.example.thetest1.presentation.theory.TheoryScreen
 import com.example.thetest1.presentation.main.ThemeViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -130,7 +142,10 @@ fun TabViewerScreen(
     var loopStartMeasure by remember { mutableStateOf(1) }
     var loopEndMeasure by remember { mutableStateOf(1) }
     var isLoopEnabled by remember { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val aiSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val notesSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val loopSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val tabScaleOverrides = remember { mutableStateMapOf<String, Float>() }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -193,6 +208,12 @@ fun TabViewerScreen(
             Column(modifier = Modifier.padding(padding)) {
                 var isPracticeMode by remember { mutableStateOf(false) }
                 var currentSpeed by remember(isPracticeMode) { mutableStateOf(if (isPracticeMode) themeUiState.practiceSpeed else themeUiState.normalSpeed) }
+                val defaultScale = if (isPracticeMode) themeUiState.practiceTabScale else themeUiState.normalTabScale
+                var currentScale by remember(isPracticeMode, uiState.lesson?.id, defaultScale) {
+                    mutableStateOf(
+                        uiState.lesson?.id?.let { tabScaleOverrides[it] } ?: defaultScale
+                    )
+                }
                 Column(modifier = Modifier.fillMaxSize()) {
                     // ─── Mode Toggle ───────────────────────────
                     Row(
@@ -231,6 +252,11 @@ fun TabViewerScreen(
                         onAsciiTabGenerated = { ascii -> viewModel.setAsciiTab(ascii) },
                         onTabAnalysis = { analysis -> viewModel.setTabAnalysis(analysis) },
                         onCompactTabsGenerated = { tabs -> viewModel.setCompactTabs(tabs) },
+                        currentScale = currentScale,
+                        onScaleChange = { scale ->
+                            currentScale = scale
+                            uiState.lesson?.id?.let { tabScaleOverrides[it] = scale }
+                        },
                         loopStartMeasure = loopStartMeasure,
                         loopEndMeasure = loopEndMeasure,
                         isLoopEnabled = isLoopEnabled,
@@ -261,9 +287,15 @@ fun TabViewerScreen(
                 if (showAiSheet) {
                     ModalBottomSheet(
                         onDismissRequest = { showAiSheet = false },
-                        sheetState = sheetState
+                        sheetState = aiSheetState,
+                        containerColor = MaterialTheme.colorScheme.surface
                     ) {
-                        Box(modifier = Modifier.fillMaxHeight(0.9f).imePadding()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight(0.95f)
+                                .imePadding()
+                                .background(MaterialTheme.colorScheme.surface)
+                        ) {
                             AiAssistantScreen(
                                 lesson = uiState.lesson!!,
                                 viewModelFactory = viewModelFactory,
@@ -278,9 +310,9 @@ fun TabViewerScreen(
                 if (showNotesSheet) {
                     ModalBottomSheet(
                         onDismissRequest = { showNotesSheet = false },
-                        sheetState = sheetState
+                        sheetState = notesSheetState
                     ) {
-                        Box(modifier = Modifier.fillMaxHeight(0.9f).imePadding()) {
+                        Box(modifier = Modifier.fillMaxHeight(0.95f).imePadding()) {
                             NotesScreen(
                             audioNotes = uiState.audioNotes,
                             textNotes = uiState.textNotes,
@@ -302,7 +334,7 @@ fun TabViewerScreen(
                 if (showLoopSheet) {
                     ModalBottomSheet(
                         onDismissRequest = { showLoopSheet = false },
-                        sheetState = sheetState
+                        sheetState = loopSheetState
                     ) {
                         Box(modifier = Modifier.fillMaxWidth().imePadding()) {
                             LoopConfigurator(
@@ -330,6 +362,8 @@ private fun TabViewer(
     isPracticeMode: Boolean,
     currentSpeed: Float,
     onSpeedChange: (Float) -> Unit,
+    currentScale: Float,
+    onScaleChange: (Float) -> Unit,
     themeUiState: com.example.thetest1.presentation.main.ThemeUiState,
     isPlaying: Boolean,
     onPlayStateChange: (Boolean) -> Unit,
@@ -432,6 +466,12 @@ private fun TabViewer(
         }
     }
 
+    LaunchedEffect(currentScale, isReady) {
+        if (isReady) {
+            webView.evaluateJavascript("window.setTabScale($currentScale);", null)
+        }
+    }
+
     LaunchedEffect(isLoopEnabled, loopStartMeasure, loopEndMeasure, isReady) {
         if (isReady) {
             webView.evaluateJavascript("window.setLoopRange($loopStartMeasure, $loopEndMeasure, $isLoopEnabled);", null)
@@ -483,15 +523,13 @@ private fun TabViewer(
                 }
             }
 
-            // ─── Playback controls ────────────────────────────────
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Play / Pause
                 IconButton(onClick = {
                     webView.evaluateJavascript("window.playPause();", null)
                     onPlayStateChange(!isPlaying)
@@ -502,31 +540,27 @@ private fun TabViewer(
                     )
                 }
 
-                // Speed dropdown
-                var expanded by remember { mutableStateOf(false) }
-                val speeds = listOf(0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
-                Box {
-                    androidx.compose.material3.OutlinedButton(
-                        onClick = { expanded = true },
-                        modifier = Modifier.height(36.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp)
-                    ) {
-                        Text("${speedString(currentSpeed)}x", fontWeight = FontWeight.Bold)
-                    }
-                    androidx.compose.material3.DropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
-                    ) {
-                        speeds.forEach { speed ->
-                            androidx.compose.material3.DropdownMenuItem(
-                                text = { Text("${speedString(speed)}x") },
-                                onClick = {
-                                    onSpeedChange(speed)
-                                    expanded = false
-                                }
-                            )
-                        }
-                    }
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    SpeedScaleMenu(
+                        icon = Icons.Default.Speed,
+                        valueText = stringResource(R.string.speed_value_format, speedString(currentSpeed)),
+                        onDecrement = { onSpeedChange(stepSpeed(currentSpeed, -0.1f)) },
+                        onIncrement = { onSpeedChange(stepSpeed(currentSpeed, 0.1f)) },
+                        decrementContentDescription = stringResource(R.string.speed_decrease),
+                        incrementContentDescription = stringResource(R.string.speed_increase)
+                    )
+                    SpeedScaleMenu(
+                        icon = Icons.Default.ZoomIn,
+                        valueText = stringResource(R.string.scale_value_format, scaleString(currentScale)),
+                        onDecrement = { onScaleChange(stepScale(currentScale, -0.1f)) },
+                        onIncrement = { onScaleChange(stepScale(currentScale, 0.1f)) },
+                        decrementContentDescription = stringResource(R.string.scale_decrease),
+                        incrementContentDescription = stringResource(R.string.scale_increase)
+                    )
                 }
             }
         }
@@ -534,10 +568,101 @@ private fun TabViewer(
 }
 
 private fun speedString(speed: Float): String {
-    return if (speed % 1.0f == 0f) {
-        String.format("%.1f", speed).replace(',', '.')
-    } else {
-        speed.toString().replace(',', '.')
+    return String.format("%.1f", speed).replace(',', '.')
+}
+
+private fun stepSpeed(value: Float, delta: Float): Float {
+    val stepped = ((value + delta) * 10f).toInt() / 10f
+    return stepped.coerceIn(0.1f, 2.5f)
+}
+
+private fun scaleString(scale: Float): String {
+    return String.format("%.1f", scale).replace(',', '.')
+}
+
+private fun stepScale(value: Float, delta: Float): Float {
+    val stepped = ((value + delta) * 10f).toInt() / 10f
+    return stepped.coerceIn(0.5f, 2.0f)
+}
+
+@Composable
+private fun SpeedScaleMenu(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    valueText: String,
+    onDecrement: () -> Unit,
+    onIncrement: () -> Unit,
+    decrementContentDescription: String,
+    incrementContentDescription: String
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .clickable { expanded = true }
+                .padding(horizontal = 6.dp, vertical = 4.dp)
+        ) {
+            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(16.dp))
+            Text(text = valueText, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+        }
+        androidx.compose.material3.DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                HoldableIconButton(
+                    onClick = onDecrement,
+                    contentDescription = decrementContentDescription,
+                    icon = Icons.Default.Remove
+                )
+                Text(text = valueText, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                HoldableIconButton(
+                    onClick = onIncrement,
+                    contentDescription = incrementContentDescription,
+                    icon = Icons.Default.Add
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HoldableIconButton(
+    onClick: () -> Unit,
+    contentDescription: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    val scope = rememberCoroutineScope()
+    var job by remember { mutableStateOf<Job?>(null) }
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(32.dp)
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val down = awaitFirstDown()
+                        job?.cancel()
+                        job = scope.launch {
+                            delay(250)
+                            while (down.pressed) {
+                                onClick()
+                                delay(80)
+                            }
+                        }
+                        waitForUpOrCancellation()
+                        job?.cancel()
+                    }
+                }
+            }
+    ) {
+        Icon(imageVector = icon, contentDescription = contentDescription, modifier = Modifier.size(18.dp))
     }
 }
 

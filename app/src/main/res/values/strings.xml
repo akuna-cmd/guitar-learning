@@ -83,6 +83,16 @@
     <string name="user_tab_description">Користувацька табулатура</string>
     <string name="user_tab_ascii_placeholder">ASCII таби для %1$s</string>
     <string name="settings">Налаштування</string>
+    <string name="settings_speed_normal_title">Швидкість за замовчуванням (Звичайна гра)</string>
+    <string name="settings_speed_practice_title">Швидкість за замовчуванням (Режим розбору)</string>
+    <string name="speed_value_format">%1$sx</string>
+    <string name="speed_increase">Збільшити швидкість</string>
+    <string name="speed_decrease">Зменшити швидкість</string>
+    <string name="settings_mode_normal">Звичайна гра</string>
+    <string name="settings_mode_practice">Режим розбору</string>
+    <string name="scale_value_format">%1$sx</string>
+    <string name="scale_increase">Збільшити масштаб</string>
+    <string name="scale_decrease">Зменшити масштаб</string>
     <string name="fingering">Аплікатура</string>
     <string name="left_hand">Ліва рука</string>
     <string name="right_hand">Права рука</string>

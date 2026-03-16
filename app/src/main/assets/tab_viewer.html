@@ -5,7 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.3.0/dist/alphaTab.js"></script>
     <style>
-        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+        html, body { 
+            margin: 0; 
+            padding: 0; 
+            width: 100%; 
+            height: 100%; 
+            overflow: hidden; 
+            --cursor-fill: #00A3FF;
+            --cursor-stroke: #000000;
+            --cursor-glow: rgba(0, 163, 255, 0.95);
+            --cursor-bar: rgba(0, 163, 255, 0.18);
+        }
+        body.dark { 
+            --cursor-fill: #FFD400;
+            --cursor-stroke: #000000;
+            --cursor-glow: rgba(255, 212, 0, 0.95);
+            --cursor-bar: rgba(255, 212, 0, 0.22);
+        }
         #alphaTabContainer {
             width: 100%;
             height: 100vh;
@@ -13,7 +29,7 @@
             overflow-x: hidden;
         }
         #alphaTab { 
-            padding: 0 20px; 
+            padding: 0 28px 0 32px; 
             box-sizing: border-box; 
         }
         #alphaTab svg, #alphaTab canvas { 
@@ -21,22 +37,28 @@
             height: auto !important; 
             max-width: 100% !important;
             display: block;
+            overflow: visible !important;
         }
         .at-cursor-beat { 
-            background: rgba(255, 0, 0, 1) !important; 
-            fill: rgba(255, 0, 0, 1) !important; 
-            width: 6px !important; 
-            stroke: rgba(255, 0, 0, 1) !important; 
-            stroke-width: 2px !important;
-            box-shadow: 0 0 8px rgba(255, 0, 0, 1) !important; 
+            background: var(--cursor-fill) !important; 
+            fill: var(--cursor-fill) !important; 
+            width: 10px !important; 
+            stroke: var(--cursor-stroke) !important; 
+            stroke-width: 3px !important;
+            box-shadow: 0 0 10px var(--cursor-glow) !important; 
             z-index: 1000 !important; 
             opacity: 1 !important; /* Force visibility even on pause */
             visibility: visible !important;
             animation: none !important;
             transition: none !important;
+            filter: drop-shadow(0 0 6px var(--cursor-glow)) !important;
         }
         .at-cursor-bar {
-            background: rgba(103, 80, 164, 0.2) !important; /* Subtle purple tint for active measure */
+            background: var(--cursor-bar) !important;
+            stroke: var(--cursor-fill) !important;
+            stroke-width: 2px !important;
+            opacity: 1 !important;
+            visibility: visible !important;
         }
         .at-selection div { background: rgba(103, 80, 164, 0.3) !important; }
     </style>
@@ -474,7 +496,7 @@ window.setLoopRange = (startMeasure, endMeasure, isLooping) => {
 };
 
 // ── AlphaTab setup ───────────────────────────────────────
-let api=null, _poll=null, _lastTick=-1, _followCursor=true, _lastFollowAt=0;
+let api=null, _poll=null, _lastTick=-1, _followCursor=true, _lastFollowAt=0, _pendingScale=null;
 
 function signalReady(){if(window.Android?.onJsReady)window.Android.onJsReady();else setTimeout(signalReady,100);}
 function startPoller(){stopPoller();_lastTick=-1;_poll=setInterval(()=>{if(!api)return;try{const t=api.tickPosition;if(t==null||t===_lastTick)return;_lastTick=t;sendForTick(t);}catch{stopPoller();}},100);}
@@ -506,7 +528,7 @@ function initAlphaTab(){
             display:{
                 layoutMode: 0, 
                 staveProfile: 'Tab',
-                padding: [0, 60, 0, 60]
+                padding: [12, 60, 12, 60]
             },
             player:{
                 enablePlayer:true,
@@ -520,6 +542,10 @@ function initAlphaTab(){
         });
         api.scoreLoaded.on(score=>{
             setTimeout(() => runFullAnalysis(score), 400); // give UI time to animate fade-in
+            if(_pendingScale != null){
+                api.settings.display.scale = _pendingScale;
+                api.updateSettings();
+            }
         });
         api.renderFinished.on(()=>{
             if(window.Android?.onScoreLoaded) {
@@ -549,12 +575,12 @@ function initAlphaTab(){
             c.style.setProperty('display', 'block', 'important');
             c.style.setProperty('visibility', 'visible', 'important');
             c.style.setProperty('opacity', '1', 'important');
-            c.style.setProperty('fill', 'rgba(255, 0, 0, 1)', 'important');
-            c.style.setProperty('stroke', 'rgba(255, 0, 0, 1)', 'important');
-            c.style.setProperty('stroke-width', '4px', 'important');
+            c.style.setProperty('fill', 'var(--cursor-fill)', 'important');
+            c.style.setProperty('stroke', 'var(--cursor-stroke)', 'important');
+            c.style.setProperty('stroke-width', '3px', 'important');
             if(c.tagName && c.tagName.toLowerCase() === 'rect') {
-                 c.setAttribute('width', '10');
-                 c.setAttribute('rx', '2'); // slight rounding
+                 c.setAttribute('width', '12');
+                 c.setAttribute('rx', '2');
             }
         });
     }, 100);
@@ -564,6 +590,15 @@ window.loadTab=(path)=>{if(!api)initAlphaTab();api.load(path.startsWith('/')?'fi
 window.playPause=()=>{if(api)api.playPause();};
 window.stopAudio=()=>{if(api){api.stop();stopPoller();}};
 window.setPlaybackSpeed=(s)=>{if(api)api.playbackSpeed=parseFloat(s);};
+window.setTabScale=(s)=>{
+    _pendingScale = parseFloat(s);
+    if(!api) return;
+    api.settings.display.scale = _pendingScale;
+    api.updateSettings();
+    if(api.score){
+        api.render();
+    }
+};
 
 initAlphaTab();
 signalReady();

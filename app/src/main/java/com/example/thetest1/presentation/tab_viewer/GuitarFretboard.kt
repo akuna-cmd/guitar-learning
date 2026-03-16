@@ -181,6 +181,7 @@ fun GuitarFretboard(
 
                 val windowRange = animatedEndFret - animatedStartFret
                 val pxPerFret = fretboardWidth / windowRange
+                val nutX = 8f
 
                 // 2. Draw Inlays
                 val singleDots = listOf(3, 5, 7, 9, 15, 17, 19, 21)
@@ -203,7 +204,7 @@ fun GuitarFretboard(
                     val fretX = (i - animatedStartFret) * pxPerFret
                     if (fretX in 0f..fretboardWidth) {
                         if (i == 0) {
-                            drawLine(color = nutColor, start = Offset(fretX + 4f, stringSpacing / 2f), end = Offset(fretX + 4f, height - stringSpacing / 2f), strokeWidth = 12f)
+                            drawLine(color = nutColor, start = Offset(fretX + nutX, stringSpacing / 2f), end = Offset(fretX + nutX, height - stringSpacing / 2f), strokeWidth = 12f)
                         } else {
                             drawLine(color = fretWireColor, start = Offset(fretX, stringSpacing / 2f), end = Offset(fretX, height - stringSpacing / 2f), strokeWidth = 4f)
                         }
@@ -219,27 +220,33 @@ fun GuitarFretboard(
                     }
                 }
 
-                // 4. Draw Strings
+                val stringOrder = listOf("e", "b", "g", "d", "A", "E")
                 for (i in 0 until totalStrings) {
                     val y = stringSpacing * (i + 1)
                     drawLine(
                         color = stringColor,
                         start = Offset(0f, y),
                         end = Offset(width, y),
-                        strokeWidth = 2f + ((5 - i) * 0.8f)
+                        strokeWidth = 2f + (i * 0.9f)
                     )
                 }
 
-                fun getStringY(stringName: String?): Float {
-                    val idx = when (stringName) {
-                        "E", "E4", "1" -> 5
-                        "B", "B3", "2" -> 4
-                        "G", "G3", "3" -> 3
-                        "D", "D3", "4" -> 2
-                        "A", "A2", "5" -> 1
-                        "E2", "6" -> 0
+                fun getStringIndex(stringName: String?): Int {
+                    if (stringName == "E") return 5
+                    val normalized = stringName?.lowercase()
+                    return when (normalized) {
+                        "e", "1" -> 5
+                        "b", "2" -> 4
+                        "g", "3" -> 3
+                        "d", "4" -> 2
+                        "a", "5" -> 1
+                        "e2", "6" -> 0
                         else -> 0
                     }
+                }
+
+                fun getStringY(stringName: String?): Float {
+                    val idx = getStringIndex(stringName)
                     return stringSpacing * (idx + 1)
                 }
 
@@ -270,18 +277,39 @@ fun GuitarFretboard(
                     }
                 }
 
+                val fretLabelStyle = TextStyle(color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                val openTextStyle = TextStyle(color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+
                 // 7. Draw Active Notes
                 activeNotes.forEach { (note, dotColor) ->
                     val fretNum = note.fret?.toIntOrNull()
+                    val stringIndex = getStringIndex(note.string)
                     val y = getStringY(note.string)
 
                     if (fretNum != null && fretNum > 0) {
                         val fretX = (fretNum - animatedStartFret - 0.5f) * pxPerFret
                         if (fretX in -50f..(fretboardWidth + 50f)) {
                             drawCircle(color = dotColor, radius = 24f, center = Offset(fretX, y))
-                            fingerNumberLayouts[note.finger]?.let { textRes ->
-                                drawText(textLayoutResult = textRes, topLeft = Offset(fretX - textRes.size.width / 2f, y - textRes.size.height / 2f))
-                            }
+                            drawCircle(color = Color.Black.copy(alpha = 0.6f), radius = 24f, center = Offset(fretX, y), style = Stroke(width = 2f))
+                            val fingerLabel = note.finger
+                            val fingerText = textMeasurer.measure(fingerLabel, fingerNumberStyle)
+                            drawText(
+                                textLayoutResult = fingerText,
+                                topLeft = Offset(fretX - fingerText.size.width / 2f, y - fingerText.size.height / 2f)
+                            )
+                            val fretLabel = fretNum.toString()
+                            val fretText = textMeasurer.measure(fretLabel, fretLabelStyle)
+                            val badgeX = fretX + 18f
+                            drawRoundRect(
+                                color = Color.White,
+                                topLeft = Offset(badgeX - fretText.size.width / 2f - 4f, y - 34f),
+                                size = Size(fretText.size.width + 8f, fretText.size.height + 4f),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(8f, 8f)
+                            )
+                            drawText(
+                                textLayoutResult = fretText,
+                                topLeft = Offset(badgeX - fretText.size.width / 2f, y - 32f)
+                            )
 
                             // Articulations - these are small and rare, keep simple or cache if needed
                             if (note.isHammer) drawText(textMeasurer.measure("H", TextStyle(color = Color(0xFF81C784), fontSize = 12.sp, fontWeight = FontWeight.Bold)), topLeft = Offset(fretX - 10f, y - 36f))
@@ -289,9 +317,14 @@ fun GuitarFretboard(
                             if (note.isVibrato) drawText(textMeasurer.measure("~~~", TextStyle(color = Color(0xFFE57373), fontSize = 12.sp, fontWeight = FontWeight.Bold)), topLeft = Offset(fretX + 26f, y - 10f))
                         }
                     } else if (fretNum == 0) {
-                        drawCircle(color = dotColor, radius = 16f, center = Offset(20f, y), style = Stroke(width = 6f))
+                        val openX = nutX + 10f
+                        drawCircle(color = Color.White, radius = 16f, center = Offset(openX, y))
+                        drawCircle(color = dotColor, radius = 16f, center = Offset(openX, y), style = Stroke(width = 4f))
+                        drawCircle(color = Color.Black.copy(alpha = 0.7f), radius = 16f, center = Offset(openX, y), style = Stroke(width = 1.5f))
+                        val openText = textMeasurer.measure("0", openTextStyle)
+                        drawText(textLayoutResult = openText, topLeft = Offset(openX - openText.size.width / 2f, y - openText.size.height / 2f))
                     } else if (note.fret?.lowercase() == "x") {
-                        val fretX = if (targetStartFret > 0) 40f else ((1 - animatedStartFret - 0.5f) * pxPerFret).coerceAtLeast(30f)
+                        val fretX = nutX + 22f
                         drawLine(color = Color.Gray, start = Offset(fretX - 12f, y - 12f), end = Offset(fretX + 12f, y + 12f), strokeWidth = 6f, cap = StrokeCap.Round)
                         drawLine(color = Color.Gray, start = Offset(fretX - 12f, y + 12f), end = Offset(fretX + 12f, y - 12f), strokeWidth = 6f, cap = StrokeCap.Round)
                     }
