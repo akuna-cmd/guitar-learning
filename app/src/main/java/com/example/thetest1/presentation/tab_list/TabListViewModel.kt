@@ -11,9 +11,13 @@ import com.example.thetest1.domain.usecase.GetTabsUseCase
 import com.example.thetest1.domain.usecase.GetUserTabsUseCase
 import com.example.thetest1.domain.usecase.RenameUserTabUseCase
 import com.example.thetest1.domain.usecase.UpdateTabUseCase
+import com.example.thetest1.domain.usecase.GetAllSessionsUseCase
+import com.example.thetest1.domain.usecase.ObserveTabPlaybackProgressUseCase
+import com.example.thetest1.domain.model.TabPlaybackProgress
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -21,7 +25,9 @@ data class TabListUiState(
     val tabs: List<TabItem> = emptyList(),
     val userTabs: List<TabItem> = emptyList(),
     val selectedDifficulty: Difficulty = Difficulty.BEGINNER,
-    val selectedTabIndex: Int = 0
+    val selectedTabIndex: Int = 0,
+    val progressByTabId: Map<String, Int> = emptyMap(),
+    val lastSessionDurationByTabId: Map<String, Long> = emptyMap()
 ) {
     val filteredTabs: List<TabItem>
         get() = tabs.filter { it.difficulty == selectedDifficulty }
@@ -48,7 +54,9 @@ class TabListViewModel(
     private val getUserTabsUseCase: GetUserTabsUseCase,
     private val addUserTabUseCase: AddUserTabUseCase,
     private val deleteUserTabUseCase: DeleteUserTabUseCase,
-    private val renameUserTabUseCase: RenameUserTabUseCase
+    private val renameUserTabUseCase: RenameUserTabUseCase,
+    private val getAllSessionsUseCase: GetAllSessionsUseCase,
+    private val observeTabPlaybackProgressUseCase: ObserveTabPlaybackProgressUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TabListUiState())
@@ -57,6 +65,7 @@ class TabListViewModel(
     init {
         loadTabs()
         loadUserTabs()
+        observeTabMetrics()
     }
 
     fun selectDifficulty(difficulty: Difficulty) {
@@ -117,5 +126,46 @@ class TabListViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(userTabs = getUserTabsUseCase()) }
         }
+    }
+
+    private fun observeTabMetrics() {
+        viewModelScope.launch {
+            combine(
+                getAllSessionsUseCase(),
+                observeTabPlaybackProgressUseCase()
+            ) { sessions, progressList ->
+                val progressMap = progressList.associate { progress ->
+                    progress.tabId to calculateProgressPercent(progress)
+                }
+                val lastSessionDurationMap = buildLastSessionDurationMap(sessions)
+                progressMap to lastSessionDurationMap
+            }.collect { (progressMap, lastSessionDurationMap) ->
+                _uiState.update {
+                    it.copy(
+                        progressByTabId = progressMap,
+                        lastSessionDurationByTabId = lastSessionDurationMap
+                    )
+                }
+            }
+        }
+    }
+
+    private fun calculateProgressPercent(progress: TabPlaybackProgress): Int {
+        if (progress.totalBars <= 0) return 0
+        return ((progress.lastBarIndex.toFloat() / progress.totalBars.toFloat()) * 100f).toInt()
+            .coerceIn(0, 100)
+    }
+
+    private fun buildLastSessionDurationMap(sessions: List<com.example.thetest1.domain.model.Session>): Map<String, Long> {
+        val sorted = sessions.sortedByDescending { it.startTime.time }
+        val map = mutableMapOf<String, Long>()
+        sorted.forEach { session ->
+            session.practicedTabs.forEach { tab ->
+                if (!map.containsKey(tab.tabId)) {
+                    map[tab.tabId] = tab.duration
+                }
+            }
+        }
+        return map
     }
 }

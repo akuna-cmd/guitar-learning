@@ -13,6 +13,7 @@ import android.webkit.WebViewClient
 import androidx.webkit.WebViewAssetLoader
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,16 +39,19 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.NoteAdd
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ZoomIn
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -55,6 +59,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
@@ -88,6 +94,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -169,41 +176,6 @@ fun TabViewerScreen(
                         Icon(Icons.Filled.ArrowBack, contentDescription = stringResource(id = R.string.back_arrow))
                     }
                 },
-                actions = {
-                    var expandedMenu by remember { mutableStateOf(false) }
-                    IconButton(onClick = { expandedMenu = true }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "Меню")
-                    }
-                    androidx.compose.material3.DropdownMenu(
-                        expanded = expandedMenu,
-                        onDismissRequest = { expandedMenu = false }
-                    ) {
-                        androidx.compose.material3.DropdownMenuItem(
-                            text = { Text("Нотатки") },
-                            leadingIcon = { Icon(Icons.Filled.NoteAdd, contentDescription = null) },
-                            onClick = {
-                                expandedMenu = false
-                                showNotesSheet = true
-                            }
-                        )
-                        androidx.compose.material3.DropdownMenuItem(
-                            text = { Text("Зациклити") },
-                            leadingIcon = { Icon(Icons.Filled.Repeat, contentDescription = null) },
-                            onClick = {
-                                expandedMenu = false
-                                showLoopSheet = true
-                            }
-                        )
-                        androidx.compose.material3.DropdownMenuItem(
-                            text = { Text("AI помічник") },
-                            leadingIcon = { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
-                            onClick = {
-                                expandedMenu = false
-                                showAiSheet = true
-                            }
-                        )
-                    }
-                },
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
@@ -232,8 +204,9 @@ fun TabViewerScreen(
                         val modes = listOf(false to "Звичайна гра", true to "Режим розбору")
                         modes.forEach { (practice, label) ->
                             val selected = isPracticeMode == practice
-                            Box(
-                                contentAlignment = Alignment.Center,
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 modifier = Modifier
                                     .padding(horizontal = 4.dp)
                                     .clip(RoundedCornerShape(16.dp))
@@ -241,6 +214,14 @@ fun TabViewerScreen(
                                     .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
                                     .padding(horizontal = 16.dp, vertical = 8.dp)
                             ) {
+                                Icon(
+                                    imageVector = if (practice) Icons.Filled.Tune else Icons.Filled.SportsEsports,
+                                    contentDescription = stringResource(
+                                        if (practice) R.string.mode_practice_icon_desc else R.string.mode_normal_icon_desc
+                                    ),
+                                    tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
+                                )
                                 Text(label, color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                             }
                         }
@@ -262,6 +243,7 @@ fun TabViewerScreen(
                         lastTickPosition = uiState.lastTickPosition,
                         lastBarIndex = uiState.lastBarIndex,
                         totalBars = uiState.totalBars,
+                        restorePending = uiState.restorePending,
                         wasPlaying = uiState.wasPlaying,
                         onTickPosition = { tick, playing -> viewModel.updatePlaybackState(tick, playing) },
                         onPlaybackProgress = { tick, playing, barIndex, totalBars ->
@@ -288,6 +270,9 @@ fun TabViewerScreen(
                             currentScale = scale
                             uiState.lesson?.id?.let { tabScaleOverrides[it] = scale }
                         },
+                        onOpenAiAssistant = { showAiSheet = true },
+                        onOpenNotes = { showNotesSheet = true },
+                        onOpenLoop = { showLoopSheet = true },
                         loopStartMeasure = loopStartMeasure,
                         loopEndMeasure = loopEndMeasure,
                         isLoopEnabled = isLoopEnabled,
@@ -385,6 +370,7 @@ fun TabViewerScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun TabViewer(
@@ -400,11 +386,15 @@ private fun TabViewer(
     lastTickPosition: Long?,
     lastBarIndex: Int?,
     totalBars: Int?,
+    restorePending: Boolean,
     wasPlaying: Boolean,
     onTickPosition: (Long, Boolean) -> Unit,
     onPlaybackProgress: (Long, Boolean, Int, Int) -> Unit,
     currentScale: Float,
     onScaleChange: (Float) -> Unit,
+    onOpenAiAssistant: () -> Unit,
+    onOpenNotes: () -> Unit,
+    onOpenLoop: () -> Unit,
     themeUiState: com.example.thetest1.presentation.main.ThemeUiState,
     isPlaying: Boolean,
     onPlayStateChange: (Boolean) -> Unit,
@@ -434,6 +424,10 @@ private fun TabViewer(
     var isReady    by remember { mutableStateOf(false) }
     var isScoreLoaded by remember { mutableStateOf(false) }
     var totalBars by remember { mutableStateOf(0) }
+    var showDisplaySheet by remember { mutableStateOf(false) }
+    var showLearningSheet by remember { mutableStateOf(false) }
+    val displaySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val learningSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     
     val webView = remember {
         WebView(context).apply {
@@ -559,8 +553,8 @@ private fun TabViewer(
         }
     }
 
-    LaunchedEffect(lastTickPosition, lastBarIndex, totalBars, wasPlaying, isReady) {
-        if (isReady) {
+    LaunchedEffect(lastTickPosition, lastBarIndex, totalBars, wasPlaying, restorePending, isReady) {
+        if (isReady && restorePending) {
             val tick = lastTickPosition ?: 0L
             val barIndex = lastBarIndex ?: -1
             val playFlag = if (wasPlaying) "true" else "false"
@@ -647,48 +641,112 @@ private fun TabViewer(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.Start
             ) {
-                IconButton(onClick = {
-                    webView.evaluateJavascript("window.playPause();", null)
-                    onPlayStateChange(!isPlaying)
-                }) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = null
-                    )
-                }
+                RoundControlButton(
+                    onClick = {
+                        webView.evaluateJavascript("window.playPause();", null)
+                        onPlayStateChange(!isPlaying)
+                    },
+                    icon = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
+                    backgroundColor = MaterialTheme.colorScheme.primaryContainer,
+                    iconTint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
 
                 Row(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Start
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    TabDisplayModeMenu(
-                        currentMode = tabDisplayMode,
-                        onModeChange = onTabDisplayModeChange
+                    RoundControlButton(
+                        onClick = { showDisplaySheet = true },
+                        icon = Icons.Filled.Visibility,
+                        contentDescription = stringResource(R.string.display_controls),
+                        backgroundColor = MaterialTheme.colorScheme.secondaryContainer,
+                        iconTint = MaterialTheme.colorScheme.onSecondaryContainer
                     )
-                    SpeedScaleMenu(
-                        icon = Icons.Default.Speed,
-                        valueText = stringResource(R.string.speed_value_format, speedString(currentSpeed)),
-                        onDecrement = { onSpeedChange(stepSpeed(currentSpeed, -0.1f)) },
-                        onIncrement = { onSpeedChange(stepSpeed(currentSpeed, 0.1f)) },
-                        decrementContentDescription = stringResource(R.string.speed_decrease),
-                        incrementContentDescription = stringResource(R.string.speed_increase)
-                    )
-                    SpeedScaleMenu(
-                        icon = Icons.Default.ZoomIn,
-                        valueText = stringResource(R.string.scale_value_format, scaleString(currentScale)),
-                        onDecrement = { onScaleChange(stepScale(currentScale, -0.1f)) },
-                        onIncrement = { onScaleChange(stepScale(currentScale, 0.1f)) },
-                        decrementContentDescription = stringResource(R.string.scale_decrease),
-                        incrementContentDescription = stringResource(R.string.scale_increase)
+                    RoundControlButton(
+                        onClick = { showLearningSheet = true },
+                        icon = Icons.Filled.School,
+                        contentDescription = stringResource(R.string.learning_controls),
+                        backgroundColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        iconTint = MaterialTheme.colorScheme.onTertiaryContainer
                     )
                 }
             }
         }
+    }
+
+    if (showDisplaySheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showDisplaySheet = false },
+            sheetState = displaySheetState
+        ) {
+            DisplayControlsSheet(
+                currentSpeed = currentSpeed,
+                currentScale = currentScale,
+                tabDisplayMode = tabDisplayMode,
+                onSpeedChange = onSpeedChange,
+                onScaleChange = onScaleChange,
+                onTabDisplayModeChange = onTabDisplayModeChange
+            )
+        }
+    }
+
+    if (showLearningSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showLearningSheet = false },
+            sheetState = learningSheetState
+        ) {
+            LearningControlsSheet(
+                onOpenAiAssistant = {
+                    showLearningSheet = false
+                    onOpenAiAssistant()
+                },
+                onOpenNotes = {
+                    showLearningSheet = false
+                    onOpenNotes()
+                },
+                onOpenLoop = {
+                    showLearningSheet = false
+                    onOpenLoop()
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun RoundControlButton(
+    onClick: () -> Unit,
+    icon: ImageVector,
+    contentDescription: String,
+    backgroundColor: Color,
+    iconTint: Color
+) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(backgroundColor)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = iconTint,
+            modifier = Modifier.size(22.dp)
+        )
     }
 }
 
@@ -703,6 +761,91 @@ private fun stepSpeed(value: Float, delta: Float): Float {
 
 private fun scaleString(scale: Float): String {
     return String.format("%.1f", scale).replace(',', '.')
+}
+
+@Composable
+private fun DisplayControlsSheet(
+    currentSpeed: Float,
+    currentScale: Float,
+    tabDisplayMode: TabDisplayMode,
+    onSpeedChange: (Float) -> Unit,
+    onScaleChange: (Float) -> Unit,
+    onTabDisplayModeChange: (TabDisplayMode) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(text = stringResource(R.string.display_controls), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Default.Speed, contentDescription = null)
+            Text(text = stringResource(R.string.speed_value_format, speedString(currentSpeed)), modifier = Modifier.weight(1f))
+            HoldableIconButton(onClick = { onSpeedChange(stepSpeed(currentSpeed, -0.1f)) }, contentDescription = stringResource(R.string.speed_decrease), icon = Icons.Default.Remove)
+            HoldableIconButton(onClick = { onSpeedChange(stepSpeed(currentSpeed, 0.1f)) }, contentDescription = stringResource(R.string.speed_increase), icon = Icons.Default.Add)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Default.ZoomIn, contentDescription = null)
+            Text(text = stringResource(R.string.scale_value_format, scaleString(currentScale)), modifier = Modifier.weight(1f))
+            HoldableIconButton(onClick = { onScaleChange(stepScale(currentScale, -0.1f)) }, contentDescription = stringResource(R.string.scale_decrease), icon = Icons.Default.Remove)
+            HoldableIconButton(onClick = { onScaleChange(stepScale(currentScale, 0.1f)) }, contentDescription = stringResource(R.string.scale_increase), icon = Icons.Default.Add)
+        }
+        Text(text = stringResource(R.string.display_mode), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            AssistChip(
+                onClick = { onTabDisplayModeChange(TabDisplayMode.TAB_AND_NOTES) },
+                label = { Text(stringResource(R.string.tab_display_mode_tab_and_notes)) },
+                leadingIcon = { Icon(Icons.Default.LibraryMusic, contentDescription = null) }
+            )
+            AssistChip(
+                onClick = { onTabDisplayModeChange(TabDisplayMode.NOTES_ONLY) },
+                label = { Text(stringResource(R.string.tab_display_mode_notes_only)) },
+                leadingIcon = { Icon(Icons.Default.MusicNote, contentDescription = null) }
+            )
+            AssistChip(
+                onClick = { onTabDisplayModeChange(TabDisplayMode.TAB_ONLY) },
+                label = { Text(stringResource(R.string.tab_display_mode_tab_only)) },
+                leadingIcon = { Icon(Icons.Default.QueueMusic, contentDescription = null) }
+            )
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+    }
+}
+
+@Composable
+private fun LearningControlsSheet(
+    onOpenAiAssistant: () -> Unit,
+    onOpenNotes: () -> Unit,
+    onOpenLoop: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(text = stringResource(R.string.learning_controls), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.notes)) },
+            leadingContent = { Icon(Icons.Filled.NoteAdd, contentDescription = null) },
+            modifier = Modifier.clickable { onOpenNotes() }
+        )
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.loop_section)) },
+            leadingContent = { Icon(Icons.Filled.Repeat, contentDescription = null) },
+            modifier = Modifier.clickable { onOpenLoop() }
+        )
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.ai_assistant)) },
+            leadingContent = { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
+            modifier = Modifier.clickable { onOpenAiAssistant() }
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+    }
 }
 
 private fun stepScale(value: Float, delta: Float): Float {

@@ -123,6 +123,22 @@
     <string name="lessons_progress_format">%1$d з %2$d</string>
     <string name="stats_title">Статистика</string>
     <string name="session_date_format">dd.MM.yyyy HH:mm</string>
+    <string name="tab_progress_label">Прогрес</string>
+    <string name="last_session_label">Остання сесія</string>
+    <string name="no_data">—</string>
+    <string name="last_session_value">%1$s: %2$s</string>
+    <string name="tab_progress_value">%1$s: %2$d%%</string>
+    <string name="delete_tab_title">Видалити таб?</string>
+    <string name="delete_tab_message">Ви впевнені, що хочете видалити цей таб? Цю дію неможливо скасувати.</string>
+    <string name="hint_icon_desc">Підказка</string>
+    <string name="mode_normal_icon_desc">Звичайна гра</string>
+    <string name="mode_practice_icon_desc">Режим розбору</string>
+    <string name="display_controls">Налаштування відображення</string>
+    <string name="learning_controls">Інструменти навчання</string>
+    <string name="display_speed">Швидкість</string>
+    <string name="display_scale">Масштаб</string>
+    <string name="display_mode">Вигляд табів</string>
+    <string name="loop_section">Зациклення</string>
     <string-array name="week_days">
         <item>Нд</item>
         <item>Пн</item>

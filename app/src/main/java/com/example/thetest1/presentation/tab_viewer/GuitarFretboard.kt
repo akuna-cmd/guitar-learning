@@ -25,7 +25,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.ui.res.stringResource
+import com.example.thetest1.R
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -102,12 +109,17 @@ fun GuitarFretboard(
     }
 
     // Colors
-    val woodColor = Color(0xFF3E2723)
-    val fretWireColor = Color(0xFFB0BEC5)
-    val stringColor = Color(0xFFE0E0E0)
-    val inlayColor = Color(0x66FFFFFF)
-    val nutColor = Color(0xFFEEEEEE)
+    val woodColor = Color(0xFF2B1D17)
+    val rightHandZoneColor = Color(0xFF211A24)
+    val fretWireColor = MaterialTheme.colorScheme.outlineVariant
+    val stringColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+    val inlayColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
+    val nutColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+    val outlineColor = MaterialTheme.colorScheme.outline
     val instructionsList = analysis?.instructions ?: emptyList()
+    val hintBackground = MaterialTheme.colorScheme.secondaryContainer
+    val hintTextColor = MaterialTheme.colorScheme.onSecondaryContainer
+    val hintAccent = MaterialTheme.colorScheme.primary
 
     Column(
         modifier = modifier
@@ -128,17 +140,29 @@ fun GuitarFretboard(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.95f))
+                                .background(hintBackground)
                                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp))
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
-                            Text(
-                                text = "💡 $instructionText",
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                lineHeight = 14.sp
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Lightbulb,
+                                    contentDescription = stringResource(R.string.hint_icon_desc),
+                                    tint = hintAccent
+                                    ,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = instructionText,
+                                    color = hintTextColor,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    lineHeight = 14.sp
+                                )
+                            }
                         }
                     }
                 }
@@ -168,12 +192,12 @@ fun GuitarFretboard(
                     size = Size(fretboardWidth, height - stringSpacing)
                 )
                 drawRect(
-                    color = Color(0x33000000),
+                    color = rightHandZoneColor,
                     topLeft = Offset(fretboardWidth, stringSpacing / 2f),
                     size = Size(rightHandZoneWidth, height - stringSpacing)
                 )
                 drawLine(
-                    color = Color.DarkGray,
+                    color = outlineColor,
                     start = Offset(fretboardWidth, stringSpacing / 2f),
                     end = Offset(fretboardWidth, height - stringSpacing / 2f),
                     strokeWidth = 4f
@@ -344,12 +368,12 @@ fun GuitarFretboard(
 
                 // 9. Contextual Hint
                 analysis?.contextHint?.let { hint ->
-                    val hintRes = textMeasurer.measure(hint, TextStyle(color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold))
+                    val hintRes = textMeasurer.measure(hint, TextStyle(color = hintTextColor, fontSize = 14.sp, fontWeight = FontWeight.Bold))
                     val paddingX = 16f
                     val paddingY = 8f
                     val hX = fretboardWidth / 2f - (hintRes.size.width + paddingX * 2) / 2f
                     drawRoundRect(
-                        color = Color(0xDD2C2C2C),
+                        color = hintBackground.copy(alpha = 0.95f),
                         topLeft = Offset(hX, 16f),
                         size = Size(hintRes.size.width + paddingX * 2, hintRes.size.height + paddingY * 2),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(20f, 20f)

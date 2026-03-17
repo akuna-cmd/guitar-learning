@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -22,6 +25,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -41,6 +45,7 @@ import com.example.thetest1.R
 import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.domain.model.Difficulty
 import com.example.thetest1.domain.model.TabItem
+import com.example.thetest1.presentation.util.formatDuration
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -143,8 +148,8 @@ private fun UserTabsScreen(
     if (tabToDelete != null) {
         AlertDialog(
             onDismissRequest = { tabToDelete = null },
-            title = { Text("Видалити таб?") },
-            text = { Text("Ви впевнені, що хочете видалити цей таб? Цю дію неможливо скасувати.") },
+            title = { Text(stringResource(R.string.delete_tab_title)) },
+            text = { Text(stringResource(R.string.delete_tab_message)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -153,12 +158,12 @@ private fun UserTabsScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Видалити")
+                    Text(stringResource(R.string.delete))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { tabToDelete = null }) {
-                    Text("Скасувати")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
@@ -175,51 +180,62 @@ private fun UserTabsScreen(
         Spacer(modifier = Modifier.height(8.dp))
         LazyColumn(modifier = Modifier.fillMaxWidth()) {
             items(uiState.userTabs) { tab ->
+                val progress = uiState.progressByTabId[tab.id] ?: 0
+                val lastDuration = uiState.lastSessionDurationByTabId[tab.id]
                 ElevatedCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp)
                         .clickable { onTabClick(tab.id) },
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
                     ) {
-                        Text(
-                            text = tab.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Box {
-                            IconButton(onClick = { showMenu = tab.id }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.menu))
-                            }
-                            DropdownMenu(
-                                expanded = showMenu == tab.id,
-                                onDismissRequest = { showMenu = null }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.rename)) },
-                                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                                    onClick = {
-                                        newTabName = tab.name
-                                        showRenameDialog = tab
-                                        showMenu = null
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.delete)) },
-                                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
-                                    onClick = {
-                                        tabToDelete = tab
-                                        showMenu = null
-                                    }
-                                )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = tab.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Box {
+                                IconButton(onClick = { showMenu = tab.id }) {
+                                    Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.menu))
+                                }
+                                DropdownMenu(
+                                    expanded = showMenu == tab.id,
+                                    onDismissRequest = { showMenu = null }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.rename)) },
+                                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                        onClick = {
+                                            newTabName = tab.name
+                                            showRenameDialog = tab
+                                            showMenu = null
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.delete)) },
+                                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
+                                        onClick = {
+                                            tabToDelete = tab
+                                            showMenu = null
+                                        }
+                                    )
+                                }
                             }
                         }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        TabMetricsRow(
+                            progressPercent = progress,
+                            lastSessionDuration = lastDuration
+                        )
                     }
                 }
             }
@@ -274,6 +290,8 @@ private fun LessonsScreen(
             Spacer(modifier = Modifier.height(16.dp))
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(uiState.filteredTabs) { tab ->
+                    val progress = uiState.progressByTabId[tab.id] ?: 0
+                    val lastDuration = uiState.lastSessionDurationByTabId[tab.id]
                     ElevatedCard(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -298,6 +316,11 @@ private fun LessonsScreen(
                                     text = tab.description,
                                     style = MaterialTheme.typography.bodyMedium
                                 )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                TabMetricsRow(
+                                    progressPercent = progress,
+                                    lastSessionDuration = lastDuration
+                                )
                             }
                             IconButton(onClick = { viewModel.toggleCompleted(tab.id) }) {
                                 Icon(
@@ -310,6 +333,50 @@ private fun LessonsScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun TabMetricsRow(
+    progressPercent: Int,
+    lastSessionDuration: Long?
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.Timer,
+                contentDescription = stringResource(R.string.last_session_label),
+                modifier = Modifier.size(14.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = stringResource(
+                    R.string.last_session_value,
+                    stringResource(R.string.last_session_label),
+                    lastSessionDuration?.let { formatDuration(it) } ?: stringResource(R.string.no_data)
+                ),
+                style = MaterialTheme.typography.labelMedium
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.MusicNote,
+                contentDescription = stringResource(R.string.tab_progress_label),
+                modifier = Modifier.size(14.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = stringResource(
+                    R.string.tab_progress_value,
+                    stringResource(R.string.tab_progress_label),
+                    progressPercent
+                ),
+                style = MaterialTheme.typography.labelMedium
+            )
         }
     }
 }

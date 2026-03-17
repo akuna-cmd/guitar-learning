@@ -102,7 +102,9 @@ class ViewModelFactory(
                     getUserTabsUseCase = getUserTabsUseCase,
                     addUserTabUseCase = addUserTabUseCase,
                     deleteUserTabUseCase = deleteUserTabUseCase,
-                    renameUserTabUseCase = renameUserTabUseCase
+                    renameUserTabUseCase = renameUserTabUseCase,
+                    getAllSessionsUseCase = getAllSessionsUseCase,
+                    observeTabPlaybackProgressUseCase = observeTabPlaybackProgressUseCase
                 ) as T
             }
 

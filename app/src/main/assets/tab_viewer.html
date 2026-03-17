@@ -14,13 +14,13 @@
             --cursor-fill: #00A3FF;
             --cursor-stroke: #000000;
             --cursor-glow: rgba(0, 163, 255, 0.95);
-            --cursor-bar: rgba(0, 163, 255, 0.18);
+            --cursor-bar: rgba(124, 77, 255, 0.28);
         }
         body.dark { 
             --cursor-fill: #FFD400;
             --cursor-stroke: #000000;
             --cursor-glow: rgba(255, 212, 0, 0.95);
-            --cursor-bar: rgba(255, 212, 0, 0.22);
+            --cursor-bar: rgba(124, 77, 255, 0.35);
         }
         #alphaTabContainer {
             width: 100%;
@@ -57,6 +57,7 @@
         }
         .at-cursor-bar {
             background: var(--cursor-bar) !important;
+            fill: var(--cursor-bar) !important;
             stroke: var(--cursor-fill) !important;
             stroke-width: 2px !important;
             opacity: 1 !important;
@@ -544,6 +545,30 @@ function getBarIndexForTick(tick){
     return idx + 1;
 }
 
+function normalizeScoreLoudness(score){
+    if(!api || !score?.tracks || score.tracks.length === 0) return;
+    const trackVolumes = score.tracks
+        .map(track => track?.playbackInfo?.volume)
+        .filter(volume => typeof volume === 'number');
+    if(trackVolumes.length === 0) return;
+
+    const maxVolume = Math.max(...trackVolumes);
+    const targetMaxVolume = 15;
+    const boost = Math.max(0, targetMaxVolume - maxVolume);
+    if(boost > 0){
+        score.tracks.forEach(track => {
+            if(!track?.playbackInfo) return;
+            const current = typeof track.playbackInfo.volume === 'number'
+                ? track.playbackInfo.volume
+                : targetMaxVolume;
+            track.playbackInfo.volume = Math.min(targetMaxVolume, current + boost);
+        });
+    }
+
+    // keep global output stable between files
+    api.masterVolume = 1.0;
+}
+
 function applyRestore(){
     if(!api || !api.score) return;
     let targetTick = _restoreTick;
@@ -660,6 +685,7 @@ function initAlphaTab(){
         }
         api.playerStateChanged.on(args=>{ postStatus('playerState:'+args?.state); });
         api.scoreLoaded.on(score=>{
+            normalizeScoreLoudness(score);
             setTimeout(() => runFullAnalysis(score), 400); // give UI time to animate fade-in
             if(_pendingScale != null){
                 api.settings.display.scale = _pendingScale;

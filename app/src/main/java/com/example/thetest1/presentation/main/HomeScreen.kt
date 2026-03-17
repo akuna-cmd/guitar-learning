@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -30,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -40,6 +43,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
+import androidx.compose.foundation.BorderStroke
 
 @Composable
 fun HomeScreen(
@@ -65,8 +69,8 @@ fun HomeScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize(),
-        contentPadding = PaddingValues(top = 32.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        contentPadding = PaddingValues(top = 32.dp, start = 16.dp, end = 16.dp, bottom = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         item {
             ContinueLearningCard(
@@ -89,7 +93,7 @@ fun HomeScreen(
             PracticeHeatmap(viewModelFactory = viewModelFactory)
         }
         item {
-            StatsCard(
+            StatsRow(
                 totalSessionTime = totalSessionTime,
                 lessonsCompleted = lessonsCompleted,
                 totalLessons = totalLessons
@@ -125,7 +129,9 @@ fun ContinueLearningCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.elevatedCardElevation(),
-        colors = CardDefaults.elevatedCardColors()
+        colors = CardDefaults.elevatedCardColors(),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(
             modifier = Modifier
@@ -140,8 +146,8 @@ fun ContinueLearningCard(
             )
             Text(
                 text = stringResource(id = R.string.continue_learning_last_song),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
             )
             Text(
                 text = lastTabName ?: stringResource(id = R.string.continue_learning_no_song),
@@ -167,7 +173,7 @@ fun ContinueLearningCard(
                 progress = { progressValue },
                 modifier = Modifier.fillMaxWidth()
             )
-            Button(
+            OutlinedButton(
                 onClick = onContinue,
                 enabled = !isSessionActive && isEnabled,
                 modifier = Modifier.fillMaxWidth()
@@ -179,49 +185,96 @@ fun ContinueLearningCard(
 }
 
 @Composable
-fun StatsCard(totalSessionTime: Long, lessonsCompleted: Int, totalLessons: Int) {
+fun StatsRow(totalSessionTime: Long, lessonsCompleted: Int, totalLessons: Int) {
     val progressValue = if (totalLessons > 0) lessonsCompleted.toFloat() / totalLessons.toFloat() else 0f
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        StatTimeCard(
+            totalSessionTime = totalSessionTime,
+            modifier = Modifier.weight(1f)
+        )
+        LessonsProgressCard(
+            lessonsCompleted = lessonsCompleted,
+            totalLessons = totalLessons,
+            progressValue = progressValue,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun StatTimeCard(totalSessionTime: Long, modifier: Modifier = Modifier) {
     Card(
+        modifier = modifier,
         elevation = CardDefaults.elevatedCardElevation(),
         colors = CardDefaults.elevatedCardColors(),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .height(180.dp)
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
-            verticalAlignment = Alignment.CenterVertically
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = formatDuration(totalSessionTime),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = stringResource(id = R.string.total_session_time),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun LessonsProgressCard(
+    lessonsCompleted: Int,
+    totalLessons: Int,
+    progressValue: Float,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        elevation = CardDefaults.elevatedCardElevation(),
+        colors = CardDefaults.elevatedCardColors(),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    progress = { progressValue },
+                    strokeWidth = 7.dp,
+                    modifier = Modifier.size(86.dp)
+                )
                 Text(
-                    text = formatDuration(totalSessionTime),
-                    style = MaterialTheme.typography.headlineMedium,
+                    text = stringResource(id = R.string.lessons_progress_format, lessonsCompleted, totalLessons),
+                    style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = stringResource(id = R.string.total_session_time),
-                    style = MaterialTheme.typography.bodyLarge
-                )
             }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(
-                        progress = { progressValue },
-                        strokeWidth = 6.dp,
-                        modifier = Modifier.size(64.dp)
-                    )
-                    Text(
-                        text = stringResource(id = R.string.lessons_progress_format, lessonsCompleted, totalLessons),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = stringResource(id = R.string.lessons_progress_title),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = stringResource(id = R.string.lessons_progress_title),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+            )
         }
     }
 }
@@ -231,6 +284,8 @@ fun MyTabsSummaryCard(userTabsCount: Int) {
     Card(
         elevation = CardDefaults.elevatedCardElevation(),
         colors = CardDefaults.elevatedCardColors(),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
             modifier = Modifier
@@ -265,6 +320,8 @@ fun SessionItem(session: Session) {
             .fillMaxWidth(),
         elevation = CardDefaults.elevatedCardElevation(),
         colors = CardDefaults.elevatedCardColors(),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),

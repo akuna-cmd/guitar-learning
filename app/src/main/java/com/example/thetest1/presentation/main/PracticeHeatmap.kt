@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
@@ -54,11 +56,13 @@ fun Heatmap(activityData: Map<Date, Int>) {
     val days = (0..6).map {
         calendar.time.also { calendar.add(Calendar.DAY_OF_YEAR, 1) }
     }
+    val todayStart = getStartOfDay(Date())
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = stringResource(id = R.string.activity_streaks_title),
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
             modifier = Modifier.align(Alignment.Start)
         )
         Spacer(modifier = Modifier.height(8.dp))
@@ -70,7 +74,13 @@ fun Heatmap(activityData: Map<Date, Int>) {
             days.forEach { day ->
                 val cal = Calendar.getInstance().apply { time = day }
                 val dayOfWeek = weekDays[cal.get(Calendar.DAY_OF_WEEK) - 1]
-                Text(text = dayOfWeek, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                Text(
+                    text = dayOfWeek,
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+                )
             }
         }
 
@@ -84,12 +94,23 @@ fun Heatmap(activityData: Map<Date, Int>) {
                 val activity = activityData[getStartOfDay(day)] ?: 0
                 val isActive = activity > 0
                 val color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                val isToday = getStartOfDay(day) == todayStart
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .aspectRatio(1f)
                         .clip(CircleShape)
-                        .background(color),
+                        .background(color)
+                        .then(
+                            if (isToday) {
+                                Modifier.border(
+                                    BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
+                                    CircleShape
+                                )
+                            } else {
+                                Modifier
+                            }
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     if (isActive) {
@@ -128,7 +149,9 @@ fun Heatmap(activityData: Map<Date, Int>) {
                 Text(
                     text = SimpleDateFormat("d", Locale.getDefault()).format(day),
                     modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
                 )
             }
         }
