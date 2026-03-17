@@ -98,6 +98,15 @@ fun HomeScreen(
         item {
             MyTabsSummaryCard(userTabsCount = userTabsCount)
         }
+        item {
+            Button(
+                onClick = onStartSession,
+                enabled = !isSessionActive,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(id = R.string.start_practice))
+            }
+        }
         items(sessions) { session ->
             SessionItem(session)
         }
