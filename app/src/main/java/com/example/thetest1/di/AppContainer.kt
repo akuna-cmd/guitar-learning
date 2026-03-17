@@ -14,6 +14,7 @@ import com.example.thetest1.data.repository.GoalRepositoryImpl
 import com.example.thetest1.data.repository.SessionRepositoryImpl
 import com.example.thetest1.data.repository.SoundFontRepositoryImpl
 import com.example.thetest1.data.repository.TabFileRepositoryImpl
+import com.example.thetest1.data.repository.TabPlaybackProgressRepositoryImpl
 import com.example.thetest1.data.repository.TabRepositoryImpl
 import com.example.thetest1.data.repository.TextNoteRepositoryImpl
 import com.example.thetest1.domain.repository.AiAssistantRepository
@@ -22,6 +23,7 @@ import com.example.thetest1.domain.repository.GoalRepository
 import com.example.thetest1.domain.repository.SessionRepository
 import com.example.thetest1.domain.repository.SoundFontRepository
 import com.example.thetest1.domain.repository.TabFileRepository
+import com.example.thetest1.domain.repository.TabPlaybackProgressRepository
 import com.example.thetest1.domain.repository.TabRepository
 import com.example.thetest1.domain.repository.TextNoteRepository
 import com.example.thetest1.domain.usecase.AskAiAssistantUseCase
@@ -46,13 +48,16 @@ import com.example.thetest1.domain.usecase.GetTabItemUseCase
 import com.example.thetest1.domain.usecase.GetTabsUseCase
 import com.example.thetest1.domain.usecase.GetTextNotesUseCase
 import com.example.thetest1.domain.usecase.GetTotalLessonsCountUseCase
+import com.example.thetest1.domain.usecase.GetTabPlaybackProgressUseCase
 import com.example.thetest1.domain.usecase.GetUserTabsCountUseCase
 import com.example.thetest1.domain.usecase.GetUserTabsUseCase
+import com.example.thetest1.domain.usecase.ObserveTabPlaybackProgressUseCase
 import com.example.thetest1.domain.usecase.ObserveGoalsProgressUseCase
 import com.example.thetest1.domain.usecase.RenameUserTabUseCase
 import com.example.thetest1.domain.usecase.UpdateGoalUseCase
 import com.example.thetest1.domain.usecase.UpdateTabUseCase
 import com.example.thetest1.domain.usecase.UpdateTextNoteUseCase
+import com.example.thetest1.domain.usecase.UpdateTabPlaybackProgressUseCase
 import com.google.ai.client.generativeai.GenerativeModel
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -91,6 +96,9 @@ class AppContainer(val context: Context) {
     private val textNoteRepository: TextNoteRepository by lazy { TextNoteRepositoryImpl(textNoteDao) }
     private val sessionRepository: SessionRepository by lazy { SessionRepositoryImpl(sessionDao) }
     private val goalRepository: GoalRepository by lazy { GoalRepositoryImpl(goalDao) }
+    private val tabPlaybackProgressRepository: TabPlaybackProgressRepository by lazy {
+        TabPlaybackProgressRepositoryImpl(context.dataStore)
+    }
 
     private val getTabsUseCase by lazy { GetTabsUseCase(tabRepository) }
     private val getLessonUseCase by lazy { GetLessonUseCase(tabRepository) }
@@ -126,6 +134,15 @@ class AppContainer(val context: Context) {
         GetSessionsForLastMonthUseCase(
             sessionRepository
         )
+    }
+    private val observeTabPlaybackProgressUseCase by lazy {
+        ObserveTabPlaybackProgressUseCase(tabPlaybackProgressRepository)
+    }
+    private val getTabPlaybackProgressUseCase by lazy {
+        GetTabPlaybackProgressUseCase(tabPlaybackProgressRepository)
+    }
+    private val updateTabPlaybackProgressUseCase by lazy {
+        UpdateTabPlaybackProgressUseCase(tabPlaybackProgressRepository)
     }
 
     private val getGoalsUseCase by lazy { GetGoalsUseCase(goalRepository) }
@@ -171,7 +188,10 @@ class AppContainer(val context: Context) {
             updateGoalUseCase = updateGoalUseCase,
             deleteGoalUseCase = deleteGoalUseCase,
             askAiAssistantUseCase = askAiAssistantUseCase,
-            observeGoalsProgressUseCase = observeGoalsProgressUseCase
+            observeGoalsProgressUseCase = observeGoalsProgressUseCase,
+            observeTabPlaybackProgressUseCase = observeTabPlaybackProgressUseCase,
+            getTabPlaybackProgressUseCase = getTabPlaybackProgressUseCase,
+            updateTabPlaybackProgressUseCase = updateTabPlaybackProgressUseCase
         )
     }
 }

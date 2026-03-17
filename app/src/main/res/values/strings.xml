@@ -110,6 +110,19 @@
     <string name="right_hand">Права рука</string>
     <string name="technique">Техніка виконання</string>
     <string name="select_bar_hint">Оберіть такт для аналізу</string>
+    <string name="continue_learning_title">Продовжити навчання</string>
+    <string name="continue_learning_button">Продовжити</string>
+    <string name="continue_learning_last_song">Остання пісня</string>
+    <string name="continue_learning_no_song">Немає недавніх пісень</string>
+    <string name="continue_learning_progress_label">Прогрес вивчення</string>
+    <string name="progress_percent_format">%1$d%%</string>
+    <string name="activity_streaks_title">Активність за тиждень</string>
+    <string name="streak_active_day">Є активність</string>
+    <string name="streak_inactive_day">Немає активності</string>
+    <string name="lessons_progress_title">Прогрес уроків</string>
+    <string name="lessons_progress_format">%1$d з %2$d</string>
+    <string name="stats_title">Статистика</string>
+    <string name="session_date_format">dd.MM.yyyy HH:mm</string>
     <string-array name="week_days">
         <item>Нд</item>
         <item>Пн</item>

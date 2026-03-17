@@ -9,21 +9,23 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.ui.res.stringArrayResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.thetest1.R
 import com.example.thetest1.di.ViewModelFactory
@@ -53,9 +55,13 @@ fun Heatmap(activityData: Map<Date, Int>) {
         calendar.time.also { calendar.add(Calendar.DAY_OF_YEAR, 1) }
     }
 
-    val maxActivity = activityData.values.maxOrNull() ?: 1
-
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = stringResource(id = R.string.activity_streaks_title),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.align(Alignment.Start)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceAround
@@ -76,20 +82,38 @@ fun Heatmap(activityData: Map<Date, Int>) {
         ) {
             days.forEach { day ->
                 val activity = activityData[getStartOfDay(day)] ?: 0
-                val color = getColorForActivity(activity, maxActivity)
+                val isActive = activity > 0
+                val color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .aspectRatio(1f)
-                        .clip(RoundedCornerShape(4.dp))
+                        .clip(CircleShape)
                         .background(color),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = activity.toString(),
-                        color = if (activity > 0) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                        fontSize = 12.sp
-                    )
+                    if (isActive) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Filled.LocalFireDepartment,
+                                contentDescription = stringResource(id = R.string.streak_active_day),
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Text(
+                                text = activity.toString(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.LocalFireDepartment,
+                            contentDescription = stringResource(id = R.string.streak_inactive_day),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
                 }
             }
         }
@@ -121,14 +145,3 @@ private fun getStartOfDay(date: Date): Date {
     return calendar.time
 }
 
-@Composable
-private fun getColorForActivity(activity: Int, maxActivity: Int): Color {
-    val primaryColor = MaterialTheme.colorScheme.primary
-    return when {
-        activity == 0 -> MaterialTheme.colorScheme.surfaceVariant
-        activity <= maxActivity * 0.25 -> primaryColor.copy(alpha = 0.4f)
-        activity <= maxActivity * 0.5 -> primaryColor.copy(alpha = 0.6f)
-        activity <= maxActivity * 0.75 -> primaryColor.copy(alpha = 0.8f)
-        else -> primaryColor
-    }
-}

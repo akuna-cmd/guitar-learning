@@ -148,12 +148,23 @@ fun MainScreen(
                 HomeScreen(
                     sessions = mainUiState.sessions,
                     onStartSession = mainViewModel::startSession,
+                    onContinueLesson = { tabId ->
+                        mainViewModel.requestContinueLesson(tabId)
+                        navController.navigate(BottomNavItem.GuitarTabs.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
                     isSessionActive = mainUiState.isSessionActive,
                     totalSessionTime = mainUiState.totalSessionTime,
                     lessonsCompleted = mainUiState.lessonsCompleted,
                     totalLessons = mainUiState.totalLessons,
                     userTabsCount = mainUiState.userTabsCount,
-                    viewModelFactory = viewModelFactory
+                    viewModelFactory = viewModelFactory,
+                    lastPlaybackProgress = mainUiState.lastPlaybackProgress
                 )
             }
             composable(BottomNavItem.GuitarTabs.route) {

@@ -4,11 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.thetest1.domain.model.PracticedTab
 import com.example.thetest1.domain.model.Session
+import com.example.thetest1.domain.model.TabPlaybackProgress
 import com.example.thetest1.domain.usecase.AddSessionUseCase
 import com.example.thetest1.domain.usecase.GetAllSessionsUseCase
 import com.example.thetest1.domain.usecase.GetCompletedLessonsCountUseCase
 import com.example.thetest1.domain.usecase.GetTotalLessonsCountUseCase
 import com.example.thetest1.domain.usecase.GetUserTabsCountUseCase
+import com.example.thetest1.domain.usecase.ObserveTabPlaybackProgressUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,7 +32,9 @@ data class MainUiState(
     val userTabsCount: Int = 0,
     val practicedTabs: List<PracticedTab> = emptyList(),
     val currentTab: PracticedTab? = null,
-    val showBottomBar: Boolean = true
+    val showBottomBar: Boolean = true,
+    val lastPlaybackProgress: TabPlaybackProgress? = null,
+    val continueLessonId: String? = null
 )
 
 class MainViewModel(
@@ -38,7 +42,8 @@ class MainViewModel(
     private val addSessionUseCase: AddSessionUseCase,
     private val getCompletedLessonsCountUseCase: GetCompletedLessonsCountUseCase,
     private val getTotalLessonsCountUseCase: GetTotalLessonsCountUseCase,
-    private val getUserTabsCountUseCase: GetUserTabsCountUseCase
+    private val getUserTabsCountUseCase: GetUserTabsCountUseCase,
+    private val observeTabPlaybackProgressUseCase: ObserveTabPlaybackProgressUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -57,8 +62,10 @@ class MainViewModel(
                 getAllSessionsUseCase(),
                 getCompletedLessonsCountUseCase(),
                 getTotalLessonsCountUseCase(),
-                getUserTabsCountUseCase()
-            ) { sessions, lessonsCompleted, totalLessons, userTabsCount ->
+                getUserTabsCountUseCase(),
+                observeTabPlaybackProgressUseCase()
+            ) { sessions, lessonsCompleted, totalLessons, userTabsCount, progressList ->
+                val lastProgress = progressList.maxByOrNull { it.updatedAt }
                 val totalSessionTime = sessions.sumOf { it.duration }
                 _uiState.update {
                     it.copy(
@@ -66,7 +73,8 @@ class MainViewModel(
                         lessonsCompleted = lessonsCompleted,
                         totalLessons = totalLessons,
                         totalSessionTime = totalSessionTime,
-                        userTabsCount = userTabsCount
+                        userTabsCount = userTabsCount,
+                        lastPlaybackProgress = lastProgress
                     )
                 }
             }.collect {}
@@ -152,5 +160,13 @@ class MainViewModel(
 
     fun setShowBottomBar(show: Boolean) {
         _uiState.update { it.copy(showBottomBar = show) }
+    }
+
+    fun requestContinueLesson(tabId: String) {
+        _uiState.update { it.copy(continueLessonId = tabId) }
+    }
+
+    fun consumeContinueLesson() {
+        _uiState.update { it.copy(continueLessonId = null) }
     }
 }

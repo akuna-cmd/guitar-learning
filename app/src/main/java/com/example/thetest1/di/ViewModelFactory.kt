@@ -26,13 +26,16 @@ import com.example.thetest1.domain.usecase.GetTabItemUseCase
 import com.example.thetest1.domain.usecase.GetTabsUseCase
 import com.example.thetest1.domain.usecase.GetTextNotesUseCase
 import com.example.thetest1.domain.usecase.GetTotalLessonsCountUseCase
+import com.example.thetest1.domain.usecase.GetTabPlaybackProgressUseCase
 import com.example.thetest1.domain.usecase.GetUserTabsCountUseCase
 import com.example.thetest1.domain.usecase.GetUserTabsUseCase
 import com.example.thetest1.domain.usecase.ObserveGoalsProgressUseCase
+import com.example.thetest1.domain.usecase.ObserveTabPlaybackProgressUseCase
 import com.example.thetest1.domain.usecase.RenameUserTabUseCase
 import com.example.thetest1.domain.usecase.UpdateGoalUseCase
 import com.example.thetest1.domain.usecase.UpdateTabUseCase
 import com.example.thetest1.domain.usecase.UpdateTextNoteUseCase
+import com.example.thetest1.domain.usecase.UpdateTabPlaybackProgressUseCase
 import com.example.thetest1.presentation.ai_assistant.AiAssistantViewModel
 import com.example.thetest1.presentation.auth.AuthViewModel
 import com.example.thetest1.presentation.goals.GoalsViewModel
@@ -73,7 +76,10 @@ class ViewModelFactory(
     private val updateGoalUseCase: UpdateGoalUseCase,
     private val deleteGoalUseCase: DeleteGoalUseCase,
     private val askAiAssistantUseCase: AskAiAssistantUseCase,
-    private val observeGoalsProgressUseCase: ObserveGoalsProgressUseCase
+    private val observeGoalsProgressUseCase: ObserveGoalsProgressUseCase,
+    private val observeTabPlaybackProgressUseCase: ObserveTabPlaybackProgressUseCase,
+    private val getTabPlaybackProgressUseCase: GetTabPlaybackProgressUseCase,
+    private val updateTabPlaybackProgressUseCase: UpdateTabPlaybackProgressUseCase
 ) : ViewModelProvider.Factory {
 
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -84,7 +90,8 @@ class ViewModelFactory(
                     addSessionUseCase,
                     getCompletedLessonsCountUseCase,
                     getTotalLessonsCountUseCase,
-                    getUserTabsCountUseCase
+                    getUserTabsCountUseCase,
+                    observeTabPlaybackProgressUseCase
                 ) as T
             }
 
@@ -112,7 +119,9 @@ class ViewModelFactory(
                     getTextNotesUseCase = getTextNotesUseCase,
                     addTextNoteUseCase = addTextNoteUseCase,
                     updateTextNoteUseCase = updateTextNoteUseCase,
-                    deleteTextNoteUseCase = deleteTextNoteUseCase
+                    deleteTextNoteUseCase = deleteTextNoteUseCase,
+                    getTabPlaybackProgressUseCase = getTabPlaybackProgressUseCase,
+                    updateTabPlaybackProgressUseCase = updateTabPlaybackProgressUseCase
                 ) as T
             }
 

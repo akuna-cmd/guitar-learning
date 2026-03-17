@@ -260,8 +260,23 @@ fun TabViewerScreen(
                         tabDisplayMode = themeUiState.tabDisplayMode,
                         onTabDisplayModeChange = { mode -> themeViewModel.setTabDisplayMode(mode) },
                         lastTickPosition = uiState.lastTickPosition,
+                        lastBarIndex = uiState.lastBarIndex,
+                        totalBars = uiState.totalBars,
                         wasPlaying = uiState.wasPlaying,
                         onTickPosition = { tick, playing -> viewModel.updatePlaybackState(tick, playing) },
+                        onPlaybackProgress = { tick, playing, barIndex, totalBars ->
+                            val lesson = uiState.lesson
+                            if (lesson != null) {
+                                viewModel.updatePlaybackProgress(
+                                    lessonId = lesson.id,
+                                    lessonTitle = lesson.title,
+                                    tick = tick,
+                                    barIndex = barIndex,
+                                    totalBars = totalBars
+                                )
+                            }
+                            viewModel.updatePlaybackState(tick, playing)
+                        },
                         themeUiState = themeUiState,
                         isPlaying = isPlaying,
                         onPlayStateChange = { isPlaying = it },
@@ -383,8 +398,11 @@ private fun TabViewer(
     tabDisplayMode: TabDisplayMode,
     onTabDisplayModeChange: (TabDisplayMode) -> Unit,
     lastTickPosition: Long?,
+    lastBarIndex: Int?,
+    totalBars: Int?,
     wasPlaying: Boolean,
     onTickPosition: (Long, Boolean) -> Unit,
+    onPlaybackProgress: (Long, Boolean, Int, Int) -> Unit,
     currentScale: Float,
     onScaleChange: (Float) -> Unit,
     themeUiState: com.example.thetest1.presentation.main.ThemeUiState,
@@ -415,6 +433,7 @@ private fun TabViewer(
     }
     var isReady    by remember { mutableStateOf(false) }
     var isScoreLoaded by remember { mutableStateOf(false) }
+    var totalBars by remember { mutableStateOf(0) }
     
     val webView = remember {
         WebView(context).apply {
@@ -453,6 +472,7 @@ private fun TabViewer(
                 fun onScoreLoaded(totalMeasures: Int) {
                     Handler(Looper.getMainLooper()).post { 
                         isScoreLoaded = true 
+                        totalBars = totalMeasures
                         onTotalMeasuresLoaded(totalMeasures)
                     }
                 }
@@ -463,6 +483,10 @@ private fun TabViewer(
                 @JavascriptInterface
                 fun onTickPosition(tick: Long, isPlaying: Boolean) {
                     onTickPosition(tick, isPlaying)
+                }
+                @JavascriptInterface
+                fun onPlaybackProgress(tick: Long, isPlaying: Boolean, barIndex: Int) {
+                    onPlaybackProgress(tick, isPlaying, barIndex, totalBars)
                 }
             }, "Android")
             
@@ -535,11 +559,12 @@ private fun TabViewer(
         }
     }
 
-    LaunchedEffect(lastTickPosition, wasPlaying, isReady) {
+    LaunchedEffect(lastTickPosition, lastBarIndex, totalBars, wasPlaying, isReady) {
         if (isReady) {
             val tick = lastTickPosition ?: 0L
+            val barIndex = lastBarIndex ?: -1
             val playFlag = if (wasPlaying) "true" else "false"
-            webView.evaluateJavascript("window.setRestorePlayback($tick, $playFlag);", null)
+            webView.evaluateJavascript("window.setRestorePlayback($tick, $playFlag, $barIndex);", null)
         }
     }
 

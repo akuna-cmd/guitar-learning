@@ -508,7 +508,7 @@ window.setLoopRange = (startMeasure, endMeasure, isLooping) => {
 };
 
 // ── AlphaTab setup ───────────────────────────────────────
-let api=null, _poll=null, _lastTick=-1, _pendingScale=null, _scoreLoadedFired=false, _pendingSoundFontBase64=null, _pendingTabBase64=null, _pendingTabPath=null, _initRetry=null, _restoreTick=null, _restorePlay=false, _initialCursorSet=false, _tickReportTimer=null;
+let api=null, _poll=null, _lastTick=-1, _pendingScale=null, _scoreLoadedFired=false, _pendingSoundFontBase64=null, _pendingTabBase64=null, _pendingTabPath=null, _initRetry=null, _restoreTick=null, _restoreBarIndex=null, _restorePlay=false, _initialCursorSet=false, _tickReportTimer=null;
 
 function signalReady(){if(window.Android?.onJsReady)window.Android.onJsReady();else setTimeout(signalReady,100);}
 function postStatus(msg){
@@ -530,9 +530,49 @@ window.addEventListener('unhandledrejection', function(e){
 function startPoller(){stopPoller();_lastTick=-1;_poll=setInterval(()=>{if(!api)return;try{const t=api.tickPosition;if(t==null||t===_lastTick)return;_lastTick=t;sendForTick(t);}catch{stopPoller();}},100);}
 function stopPoller(){if(_poll!=null){clearInterval(_poll);_poll=null;}}
 
-window.setRestorePlayback=(tick, isPlaying)=>{
+function getBarIndexForTick(tick){
+    if(!api?.score?.masterBars || api.score.masterBars.length === 0) return null;
+    let idx = 0;
+    for(let i=0;i<api.score.masterBars.length;i++){
+        const bar = api.score.masterBars[i];
+        if(bar.start <= tick){
+            idx = i;
+        } else {
+            break;
+        }
+    }
+    return idx + 1;
+}
+
+function applyRestore(){
+    if(!api || !api.score) return;
+    let targetTick = _restoreTick;
+    if(_restoreBarIndex != null && _restoreBarIndex > 0 && api.score.masterBars && api.score.masterBars.length >= _restoreBarIndex){
+        const bar = api.score.masterBars[_restoreBarIndex - 1];
+        if(bar && bar.start != null){
+            targetTick = bar.start;
+        }
+    }
+    if(targetTick != null){
+        try{ api.tickPosition = targetTick; }catch{}
+        if(typeof api.scrollToCursor === 'function'){
+            try{ api.scrollToCursor(); }catch{}
+        }
+        if(_restorePlay){
+            tryResumeAudio();
+            api.play();
+        }
+    }
+    _restoreTick = null;
+    _restoreBarIndex = null;
+    _restorePlay = false;
+}
+
+window.setRestorePlayback=(tick, isPlaying, barIndex)=>{
     _restoreTick = tick;
     _restorePlay = isPlaying;
+    _restoreBarIndex = (barIndex != null && barIndex > 0) ? barIndex : null;
+    applyRestore();
 };
 
 window.setOrientation=(isLandscape)=>{
@@ -625,7 +665,7 @@ function initAlphaTab(){
                 api.settings.display.scale = _pendingScale;
                 api.updateSettings();
             }
-            if(!_initialCursorSet){
+            if(!_initialCursorSet && _restoreTick == null){
                 try{ api.tickPosition = 0; }catch{}
                 _initialCursorSet = true;
             }
@@ -640,13 +680,7 @@ function initAlphaTab(){
                 window.Android.onScoreLoaded(totalMeasures);
             }
             if(_restoreTick != null){
-                try{ api.tickPosition = _restoreTick; }catch{}
-                if(_restorePlay){
-                    tryResumeAudio();
-                    api.play();
-                }
-                _restoreTick = null;
-                _restorePlay = false;
+                applyRestore();
             } else if(!_initialCursorSet){
                 try{ api.tickPosition = 0; }catch{}
                 _initialCursorSet = true;
@@ -658,7 +692,14 @@ function initAlphaTab(){
         api.playerPositionChanged.on(args=>{
             if(args?.currentBeat) sendForBeat(args.currentBeat);
             try{
-                if(window.Android?.onTickPosition){
+                let barIndex = args?.currentBeat?.voice?.bar?.index;
+                if(barIndex != null) barIndex = barIndex + 1;
+                if(barIndex == null){
+                    barIndex = getBarIndexForTick(api.tickPosition ?? 0);
+                }
+                if(window.Android?.onPlaybackProgress && barIndex != null){
+                    window.Android.onPlaybackProgress(api.tickPosition ?? 0, api.playerState === 1, barIndex);
+                } else if(window.Android?.onTickPosition){
                     window.Android.onTickPosition(api.tickPosition ?? 0, api.playerState === 1);
                 }
             }catch{}
@@ -674,8 +715,13 @@ function initAlphaTab(){
         if(_tickReportTimer==null){
             _tickReportTimer = setInterval(() => {
                 try{
-                    if(window.Android?.onTickPosition && api){
-                        window.Android.onTickPosition(api.tickPosition ?? 0, api.playerState === 1);
+                    if(!api) return;
+                    const tick = api.tickPosition ?? 0;
+                    const barIndex = getBarIndexForTick(tick);
+                    if(window.Android?.onPlaybackProgress && barIndex != null){
+                        window.Android.onPlaybackProgress(tick, api.playerState === 1, barIndex);
+                    } else if(window.Android?.onTickPosition){
+                        window.Android.onTickPosition(tick, api.playerState === 1);
                     }
                 }catch{}
             }, 500);

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,11 +19,12 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,18 +39,29 @@ import com.example.thetest1.domain.model.Session
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlin.math.roundToInt
 
 @Composable
 fun HomeScreen(
     sessions: List<Session>,
     onStartSession: () -> Unit,
+    onContinueLesson: (String) -> Unit,
     isSessionActive: Boolean,
     totalSessionTime: Long,
     lessonsCompleted: Int,
     totalLessons: Int,
     userTabsCount: Int,
-    viewModelFactory: ViewModelFactory
+    viewModelFactory: ViewModelFactory,
+    lastPlaybackProgress: com.example.thetest1.domain.model.TabPlaybackProgress?
 ) {
+    val lastTabName = lastPlaybackProgress?.tabName
+    val progressValue = if (lastPlaybackProgress != null && lastPlaybackProgress.totalBars > 0) {
+        lastPlaybackProgress.lastBarIndex.toFloat() / lastPlaybackProgress.totalBars.toFloat()
+    } else {
+        0f
+    }
+    val progressPercent = (progressValue * 100).roundToInt().coerceIn(0, 100)
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize(),
@@ -56,22 +69,34 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
+            ContinueLearningCard(
+                lastTabName = lastTabName,
+                progressPercent = progressPercent,
+                progressValue = progressValue,
+                onContinue = {
+                    val tabId = lastPlaybackProgress?.tabId
+                    if (tabId != null) {
+                        onContinueLesson(tabId)
+                    } else {
+                        onStartSession()
+                    }
+                },
+                isSessionActive = isSessionActive,
+                isEnabled = lastPlaybackProgress != null
+            )
+        }
+        item {
             PracticeHeatmap(viewModelFactory = viewModelFactory)
         }
         item {
-            SummaryCard(totalSessionTime, lessonsCompleted, totalLessons)
+            StatsCard(
+                totalSessionTime = totalSessionTime,
+                lessonsCompleted = lessonsCompleted,
+                totalLessons = totalLessons
+            )
         }
         item {
             MyTabsSummaryCard(userTabsCount = userTabsCount)
-        }
-        item {
-            Button(
-                onClick = onStartSession,
-                enabled = !isSessionActive,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(stringResource(id = R.string.start_practice))
-            }
         }
         items(sessions) { session ->
             SessionItem(session)
@@ -80,7 +105,73 @@ fun HomeScreen(
 }
 
 @Composable
-fun SummaryCard(totalSessionTime: Long, lessonsCompleted: Int, totalLessons: Int) {
+fun ContinueLearningCard(
+    lastTabName: String?,
+    progressPercent: Int,
+    progressValue: Float,
+    onContinue: () -> Unit,
+    isSessionActive: Boolean,
+    isEnabled: Boolean
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.elevatedCardElevation(),
+        colors = CardDefaults.elevatedCardColors()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = stringResource(id = R.string.continue_learning_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = stringResource(id = R.string.continue_learning_last_song),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = lastTabName ?: stringResource(id = R.string.continue_learning_no_song),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = stringResource(id = R.string.continue_learning_progress_label),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = stringResource(id = R.string.progress_percent_format, progressPercent),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            LinearProgressIndicator(
+                progress = { progressValue },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Button(
+                onClick = onContinue,
+                enabled = !isSessionActive && isEnabled,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(id = R.string.continue_learning_button))
+            }
+        }
+    }
+}
+
+@Composable
+fun StatsCard(totalSessionTime: Long, lessonsCompleted: Int, totalLessons: Int) {
+    val progressValue = if (totalLessons > 0) lessonsCompleted.toFloat() / totalLessons.toFloat() else 0f
     Card(
         elevation = CardDefaults.elevatedCardElevation(),
         colors = CardDefaults.elevatedCardColors(),
@@ -89,7 +180,8 @@ fun SummaryCard(totalSessionTime: Long, lessonsCompleted: Int, totalLessons: Int
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceAround
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
@@ -103,13 +195,21 @@ fun SummaryCard(totalSessionTime: Long, lessonsCompleted: Int, totalLessons: Int
                 )
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(
+                        progress = { progressValue },
+                        strokeWidth = 6.dp,
+                        modifier = Modifier.size(64.dp)
+                    )
+                    Text(
+                        text = stringResource(id = R.string.lessons_progress_format, lessonsCompleted, totalLessons),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "$lessonsCompleted/$totalLessons",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = stringResource(id = R.string.lessons_completed),
+                    text = stringResource(id = R.string.lessons_progress_title),
                     style = MaterialTheme.typography.bodyLarge
                 )
             }
@@ -146,7 +246,10 @@ fun MyTabsSummaryCard(userTabsCount: Int) {
 
 @Composable
 fun SessionItem(session: Session) {
-    val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
+    val dateFormat = SimpleDateFormat(
+        stringResource(id = R.string.session_date_format),
+        Locale.getDefault()
+    )
 
     Card(
         modifier = Modifier

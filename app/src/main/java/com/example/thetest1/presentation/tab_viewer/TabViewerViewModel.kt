@@ -20,6 +20,9 @@ import com.example.thetest1.domain.usecase.GetTabFileBytesUseCase
 import com.example.thetest1.domain.usecase.GetTabItemUseCase
 import com.example.thetest1.domain.usecase.GetTextNotesUseCase
 import com.example.thetest1.domain.usecase.UpdateTextNoteUseCase
+import com.example.thetest1.domain.usecase.GetTabPlaybackProgressUseCase
+import com.example.thetest1.domain.usecase.UpdateTabPlaybackProgressUseCase
+import com.example.thetest1.domain.model.TabPlaybackProgress
 import com.example.thetest1.presentation.audio_notes.AudioPlayer
 import com.example.thetest1.presentation.audio_notes.AudioRecorder
 import com.example.thetest1.presentation.audio_notes.PlayerState
@@ -84,7 +87,10 @@ data class TabViewerUiState(
     val tabBytesPath: String? = null,
     val soundFontBase64: String? = null,
     val lastTickPosition: Long? = null,
-    val wasPlaying: Boolean = false
+    val lastBarIndex: Int? = null,
+    val totalBars: Int? = null,
+    val wasPlaying: Boolean = false,
+    val restorePending: Boolean = false
 )
 
 class TabViewerViewModel(
@@ -99,7 +105,9 @@ class TabViewerViewModel(
     private val getTextNotesUseCase: GetTextNotesUseCase,
     private val addTextNoteUseCase: AddTextNoteUseCase,
     private val updateTextNoteUseCase: UpdateTextNoteUseCase,
-    private val deleteTextNoteUseCase: DeleteTextNoteUseCase
+    private val deleteTextNoteUseCase: DeleteTextNoteUseCase,
+    private val getTabPlaybackProgressUseCase: GetTabPlaybackProgressUseCase,
+    private val updateTabPlaybackProgressUseCase: UpdateTabPlaybackProgressUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TabViewerUiState())
@@ -111,6 +119,8 @@ class TabViewerViewModel(
     private var audioNotesJob: Job? = null
     private var textNotesJob: Job? = null
     private val gson = Gson()
+    private var lastSavedBarIndex: Int = -1
+    private var lastSavedAt: Long = 0L
 
     init {
         viewModelScope.launch {
@@ -125,6 +135,8 @@ class TabViewerViewModel(
         viewModelScope.launch {
             val lesson = getLessonUseCase(id)
             val tabItem = getTabItemUseCase(id)
+            val savedProgress = getTabPlaybackProgressUseCase(id)
+            val shouldRestore = savedProgress?.lastTick?.let { it > 0L } == true
             _uiState.update { currentState ->
                 val isUserTab = tabItem?.isUserTab == true
                 val tabs = if (isUserTab) {
@@ -145,7 +157,12 @@ class TabViewerViewModel(
                     isUserTab = isUserTab,
                     tabs = tabs,
                     selectedTab = selectedTab,
-                    selectedTabIndex = if (selectedTabIndex != -1) selectedTabIndex else 0
+                    selectedTabIndex = if (selectedTabIndex != -1) selectedTabIndex else 0,
+                    lastTickPosition = savedProgress?.lastTick,
+                    lastBarIndex = savedProgress?.lastBarIndex,
+                    totalBars = savedProgress?.totalBars,
+                    wasPlaying = false,
+                    restorePending = shouldRestore
                 )
             }
             val tabPath = lesson?.tabsGpPath ?: tabItem?.filePath
@@ -209,7 +226,53 @@ class TabViewerViewModel(
     }
 
     fun updatePlaybackState(tick: Long, isPlaying: Boolean) {
-        _uiState.update { it.copy(lastTickPosition = tick, wasPlaying = isPlaying) }
+        _uiState.update { state ->
+            if (state.restorePending && tick == 0L && !isPlaying) {
+                state
+            } else {
+                state.copy(
+                    lastTickPosition = tick,
+                    wasPlaying = isPlaying,
+                    restorePending = false
+                )
+            }
+        }
+    }
+
+    fun updatePlaybackProgress(
+        lessonId: String,
+        lessonTitle: String,
+        tick: Long,
+        barIndex: Int,
+        totalBars: Int
+    ) {
+        val currentState = _uiState.value
+        if (currentState.restorePending && tick == 0L) return
+        if (tick == 0L || barIndex <= 1 || totalBars <= 0) return
+        val now = System.currentTimeMillis()
+        val shouldUpdate = barIndex != lastSavedBarIndex || now - lastSavedAt > 2000L
+        if (!shouldUpdate || totalBars <= 0 || barIndex <= 0) return
+        lastSavedBarIndex = barIndex
+        lastSavedAt = now
+        _uiState.update {
+            it.copy(
+                lastTickPosition = tick,
+                lastBarIndex = barIndex,
+                totalBars = totalBars
+            )
+        }
+        viewModelScope.launch {
+            updateTabPlaybackProgressUseCase(
+                TabPlaybackProgress(
+                    tabId = lessonId,
+                    tabName = lessonTitle,
+                    lastTick = tick,
+                    lastBarIndex = barIndex,
+                    totalBars = totalBars,
+                    updatedAt = now
+                )
+            )
+        }
     }
 
     fun onPlayAudio(audioNote: AudioNote) {
