@@ -45,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.thetest1.R
@@ -112,19 +113,68 @@ fun GoalsScreen(
                     }
                 )
             }
-            LazyColumn(
+            if (uiState.goals.isEmpty()) {
+                EmptyGoalsState(
+                    onAddGoal = { viewModel.onAddGoalClicked() },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(uiState.goals) { goal ->
+                        GoalItem(
+                            goal = goal,
+                            onDelete = { goalToDelete = goal },
+                            onToggle = { viewModel.toggleCustomGoal(goal) },
+                            onEdit = { viewModel.onEditGoalClicked(goal) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyGoalsState(
+    onAddGoal: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(uiState.goals) { goal ->
-                    GoalItem(
-                        goal = goal,
-                        onDelete = { goalToDelete = goal },
-                        onToggle = { viewModel.toggleCustomGoal(goal) },
-                        onEdit = { viewModel.onEditGoalClicked(goal) }
-                    )
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = stringResource(R.string.empty_goals_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = stringResource(R.string.empty_goals_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Button(onClick = onAddGoal) {
+                    Text(stringResource(R.string.add_first_goal))
                 }
             }
         }

@@ -510,8 +510,51 @@ window.setLoopRange = (startMeasure, endMeasure, isLooping) => {
 
 // ── AlphaTab setup ───────────────────────────────────────
 let api=null, _poll=null, _lastTick=-1, _pendingScale=null, _scoreLoadedFired=false, _pendingSoundFontBase64=null, _pendingTabBase64=null, _pendingTabPath=null, _initRetry=null, _restoreTick=null, _restoreBarIndex=null, _restorePlay=false, _initialCursorSet=false, _tickReportTimer=null;
+let _metronomeEnabled=false, _metronomeBpm=90, _metronomeTimer=null, _metronomeCtx=null;
 
 function signalReady(){if(window.Android?.onJsReady)window.Android.onJsReady();else setTimeout(signalReady,100);}
+function stopMetronome(){
+    if(_metronomeTimer!=null){
+        clearInterval(_metronomeTimer);
+        _metronomeTimer = null;
+    }
+}
+
+function ensureMetronomeContext(){
+    if(!_metronomeCtx){
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if(!Ctx) return false;
+        _metronomeCtx = new Ctx();
+    }
+    if(_metronomeCtx.state === 'suspended'){
+        _metronomeCtx.resume();
+    }
+    return true;
+}
+
+function playMetronomeClick(){
+    if(!ensureMetronomeContext()) return;
+    const now = _metronomeCtx.currentTime;
+    const osc = _metronomeCtx.createOscillator();
+    const gain = _metronomeCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.value = 1600;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.18, now + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+    osc.connect(gain);
+    gain.connect(_metronomeCtx.destination);
+    osc.start(now);
+    osc.stop(now + 0.055);
+}
+
+function restartMetronome(){
+    stopMetronome();
+    if(!_metronomeEnabled) return;
+    const intervalMs = Math.max(80, Math.round(60000 / _metronomeBpm));
+    playMetronomeClick();
+    _metronomeTimer = setInterval(playMetronomeClick, intervalMs);
+}
 function postStatus(msg){
     console.log('AlphaTabStatus:' + msg);
     if(window.Android?.onAlphaTabStatus)window.Android.onAlphaTabStatus(msg);
@@ -569,6 +612,19 @@ function normalizeScoreLoudness(score){
     api.masterVolume = 1.0;
 }
 
+function detectScoreTempo(score){
+    try{
+        const firstBar = score?.masterBars && score.masterBars.length > 0 ? score.masterBars[0] : null;
+        const direct = firstBar?.tempo;
+        if(typeof direct === 'number' && Number.isFinite(direct)) return Math.round(direct);
+        const automationVal = firstBar?.tempoAutomation?.value;
+        if(typeof automationVal === 'number' && Number.isFinite(automationVal)) return Math.round(automationVal);
+        const scoreTempo = score?.tempo;
+        if(typeof scoreTempo === 'number' && Number.isFinite(scoreTempo)) return Math.round(scoreTempo);
+    }catch{}
+    return 90;
+}
+
 function applyRestore(){
     if(!api || !api.score) return;
     let targetTick = _restoreTick;
@@ -579,10 +635,29 @@ function applyRestore(){
         }
     }
     if(targetTick != null){
+        const requestedBar = _restoreBarIndex ?? -1;
+        postStatus(`restore:apply start tick=${targetTick} requestedBar=${requestedBar} play=${_restorePlay}`);
+        _initialCursorSet = true;
         try{ api.tickPosition = targetTick; }catch{}
         if(typeof api.scrollToCursor === 'function'){
+            // alphaTab layout can settle a bit later; perform a few delayed scroll sync attempts
             try{ api.scrollToCursor(); }catch{}
+            setTimeout(() => { try{ api.scrollToCursor(); }catch{} }, 60);
+            setTimeout(() => { try{ api.scrollToCursor(); }catch{} }, 180);
         }
+        const reportRestoreApplied = () => {
+            try{
+                const currentTick = api.tickPosition ?? 0;
+                const currentBar = getBarIndexForTick(currentTick) ?? 0;
+                postStatus(`restore:applied tick=${currentTick} currentBar=${currentBar} requestedBar=${requestedBar}`);
+                if(window.Android?.onRestoreApplied){
+                    window.Android.onRestoreApplied(currentTick, currentBar, requestedBar);
+                }
+            }catch{}
+        };
+        reportRestoreApplied();
+        setTimeout(reportRestoreApplied, 120);
+        setTimeout(reportRestoreApplied, 320);
         if(_restorePlay){
             tryResumeAudio();
             api.play();
@@ -591,9 +666,11 @@ function applyRestore(){
     _restoreTick = null;
     _restoreBarIndex = null;
     _restorePlay = false;
+    postStatus('restore:apply end');
 }
 
 window.setRestorePlayback=(tick, isPlaying, barIndex)=>{
+    postStatus(`restore:set tick=${tick} bar=${barIndex} play=${isPlaying}`);
     _restoreTick = tick;
     _restorePlay = isPlaying;
     _restoreBarIndex = (barIndex != null && barIndex > 0) ? barIndex : null;
@@ -686,6 +763,11 @@ function initAlphaTab(){
         api.playerStateChanged.on(args=>{ postStatus('playerState:'+args?.state); });
         api.scoreLoaded.on(score=>{
             normalizeScoreLoudness(score);
+            const detectedTempo = detectScoreTempo(score);
+            _metronomeBpm = Math.max(40, Math.min(240, detectedTempo));
+            if(window.Android?.onDetectedTempo){
+                window.Android.onDetectedTempo(_metronomeBpm);
+            }
             setTimeout(() => runFullAnalysis(score), 400); // give UI time to animate fade-in
             if(_pendingScale != null){
                 api.settings.display.scale = _pendingScale;
@@ -863,15 +945,37 @@ function tryResumeAudio(){
     }catch(e){}
 }
 window.playPause=()=>{if(api){tryResumeAudio();api.playPause();}};
-window.stopAudio=()=>{if(api){api.stop();stopPoller();}};
+window.stopAudio=()=>{if(api){api.stop();stopPoller();} stopMetronome();};
 window.setPlaybackSpeed=(s)=>{if(api)api.playbackSpeed=parseFloat(s);};
+window.setMetronomeEnabled=(enabled)=>{
+    _metronomeEnabled = !!enabled;
+    restartMetronome();
+    postStatus('metronome:enabled=' + _metronomeEnabled);
+};
+window.setMetronomeBpm=(bpm)=>{
+    const parsed = parseInt(bpm, 10);
+    _metronomeBpm = Number.isFinite(parsed) ? Math.max(40, Math.min(240, parsed)) : 90;
+    if(_metronomeEnabled){
+        restartMetronome();
+    }
+    postStatus('metronome:bpm=' + _metronomeBpm);
+};
 window.setTabScale=(s)=>{
     _pendingScale = parseFloat(s);
     if(!api) return;
+    if(!api.score){
+        api.settings.display.scale = _pendingScale;
+        api.updateSettings();
+        return;
+    }
     const wasPlaying = api.playerState === 1;
     const tick = api.tickPosition ?? 0;
-    _restoreTick = tick;
-    _restorePlay = wasPlaying;
+    // Do not overwrite an external restore request (from Android) that is still pending.
+    if(_restoreTick == null && _restoreBarIndex == null){
+        _restoreTick = tick;
+        _restorePlay = wasPlaying;
+        _restoreBarIndex = getBarIndexForTick(tick);
+    }
     api.settings.display.scale = _pendingScale;
     api.updateSettings();
     if(api.score){
@@ -881,10 +985,23 @@ window.setTabScale=(s)=>{
 
 window.setTabDisplayMode=(mode)=>{
     if(!api) return;
+    if(!api.score){
+        if (window.alphaTab && window.alphaTab.StaveProfile) {
+            api.settings.display.staveProfile = window.alphaTab.StaveProfile[mode] ?? api.settings.display.staveProfile;
+        } else {
+            api.settings.display.staveProfile = mode;
+        }
+        api.updateSettings();
+        return;
+    }
     const wasPlaying = api.playerState === 1;
     const tick = api.tickPosition ?? 0;
-    _restoreTick = tick;
-    _restorePlay = wasPlaying;
+    // Do not overwrite an external restore request (from Android) that is still pending.
+    if(_restoreTick == null && _restoreBarIndex == null){
+        _restoreTick = tick;
+        _restorePlay = wasPlaying;
+        _restoreBarIndex = getBarIndexForTick(tick);
+    }
     if (window.alphaTab && window.alphaTab.StaveProfile) {
         api.settings.display.staveProfile = window.alphaTab.StaveProfile[mode] ?? api.settings.display.staveProfile;
     } else {

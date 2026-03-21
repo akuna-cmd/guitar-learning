@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
 import java.util.Date
+import kotlin.math.abs
 
 enum class LessonTab {
     THEORY,
@@ -89,6 +90,8 @@ data class TabViewerUiState(
     val lastTickPosition: Long? = null,
     val lastBarIndex: Int? = null,
     val totalBars: Int? = null,
+    val restoreTickPosition: Long? = null,
+    val restoreBarIndex: Int? = null,
     val wasPlaying: Boolean = false,
     val restorePending: Boolean = false
 )
@@ -109,6 +112,9 @@ class TabViewerViewModel(
     private val getTabPlaybackProgressUseCase: GetTabPlaybackProgressUseCase,
     private val updateTabPlaybackProgressUseCase: UpdateTabPlaybackProgressUseCase
 ) : ViewModel() {
+    private companion object {
+        const val RESTORE_TAG = "TabRestoreFlow"
+    }
 
     private val _uiState = MutableStateFlow(TabViewerUiState())
     val uiState: StateFlow<TabViewerUiState> = _uiState.asStateFlow()
@@ -137,6 +143,10 @@ class TabViewerViewModel(
             val tabItem = getTabItemUseCase(id)
             val savedProgress = getTabPlaybackProgressUseCase(id)
             val shouldRestore = savedProgress?.lastTick?.let { it > 0L } == true
+            Log.d(
+                RESTORE_TAG,
+                "loadLesson(id=$id) savedProgress={tick=${savedProgress?.lastTick}, bar=${savedProgress?.lastBarIndex}, total=${savedProgress?.totalBars}} shouldRestore=$shouldRestore"
+            )
             _uiState.update { currentState ->
                 val isUserTab = tabItem?.isUserTab == true
                 val tabs = if (isUserTab) {
@@ -161,6 +171,8 @@ class TabViewerViewModel(
                     lastTickPosition = savedProgress?.lastTick,
                     lastBarIndex = savedProgress?.lastBarIndex,
                     totalBars = savedProgress?.totalBars,
+                    restoreTickPosition = savedProgress?.lastTick,
+                    restoreBarIndex = savedProgress?.lastBarIndex,
                     wasPlaying = false,
                     restorePending = shouldRestore
                 )
@@ -227,15 +239,47 @@ class TabViewerViewModel(
 
     fun updatePlaybackState(tick: Long, isPlaying: Boolean) {
         _uiState.update { state ->
-            if (state.restorePending && tick == 0L && !isPlaying) {
-                state
-            } else {
-                state.copy(
-                    lastTickPosition = tick,
-                    wasPlaying = isPlaying,
-                    restorePending = false
+            state.copy(
+                lastTickPosition = tick,
+                wasPlaying = isPlaying
+            )
+        }
+    }
+
+    fun markRestoreCompleted() {
+        Log.d(RESTORE_TAG, "markRestoreCompleted()")
+        _uiState.update { state ->
+            if (!state.restorePending) state else state.copy(restorePending = false)
+        }
+    }
+
+    fun onRestoreApplied(tick: Long, currentBarIndex: Int, requestedBarIndex: Int) {
+        _uiState.update { state ->
+            if (!state.restorePending) return@update state
+            val expectedBar = state.restoreBarIndex ?: -1
+            if (expectedBar > 0 && requestedBarIndex > 0 && requestedBarIndex != expectedBar) {
+                // Ignore callbacks from internal re-renders (scale/mode) that are not our restore target.
+                Log.d(
+                    RESTORE_TAG,
+                    "onRestoreApplied ignored (requestedBar=$requestedBarIndex expectedBar=$expectedBar tick=$tick currentBar=$currentBarIndex)"
                 )
+                return@update state
             }
+            val targetBar = if (expectedBar > 0) expectedBar else requestedBarIndex
+            val reached = when {
+                targetBar > 1 -> tick > 0L && abs(currentBarIndex - targetBar) <= 1
+                else -> tick > 0L
+            }
+            Log.d(
+                RESTORE_TAG,
+                "onRestoreApplied tick=$tick currentBar=$currentBarIndex requestedBar=$requestedBarIndex targetBar=$targetBar reached=$reached"
+            )
+            if (!reached) return@update state
+            state.copy(
+                restorePending = false,
+                lastTickPosition = tick,
+                lastBarIndex = if (currentBarIndex > 0) currentBarIndex else state.lastBarIndex
+            )
         }
     }
 
@@ -247,8 +291,16 @@ class TabViewerViewModel(
         totalBars: Int
     ) {
         val currentState = _uiState.value
-        if (currentState.restorePending && tick == 0L) return
-        if (tick == 0L || barIndex <= 1 || totalBars <= 0) return
+        if (currentState.restorePending && tick == 0L) {
+            Log.d(RESTORE_TAG, "updatePlaybackProgress skipped: restorePending && tick=0")
+            return
+        }
+        if (tick == 0L || barIndex <= 1 || totalBars <= 0) {
+            if (tick > 0L) {
+                Log.d(RESTORE_TAG, "updatePlaybackProgress skipped: tick=$tick barIndex=$barIndex totalBars=$totalBars")
+            }
+            return
+        }
         val now = System.currentTimeMillis()
         val shouldUpdate = barIndex != lastSavedBarIndex || now - lastSavedAt > 2000L
         if (!shouldUpdate || totalBars <= 0 || barIndex <= 0) return
@@ -262,6 +314,10 @@ class TabViewerViewModel(
             )
         }
         viewModelScope.launch {
+            Log.d(
+                RESTORE_TAG,
+                "persist progress: lessonId=$lessonId tick=$tick bar=$barIndex total=$totalBars"
+            )
             updateTabPlaybackProgressUseCase(
                 TabPlaybackProgress(
                     tabId = lessonId,

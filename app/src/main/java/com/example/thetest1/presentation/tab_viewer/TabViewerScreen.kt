@@ -64,6 +64,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -242,8 +243,13 @@ fun TabViewerScreen(
                         onTabDisplayModeChange = { mode -> themeViewModel.setTabDisplayMode(mode) },
                         lastTickPosition = uiState.lastTickPosition,
                         lastBarIndex = uiState.lastBarIndex,
+                        restoreTickPosition = uiState.restoreTickPosition,
+                        restoreBarIndex = uiState.restoreBarIndex,
                         totalBars = uiState.totalBars,
                         restorePending = uiState.restorePending,
+                        onRestoreApplied = { tick, currentBar, requestedBar ->
+                            viewModel.onRestoreApplied(tick, currentBar, requestedBar)
+                        },
                         wasPlaying = uiState.wasPlaying,
                         onTickPosition = { tick, playing -> viewModel.updatePlaybackState(tick, playing) },
                         onPlaybackProgress = { tick, playing, barIndex, totalBars ->
@@ -385,8 +391,11 @@ private fun TabViewer(
     onTabDisplayModeChange: (TabDisplayMode) -> Unit,
     lastTickPosition: Long?,
     lastBarIndex: Int?,
+    restoreTickPosition: Long?,
+    restoreBarIndex: Int?,
     totalBars: Int?,
     restorePending: Boolean,
+    onRestoreApplied: (Long, Int, Int) -> Unit,
     wasPlaying: Boolean,
     onTickPosition: (Long, Boolean) -> Unit,
     onPlaybackProgress: (Long, Boolean, Int, Int) -> Unit,
@@ -407,6 +416,7 @@ private fun TabViewer(
     onTotalMeasuresLoaded: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val restoreTag = "TabRestoreFlow"
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
@@ -424,8 +434,12 @@ private fun TabViewer(
     var isReady    by remember { mutableStateOf(false) }
     var isScoreLoaded by remember { mutableStateOf(false) }
     var totalBars by remember { mutableStateOf(0) }
+    var loadedSourceForCurrentLesson by remember { mutableStateOf<String?>(null) }
     var showDisplaySheet by remember { mutableStateOf(false) }
     var showLearningSheet by remember { mutableStateOf(false) }
+    var metronomeEnabled by remember { mutableStateOf(false) }
+    var metronomeBpm by remember { mutableStateOf(90) }
+    var metronomeBpmTouched by remember { mutableStateOf(false) }
     val displaySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val learningSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     
@@ -467,7 +481,16 @@ private fun TabViewer(
                     Handler(Looper.getMainLooper()).post { 
                         isScoreLoaded = true 
                         totalBars = totalMeasures
+                        Log.d(restoreTag, "onScoreLoaded(totalMeasures=$totalMeasures)")
                         onTotalMeasuresLoaded(totalMeasures)
+                    }
+                }
+                @JavascriptInterface
+                fun onDetectedTempo(bpm: Int) {
+                    Handler(Looper.getMainLooper()).post {
+                        if (!metronomeBpmTouched) {
+                            metronomeBpm = bpm.coerceIn(40, 240)
+                        }
                     }
                 }
                 @JavascriptInterface
@@ -481,6 +504,14 @@ private fun TabViewer(
                 @JavascriptInterface
                 fun onPlaybackProgress(tick: Long, isPlaying: Boolean, barIndex: Int) {
                     onPlaybackProgress(tick, isPlaying, barIndex, totalBars)
+                }
+                @JavascriptInterface
+                fun onRestoreApplied(tick: Long, currentBarIndex: Int, requestedBarIndex: Int) {
+                    Log.d(
+                        restoreTag,
+                        "JS onRestoreApplied(tick=$tick currentBar=$currentBarIndex requestedBar=$requestedBarIndex)"
+                    )
+                    onRestoreApplied(tick, currentBarIndex, requestedBarIndex)
                 }
             }, "Android")
             
@@ -503,21 +534,35 @@ private fun TabViewer(
         }
     }
 
-    // Apply theme (and load tab) whenever page is ready or theme/file changes
-    LaunchedEffect(fileName, tabBytesBase64, soundFontBase64, isReady) {
+    LaunchedEffect(fileName) {
+        loadedSourceForCurrentLesson = null
+        metronomeBpmTouched = false
+    }
+
+    // Load SoundFont + score only once per lesson to avoid late resets of cursor after restore.
+    LaunchedEffect(fileName, tabBytesBase64, soundFontBase64, isReady, loadedSourceForCurrentLesson) {
         if (isReady) {
             webView.evaluateJavascript("window.setTheme($isDark);", null)
             webView.evaluateJavascript("window.setPracticeModeLayout($isPracticeMode);", null)
-            isScoreLoaded = false
-            val soundFont = soundFontBase64
-            if (soundFont != null) {
-                webView.evaluateJavascript("window.loadSoundFontFromBase64('$soundFont');", null)
-            }
-            val base64 = tabBytesBase64
-            if (base64 != null) {
-                webView.evaluateJavascript("window.loadTabFromBase64('$base64');", null)
-            } else {
-                webView.evaluateJavascript("window.loadTab('$fileName');", null)
+            if (loadedSourceForCurrentLesson == null) {
+                isScoreLoaded = false
+                val soundFont = soundFontBase64
+                if (soundFont != null) {
+                    Log.d(restoreTag, "loading soundfont before score")
+                    webView.evaluateJavascript("window.loadSoundFontFromBase64('$soundFont');", null)
+                }
+                val base64 = tabBytesBase64
+                if (base64 != null) {
+                    loadedSourceForCurrentLesson = "base64"
+                    Log.d(restoreTag, "loading score from base64")
+                    webView.evaluateJavascript("window.loadTabFromBase64('$base64');", null)
+                } else if (fileName.startsWith("/")) {
+                    loadedSourceForCurrentLesson = "file"
+                    Log.d(restoreTag, "loading score from file")
+                    webView.evaluateJavascript("window.loadTab('$fileName');", null)
+                } else {
+                    Log.d(restoreTag, "waiting for base64 bytes, skip file fallback for bundled tab path: $fileName")
+                }
             }
         }
     }
@@ -553,12 +598,33 @@ private fun TabViewer(
         }
     }
 
-    LaunchedEffect(lastTickPosition, lastBarIndex, totalBars, wasPlaying, restorePending, isReady) {
-        if (isReady && restorePending) {
-            val tick = lastTickPosition ?: 0L
-            val barIndex = lastBarIndex ?: -1
+    LaunchedEffect(metronomeEnabled, isReady) {
+        if (isReady) {
+            webView.evaluateJavascript("window.setMetronomeEnabled($metronomeEnabled);", null)
+        }
+    }
+
+    LaunchedEffect(metronomeBpm, isReady) {
+        if (isReady) {
+            webView.evaluateJavascript("window.setMetronomeBpm($metronomeBpm);", null)
+        }
+    }
+
+    LaunchedEffect(restoreTickPosition, restoreBarIndex, wasPlaying, restorePending, isReady, isScoreLoaded) {
+        if (isReady && isScoreLoaded && restorePending) {
+            val tick = restoreTickPosition ?: 0L
+            val barIndex = restoreBarIndex ?: -1
             val playFlag = if (wasPlaying) "true" else "false"
-            webView.evaluateJavascript("window.setRestorePlayback($tick, $playFlag, $barIndex);", null)
+            Log.d(
+                restoreTag,
+                "restore effect start: tick=$tick barIndex=$barIndex play=$playFlag isScoreLoaded=$isScoreLoaded"
+            )
+            repeat(12) {
+                Log.d(restoreTag, "restore attempt ${it + 1}/12")
+                webView.evaluateJavascript("window.setRestorePlayback($tick, $playFlag, $barIndex);", null)
+                delay(350)
+            }
+            Log.d(restoreTag, "restore effect finished attempts")
         }
     }
 
@@ -715,6 +781,13 @@ private fun TabViewer(
                 onOpenLoop = {
                     showLearningSheet = false
                     onOpenLoop()
+                },
+                metronomeEnabled = metronomeEnabled,
+                metronomeBpm = metronomeBpm,
+                onMetronomeEnabledChange = { metronomeEnabled = it },
+                onMetronomeBpmChange = {
+                    metronomeBpmTouched = true
+                    metronomeBpm = it
                 }
             )
         }
@@ -761,6 +834,10 @@ private fun stepSpeed(value: Float, delta: Float): Float {
 
 private fun scaleString(scale: Float): String {
     return String.format("%.1f", scale).replace(',', '.')
+}
+
+private fun stepBpm(value: Int, delta: Int): Int {
+    return (value + delta).coerceIn(40, 240)
 }
 
 @Composable
@@ -820,7 +897,11 @@ private fun DisplayControlsSheet(
 private fun LearningControlsSheet(
     onOpenAiAssistant: () -> Unit,
     onOpenNotes: () -> Unit,
-    onOpenLoop: () -> Unit
+    onOpenLoop: () -> Unit,
+    metronomeEnabled: Boolean,
+    metronomeBpm: Int,
+    onMetronomeEnabledChange: (Boolean) -> Unit,
+    onMetronomeBpmChange: (Int) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -838,6 +919,34 @@ private fun LearningControlsSheet(
             headlineContent = { Text(stringResource(R.string.loop_section)) },
             leadingContent = { Icon(Icons.Filled.Repeat, contentDescription = null) },
             modifier = Modifier.clickable { onOpenLoop() }
+        )
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.metronome)) },
+            supportingContent = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(text = stringResource(R.string.metronome_bpm, metronomeBpm), modifier = Modifier.weight(1f))
+                    HoldableIconButton(
+                        onClick = { onMetronomeBpmChange(stepBpm(metronomeBpm, -5)) },
+                        contentDescription = stringResource(R.string.metronome_decrease),
+                        icon = Icons.Default.Remove
+                    )
+                    HoldableIconButton(
+                        onClick = { onMetronomeBpmChange(stepBpm(metronomeBpm, 5)) },
+                        contentDescription = stringResource(R.string.metronome_increase),
+                        icon = Icons.Default.Add
+                    )
+                }
+            },
+            leadingContent = { Icon(Icons.Filled.MusicNote, contentDescription = null) },
+            trailingContent = {
+                Switch(
+                    checked = metronomeEnabled,
+                    onCheckedChange = onMetronomeEnabledChange
+                )
+            }
         )
         ListItem(
             headlineContent = { Text(stringResource(R.string.ai_assistant)) },

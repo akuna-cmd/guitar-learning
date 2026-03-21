@@ -139,6 +139,16 @@
     <string name="display_scale">Масштаб</string>
     <string name="display_mode">Вигляд табів</string>
     <string name="loop_section">Зациклення</string>
+    <string name="empty_tabs_title">Тут поки що порожньо</string>
+    <string name="empty_tabs_subtitle">Додайте перший файл, щоб почати практикуватися.</string>
+    <string name="upload_first_gp">Завантажити перший Guitar Pro файл</string>
+    <string name="empty_goals_title">Немає цілей</string>
+    <string name="empty_goals_subtitle">Створи першу ціль, щоб відстежувати прогрес у практиці.</string>
+    <string name="add_first_goal">Додати першу ціль</string>
+    <string name="metronome">Метроном</string>
+    <string name="metronome_bpm">%1$d BPM</string>
+    <string name="metronome_increase">Збільшити BPM</string>
+    <string name="metronome_decrease">Зменшити BPM</string>
     <string-array name="week_days">
         <item>Нд</item>
         <item>Пн</item>

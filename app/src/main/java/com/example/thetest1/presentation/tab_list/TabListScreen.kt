@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.School
@@ -96,7 +97,8 @@ fun TabListScreen(
                     uiState = uiState,
                     onTabClick = onTabClick,
                     onDeleteTab = { viewModel.deleteUserTab(it) },
-                    onRenameTab = { tab, newName -> viewModel.renameUserTab(tab, newName) }
+                    onRenameTab = { tab, newName -> viewModel.renameUserTab(tab, newName) },
+                    onAddFirstTab = { pickFileLauncher.launch(arrayOf("application/octet-stream", "text/plain", "*/*")) }
                 )
                 1 -> LessonsScreen(viewModel, uiState, onTabClick)
             }
@@ -109,7 +111,8 @@ private fun UserTabsScreen(
     uiState: TabListUiState,
     onTabClick: (String) -> Unit,
     onDeleteTab: (TabItem) -> Unit,
-    onRenameTab: (TabItem, String) -> Unit
+    onRenameTab: (TabItem, String) -> Unit,
+    onAddFirstTab: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf<String?>(null) }
     var showRenameDialog by remember { mutableStateOf<TabItem?>(null) }
@@ -178,6 +181,10 @@ private fun UserTabsScreen(
             fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(8.dp))
+        if (uiState.userTabs.isEmpty()) {
+            EmptyTabsState(onAddFirstTab = onAddFirstTab)
+            return@Column
+        }
         LazyColumn(modifier = Modifier.fillMaxWidth()) {
             items(uiState.userTabs) { tab ->
                 val progress = uiState.progressByTabId[tab.id] ?: 0
@@ -377,6 +384,48 @@ private fun TabMetricsRow(
                 ),
                 style = MaterialTheme.typography.labelMedium
             )
+        }
+    }
+}
+
+@Composable
+private fun EmptyTabsState(onAddFirstTab: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 28.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.LibraryMusic,
+                    contentDescription = null,
+                    modifier = Modifier.size(42.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = stringResource(R.string.empty_tabs_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = stringResource(R.string.empty_tabs_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Button(onClick = onAddFirstTab) {
+                    Text(stringResource(R.string.upload_first_gp))
+                }
+            }
         }
     }
 }
