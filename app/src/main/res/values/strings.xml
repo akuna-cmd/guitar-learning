@@ -138,6 +138,8 @@
     <string name="display_speed">Швидкість</string>
     <string name="display_scale">Масштаб</string>
     <string name="display_mode">Вигляд табів</string>
+    <string name="silent_mode">Без звуку</string>
+    <string name="silent_mode_desc">Прокрутка табів без відтворення аудіо</string>
     <string name="loop_section">Зациклення</string>
     <string name="empty_tabs_title">Тут поки що порожньо</string>
     <string name="empty_tabs_subtitle">Додайте перший файл, щоб почати практикуватися.</string>

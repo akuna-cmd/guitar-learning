@@ -159,6 +159,7 @@ fun TabViewerScreen(
     var loopStartMeasure by remember { mutableStateOf(1) }
     var loopEndMeasure by remember { mutableStateOf(1) }
     var isLoopEnabled by remember { mutableStateOf(false) }
+    var silentMode by remember { mutableStateOf(false) }
     val aiSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val notesSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val loopSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -276,6 +277,8 @@ fun TabViewerScreen(
                             currentScale = scale
                             uiState.lesson?.id?.let { tabScaleOverrides[it] = scale }
                         },
+                        silentMode = silentMode,
+                        onSilentModeChange = { silentMode = it },
                         onOpenAiAssistant = { showAiSheet = true },
                         onOpenNotes = { showNotesSheet = true },
                         onOpenLoop = { showLoopSheet = true },
@@ -401,6 +404,8 @@ private fun TabViewer(
     onPlaybackProgress: (Long, Boolean, Int, Int) -> Unit,
     currentScale: Float,
     onScaleChange: (Float) -> Unit,
+    silentMode: Boolean,
+    onSilentModeChange: (Boolean) -> Unit,
     onOpenAiAssistant: () -> Unit,
     onOpenNotes: () -> Unit,
     onOpenLoop: () -> Unit,
@@ -598,6 +603,12 @@ private fun TabViewer(
         }
     }
 
+    LaunchedEffect(silentMode, isReady) {
+        if (isReady) {
+            webView.evaluateJavascript("window.setSilentMode($silentMode);", null)
+        }
+    }
+
     LaunchedEffect(metronomeEnabled, isReady) {
         if (isReady) {
             webView.evaluateJavascript("window.setMetronomeEnabled($metronomeEnabled);", null)
@@ -759,7 +770,9 @@ private fun TabViewer(
                 tabDisplayMode = tabDisplayMode,
                 onSpeedChange = onSpeedChange,
                 onScaleChange = onScaleChange,
-                onTabDisplayModeChange = onTabDisplayModeChange
+                onTabDisplayModeChange = onTabDisplayModeChange,
+                silentMode = silentMode,
+                onSilentModeChange = onSilentModeChange
             )
         }
     }
@@ -847,7 +860,9 @@ private fun DisplayControlsSheet(
     tabDisplayMode: TabDisplayMode,
     onSpeedChange: (Float) -> Unit,
     onScaleChange: (Float) -> Unit,
-    onTabDisplayModeChange: (TabDisplayMode) -> Unit
+    onTabDisplayModeChange: (TabDisplayMode) -> Unit,
+    silentMode: Boolean,
+    onSilentModeChange: (Boolean) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -889,6 +904,17 @@ private fun DisplayControlsSheet(
                 leadingIcon = { Icon(Icons.Default.QueueMusic, contentDescription = null) }
             )
         }
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.silent_mode)) },
+            supportingContent = { Text(stringResource(R.string.silent_mode_desc)) },
+            trailingContent = {
+                Switch(
+                    checked = silentMode,
+                    onCheckedChange = onSilentModeChange
+                )
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
         Spacer(modifier = Modifier.height(12.dp))
     }
 }

@@ -511,6 +511,7 @@ window.setLoopRange = (startMeasure, endMeasure, isLooping) => {
 // ── AlphaTab setup ───────────────────────────────────────
 let api=null, _poll=null, _lastTick=-1, _pendingScale=null, _scoreLoadedFired=false, _pendingSoundFontBase64=null, _pendingTabBase64=null, _pendingTabPath=null, _initRetry=null, _restoreTick=null, _restoreBarIndex=null, _restorePlay=false, _initialCursorSet=false, _tickReportTimer=null;
 let _metronomeEnabled=false, _metronomeBpm=90, _metronomeTimer=null, _metronomeCtx=null;
+let _silentMode=false;
 
 function signalReady(){if(window.Android?.onJsReady)window.Android.onJsReady();else setTimeout(signalReady,100);}
 function stopMetronome(){
@@ -608,8 +609,8 @@ function normalizeScoreLoudness(score){
         });
     }
 
-    // keep global output stable between files
-    api.masterVolume = 1.0;
+    // keep global output stable between files and honor silent mode
+    api.masterVolume = _silentMode ? 0.0 : 1.0;
 }
 
 function detectScoreTempo(score){
@@ -947,6 +948,13 @@ function tryResumeAudio(){
 window.playPause=()=>{if(api){tryResumeAudio();api.playPause();}};
 window.stopAudio=()=>{if(api){api.stop();stopPoller();} stopMetronome();};
 window.setPlaybackSpeed=(s)=>{if(api)api.playbackSpeed=parseFloat(s);};
+window.setSilentMode=(enabled)=>{
+    _silentMode = !!enabled;
+    if(api){
+        api.masterVolume = _silentMode ? 0.0 : 1.0;
+    }
+    postStatus('silentMode=' + _silentMode);
+};
 window.setMetronomeEnabled=(enabled)=>{
     _metronomeEnabled = !!enabled;
     restartMetronome();
