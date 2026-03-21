@@ -291,11 +291,14 @@ class TabViewerViewModel(
         totalBars: Int
     ) {
         val currentState = _uiState.value
-        if (currentState.restorePending && tick == 0L) {
-            Log.d(RESTORE_TAG, "updatePlaybackProgress skipped: restorePending && tick=0")
+        if (currentState.restorePending) {
+            Log.d(
+                RESTORE_TAG,
+                "updatePlaybackProgress skipped: restorePending tick=$tick barIndex=$barIndex"
+            )
             return
         }
-        if (tick == 0L || barIndex <= 1 || totalBars <= 0) {
+        if (tick <= 0L || barIndex <= 0 || totalBars <= 0) {
             if (tick > 0L) {
                 Log.d(RESTORE_TAG, "updatePlaybackProgress skipped: tick=$tick barIndex=$barIndex totalBars=$totalBars")
             }

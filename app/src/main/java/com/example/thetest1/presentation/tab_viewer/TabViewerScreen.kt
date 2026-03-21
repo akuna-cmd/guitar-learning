@@ -572,9 +572,9 @@ private fun TabViewer(
         }
     }
 
-    // React to practice mode toggle
-    LaunchedEffect(isPracticeMode, isReady) {
-        if (isReady) {
+    // React to practice mode toggle (after restore is finished to avoid cursor reset race)
+    LaunchedEffect(isPracticeMode, isReady, restorePending) {
+        if (isReady && !restorePending) {
             webView.evaluateJavascript("window.setPracticeModeLayout($isPracticeMode);", null)
         }
     }
@@ -586,14 +586,14 @@ private fun TabViewer(
         }
     }
 
-    LaunchedEffect(currentScale, isReady) {
-        if (isReady) {
+    LaunchedEffect(currentScale, isReady, restorePending) {
+        if (isReady && !restorePending) {
             webView.evaluateJavascript("window.setTabScale($currentScale);", null)
         }
     }
 
-    LaunchedEffect(tabDisplayMode, isReady) {
-        if (isReady) {
+    LaunchedEffect(tabDisplayMode, isReady, restorePending) {
+        if (isReady && !restorePending) {
             val mode = when (tabDisplayMode) {
                 TabDisplayMode.NOTES_ONLY -> "Score"
                 TabDisplayMode.TAB_ONLY -> "Tab"
@@ -606,6 +606,12 @@ private fun TabViewer(
     LaunchedEffect(silentMode, isReady) {
         if (isReady) {
             webView.evaluateJavascript("window.setSilentMode($silentMode);", null)
+        }
+    }
+
+    LaunchedEffect(restorePending, isReady) {
+        if (isReady) {
+            webView.evaluateJavascript("window.setRestoreLock($restorePending);", null)
         }
     }
 
@@ -630,12 +636,8 @@ private fun TabViewer(
                 restoreTag,
                 "restore effect start: tick=$tick barIndex=$barIndex play=$playFlag isScoreLoaded=$isScoreLoaded"
             )
-            repeat(12) {
-                Log.d(restoreTag, "restore attempt ${it + 1}/12")
-                webView.evaluateJavascript("window.setRestorePlayback($tick, $playFlag, $barIndex);", null)
-                delay(350)
-            }
-            Log.d(restoreTag, "restore effect finished attempts")
+            Log.d(restoreTag, "restore request sent")
+            webView.evaluateJavascript("window.setRestorePlayback($tick, $playFlag, $barIndex);", null)
         }
     }
 
