@@ -23,8 +23,9 @@ class PracticeHeatmapViewModel(
             val activityData = sessions
                 .groupBy { getStartOfDay(it.startTime) }
                 .mapValues { (_, sessions) ->
-                    sessions.sumOf { it.duration }.toInt() / 60000
-                } // convert to minutes
+                    val totalMs = sessions.sumOf { it.duration }
+                    if (totalMs <= 0L) 0 else ((totalMs + 59_999L) / 60_000L).toInt()
+                } // minutes, rounded up so short sessions are still visible
             PracticeHeatmapUiState(activityData)
         }
         .stateIn(

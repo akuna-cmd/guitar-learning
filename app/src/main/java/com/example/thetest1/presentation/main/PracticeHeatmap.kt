@@ -28,6 +28,7 @@ import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.thetest1.R
 import com.example.thetest1.di.ViewModelFactory
@@ -119,21 +120,16 @@ fun Heatmap(activityData: Map<Date, Int>) {
                                 imageVector = Icons.Filled.LocalFireDepartment,
                                 contentDescription = stringResource(id = R.string.streak_active_day),
                                 tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(12.dp)
+                                modifier = Modifier.size(10.dp)
                             )
                             Text(
-                                text = activity.toString(),
-                                style = MaterialTheme.typography.labelSmall,
+                                text = formatDayTime(activity),
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                                 color = MaterialTheme.colorScheme.onPrimary
                             )
                         }
                     } else {
-                        Icon(
-                            imageVector = Icons.Filled.LocalFireDepartment,
-                            contentDescription = stringResource(id = R.string.streak_inactive_day),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(12.dp)
-                        )
+                        // Intentionally empty for inactive day.
                     }
                 }
             }
@@ -156,6 +152,13 @@ fun Heatmap(activityData: Map<Date, Int>) {
             }
         }
     }
+}
+
+private fun formatDayTime(minutes: Int): String {
+    if (minutes <= 0) return "0m"
+    if (minutes < 60) return "${minutes}m"
+    val hours = minutes / 60
+    return "${hours}h"
 }
 
 private fun getStartOfDay(date: Date): Date {

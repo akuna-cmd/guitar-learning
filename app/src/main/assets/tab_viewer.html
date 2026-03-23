@@ -103,6 +103,16 @@ const BIOMECH = {
 const biomechCost = (f,t) => (BIOMECH[f]||{})[t]||5;
 const transCost   = (p1,p2,d) => ((p2-p1)**2)/Math.max(d,.125);
 
+// alphaTab string index in some files can be mirrored for 1/6.
+// Normalize to UI convention: 1 = high e (top), 6 = low E (bottom).
+function normalizeStringIndex(s){
+    // Full mirror mapping:
+    // 1<->6, 2<->5, 3<->4
+    if(typeof s !== 'number') return s;
+    if(s < 1 || s > 6) return s;
+    return 7 - s;
+}
+
 function ensureBody(){
     if(!document.body){
         const body = document.getElementsByTagName('body')[0] || document.documentElement || document.createElement('body');
@@ -127,8 +137,15 @@ function configCost(frets, pos) {
 function detectBarre(notes) {
     const pr=notes.filter(n=>n.fret>0); if(!pr.length)return null;
     const mn=Math.min(...pr.map(n=>n.fret)), on=pr.filter(n=>n.fret===mn);
-    if(on.length>=3)return mn;
-    if(on.length===2){const s=on.map(n=>n.string); if(Math.max(...s)-Math.min(...s)>=2)return mn;}
+    // Suggest barre only in clearly realistic cases.
+    if(on.length>=3){
+        const span = Math.max(...on.map(n=>n.string)) - Math.min(...on.map(n=>n.string));
+        if(span >= 2) return mn;
+    }
+    if(on.length===2){
+        const s=on.map(n=>n.string);
+        if(Math.max(...s)-Math.min(...s)>=3) return mn;
+    }
     return null;
 }
 
@@ -156,21 +173,33 @@ function dpFingering(data) {
     return best?best.path:[];
 }
 
-function assignLhFingers(notes, pos, barre, prevF) {
-    const sorted=[...notes].sort((a,b)=>b.string-a.string),used=new Set(),lhMap={},newF={};
-    if(barre!==null)used.add(1);
+function assignLhFingers(notes, pos, barre, prevF, prevBeatPlacement) {
+    const sorted=[...notes].sort((a,b)=>(a.fret-b.fret)||(a.string-b.string)),lhMap={},newF={};
+    const usedInBeat = new Set();
     for(const{string:s,fret:f,isDead}of sorted){
         if(f===0){lhMap[`${s}_${f}`]='-';continue;}
-        if(f===barre && !isDead){lhMap[`${s}_${f}`]='1 (баре)';newF[s]=1;continue;}
-        const ideal=Math.min(Math.max(f-pos+1,1),4);
-        let bf=null,bc=Infinity;
-        for(let i=1;i<=4;i++){
-            if(used.has(i))continue;
-            const tc=Math.abs(i-ideal)*2+(prevF[s]?biomechCost(prevF[s],i):0);
-            if(tc<bc){bc=tc;bf=i;}
+        if(f===barre && !isDead){lhMap[`${s}_${f}`]='1 (можливе баре)';newF[s]=1;continue;}
+        // Prefer standard one-finger-per-fret mapping around current position.
+        let bf=Math.min(Math.max(f-pos+1,1),4);
+        if(prevF[s] && Math.abs(prevF[s]-bf) > 2){
+            bf = prevF[s] + Math.sign(bf - prevF[s]) * 2;
+            bf = Math.min(Math.max(bf,1),4);
         }
-        if(!bf)bf=ideal; used.add(bf); newF[s]=bf;
+        // Avoid same finger on adjacent strings for same fret unless it is an explicit barre.
+        const prevAdjacentLower = prevBeatPlacement?.[s + 1];
+        const prevAdjacentUpper = prevBeatPlacement?.[s - 1];
+        const clashesWithPrevAdjacent =
+            (prevAdjacentLower && prevAdjacentLower.fret === f && prevAdjacentLower.finger === bf) ||
+            (prevAdjacentUpper && prevAdjacentUpper.fret === f && prevAdjacentUpper.finger === bf);
+        if(clashesWithPrevAdjacent){
+            bf = Math.min(4, bf + 1);
+        }
+        while(usedInBeat.has(bf) && bf < 4){
+            bf += 1;
+        }
         lhMap[`${s}_${f}`]=LH_NAMES[bf]||String(bf);
+        newF[s]=bf;
+        usedInBeat.add(bf);
     }
     return{lhMap,newF};
 }
@@ -180,16 +209,25 @@ class RightHandSM {
     getFingers(notes){
         const res={};
         const FULL={p:'p (великий)',i:'i (вказівний)',m:'m (середній)',a:'a (безіменний)'};
-        const ARG={1:'a',2:'m',3:'i'};
-        const mel=notes.filter(n=>n.string<=3),bas=notes.filter(n=>n.string>=4);
-        for(const{string:s}of bas)res[s]=FULL.p;
-        if(!mel.length)return res;
-        if(notes.length>1&&bas.length>0){
-            for(const{string:s}of mel)res[s]=FULL[ARG[s]||'i'];
-            this._last='m';
-        } else {
-            for(const{string:s}of[...mel].sort((a,b)=>b.string-a.string)){
-                const nx=this._last==='m'?'i':'m'; res[s]=FULL[nx]; this._last=nx;
+        const ordered = [...notes].sort((a,b)=>a.string-b.string);
+        if(ordered.length === 1){
+            const s = ordered[0].string;
+            if(s >= 5) return {[s]: FULL.p};
+            const nx = this._last === 'm' ? 'i' : 'm';
+            this._last = nx;
+            return {[s]: FULL[nx]};
+        }
+        // For chords keep a practical classical pattern: bass with thumb, top voices with i/m/a.
+        const topMap={1:'a',2:'m',3:'i'};
+        let thumbUsed = false;
+        for(const n of ordered){
+            if(n.string >= 4 && !thumbUsed){
+                res[n.string] = FULL.p;
+                thumbUsed = true;
+            }else if(n.string <= 3){
+                res[n.string] = FULL[topMap[n.string] || 'i'];
+            }else{
+                res[n.string] = FULL.i;
             }
         }
         return res;
@@ -209,8 +247,8 @@ function buildInstructions(notes, rawNotes, lhMap, rhMap, barre, pos, isTapping)
     const noteCount = notes.length;
 
     if (barre !== null) {
-        inst.push(`Позиція: Баре на ${barre}-му ладі.`);
-        inst.push('Вказівний палець розміщується поперек струн, інші пальці додаються за схемою.');
+        inst.push(`Позиція: Можливе баре на ${barre}-му ладі.`);
+        inst.push('За потреби можна притиснути кілька струн вказівним пальцем; якщо незручно — допускається аплікатура без повного баре.');
     } else if (pos > 0) {
         const pr = notes.filter(n=>n.fret>0 && !n.isDead);
         if(pr.length > 0) {
@@ -277,7 +315,10 @@ function buildInstructions(notes, rawNotes, lhMap, rhMap, barre, pos, isTapping)
     if (bend) inst.push('Підтяжка (Bend): Після удару по струні підтягніть її пальцями лівої руки для досягнення потрібної висоти тону.');
     if (vib) inst.push('Вібрато: Виконується ритмічним розгойдуванням притиснутого пальця для коливання висоти тону.');
     if (slIn || slOut) inst.push('Слайд (Glissando): Палець ковзає по струні до потрібного ладу без повторного удару медіатором.');
-    if (leg) inst.push('Легато (Hammer-on/Pull-off): Наступна нота береться без удару правої руки (ударом пальця лівої руки по грифу або зривом струни).');
+    if (leg) {
+        inst.push('Легато (Hammer-on/Pull-off): Наступна нота береться без удару правої руки (ударом пальця лівої руки по грифу або зривом струни).');
+        inst.push('Ліга: Ноти під дугою виконуються зв’язно, без розриву між ними; перша нота береться атакою, наступні — переважно легато.');
+    }
     if (pm) inst.push('Palm Mute (Глушіння долонею): Ребро правої долоні злегка торкається струн біля підставки, приглушуючи їх резонанс.');
     if (harm) inst.push('Флажолет (Harmonics): Палець лівої руки злегка торкається струни рівно над порожком (без притискання), генеруючи обертон.');
     if (trill) inst.push('Трель: Швидке безперервне чергування двох нот методом Hammer-on та Pull-off.');
@@ -298,7 +339,7 @@ function buildAnalysis(barIdx, notes, rawNotes, lhMap, rhMap, barre, pos, isTapp
         LH.push({
              finger:open?'0':lbl.charAt(0), 
              fingerName:open?'Відкрита струна':lbl, 
-             string:sn, fret:isDead?'x':String(f), 
+             string:sn, stringIndex:s, fret:isDead?'x':String(f), 
              color:open?'#9E9E9E':(isDead?'#757575':'#D07B30'),
              isHammer: !!rn.isHammer,
              isPullOff: false,
@@ -307,7 +348,7 @@ function buildAnalysis(barIdx, notes, rawNotes, lhMap, rhMap, barre, pos, isTapp
              isGhost: !!rn.isGhost
         });
         const rh=rhMap[s]||(s>=4 ? 'p (великий)' : 'i (вказівний)');
-        RH.push({finger:rh.charAt(0), fingerName:rh, string:sn, direction: rh.charAt(0), color: s>=4 ?'#8B6350':'#3678B5'});
+        RH.push({finger:rh.charAt(0), fingerName:rh, string:sn, stringIndex:s, direction: rh.charAt(0), color: s>=4 ?'#8B6350':'#3678B5'});
     }
     
     let contextHint = null;
@@ -317,7 +358,7 @@ function buildAnalysis(barIdx, notes, rawNotes, lhMap, rhMap, barre, pos, isTapp
        width = Math.max(...fretted.map(n=>n.fret)) - Math.min(...fretted.map(n=>n.fret));
     }
     
-    if (barre !== null) contextHint = "Баре на " + barre + " ладі";
+    if (barre !== null) contextHint = "Можливе баре на " + barre + " ладі";
     else if (width > 3) contextHint = "Широка розтяжка!";
     else if (rawNotes.some(r => r.isSlap)) contextHint = "Слеп!";
     else if (rawNotes.some(r => r.isHammer)) contextHint = "Легато (Hammer-on)";
@@ -360,7 +401,7 @@ function runFullAnalysis(score) {
                     data.push({
                         beat,barIdx:bar.index,
                         duration:DUR_BEATS[durVal]??1,
-                        notes:notes.map(n=>({string:n.string, fret:n.fret, isDead:!!n.isDead})),
+                        notes:notes.map(n=>({string:normalizeStringIndex(n.string), fret:n.fret, isDead:!!n.isDead})),
                         rawNotes:notes.map(n=>({
                             hasBend:    !!n.hasBend,
                             vibrato:    !!(n.vibrato&&n.vibrato!==0),
@@ -388,7 +429,7 @@ function runFullAnalysis(score) {
         const positions=dpFingering(attackData);
         const rhSM=new RightHandSM();
         
-        let prevLhF={}, atkIdx=0, firstJson=null;
+        let prevLhF={}, prevBeatPlacement={}, atkIdx=0, firstJson=null;
         for(let i=0;i<data.length;i++){
             const{beat,barIdx,notes,rawNotes,isTapping,isTiedBeat}=data[i];
             
@@ -396,9 +437,21 @@ function runFullAnalysis(score) {
             if(isTiedBeat && atkIdx>0) {
             } else {
                 pos=positions[atkIdx]||1; barre=detectBarre(notes);
-                const a = assignLhFingers(notes,pos,barre,prevLhF);
+                const a = assignLhFingers(notes,pos,barre,prevLhF,prevBeatPlacement);
                 lhMap = a.lhMap; newF = a.newF; rhMap=rhSM.getFingers(notes);
                 prevLhF=newF;
+                const placement = {};
+                for(const n of notes){
+                    if(n.fret > 0 && !n.isDead){
+                        const key = `${n.string}_${n.fret}`;
+                        const fingerName = lhMap[key] || '';
+                        const fingerNum = parseInt(fingerName, 10);
+                        if(Number.isFinite(fingerNum)){
+                            placement[n.string] = {fret:n.fret, finger:fingerNum};
+                        }
+                    }
+                }
+                prevBeatPlacement = placement;
                 atkIdx++;
             }
 

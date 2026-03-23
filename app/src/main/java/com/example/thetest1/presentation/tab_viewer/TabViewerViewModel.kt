@@ -49,6 +49,7 @@ data class FingerInfo(
     val finger: String,
     val fingerName: String,
     val string: String,
+    val stringIndex: Int? = null,
     val fret: String? = null,
     val direction: String? = null,
     val color: String,

@@ -28,10 +28,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -96,7 +94,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -166,7 +163,7 @@ fun TabViewerScreen(
     val tabScaleOverrides = remember { mutableStateMapOf<String, Float>() }
 
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = Modifier,
         topBar = {
             TopAppBar(
                 title = { },
@@ -299,7 +296,7 @@ fun TabViewerScreen(
 
                     // ─── Analysis View (Practice Mode Only) ────
                     androidx.compose.animation.AnimatedVisibility(visible = isPracticeMode) {
-                        Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
                             GuitarFretboard(
                                 analysis = uiState.tabAnalysis,
                                 isPlaying = isPlaying,
