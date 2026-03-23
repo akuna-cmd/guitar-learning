@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
@@ -24,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -115,21 +117,35 @@ fun Heatmap(activityData: Map<Date, Int>) {
                     contentAlignment = Alignment.Center
                 ) {
                     if (isActive) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
                             Icon(
                                 imageVector = Icons.Filled.LocalFireDepartment,
                                 contentDescription = stringResource(id = R.string.streak_active_day),
                                 tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(10.dp)
+                                modifier = Modifier
+                                    .size(11.dp)
                             )
                             Text(
                                 text = formatDayTime(activity),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                                color = MaterialTheme.colorScheme.onPrimary
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 10.sp,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                ),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                textAlign = TextAlign.Center
                             )
                         }
                     } else {
-                        // Intentionally empty for inactive day.
+                        Icon(
+                            imageVector = Icons.Outlined.RadioButtonUnchecked,
+                            contentDescription = stringResource(id = R.string.streak_inactive_day),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                            modifier = Modifier.size(12.dp)
+                        )
                     }
                 }
             }

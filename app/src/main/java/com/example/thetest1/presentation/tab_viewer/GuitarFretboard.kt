@@ -3,6 +3,10 @@ package com.example.thetest1.presentation.tab_viewer
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,12 +21,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -36,8 +44,12 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.consumePositionChange
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.lazy.rememberLazyListState
+import kotlinx.coroutines.launch
 import kotlin.math.max
 
 private data class FretNote(
@@ -58,6 +70,25 @@ fun GuitarFretboard(
     val textMeasurer = rememberTextMeasurer()
     val scheme = MaterialTheme.colorScheme
     val allInstructions = analysis?.instructions?.filter { it.isNotBlank() } ?: emptyList()
+    val hintListState = rememberLazyListState()
+    val hintScope = rememberCoroutineScope()
+    val hiddenHintCount by remember(allInstructions.size) {
+        derivedStateOf {
+            if (allInstructions.isEmpty()) return@derivedStateOf 0
+
+            val layoutInfo = hintListState.layoutInfo
+            val viewportStart = layoutInfo.viewportStartOffset
+            val viewportEnd = layoutInfo.viewportEndOffset
+            val lastFullyVisible = layoutInfo.visibleItemsInfo
+                .filter { item ->
+                    item.offset >= viewportStart && (item.offset + item.size) <= viewportEnd
+                }
+                .maxOfOrNull { it.index }
+            val lastVisibleFallback = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            val lastVisible = lastFullyVisible ?: lastVisibleFallback
+            (allInstructions.lastIndex - lastVisible).coerceAtLeast(0)
+        }
+    }
 
     val notes = remember(analysis) {
         (analysis?.leftHand ?: emptyList()).mapNotNull { note ->
@@ -257,38 +288,110 @@ fun GuitarFretboard(
         }
 
         if (allInstructions.isNotEmpty()) {
-            LazyColumn(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 190.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-                userScrollEnabled = true
+                    .height(190.dp)
             ) {
-                items(allInstructions) { text ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(hintBackground, RoundedCornerShape(10.dp))
-                            .border(1.dp, scheme.outlineVariant, RoundedCornerShape(10.dp))
-                            .padding(horizontal = 12.dp, vertical = 7.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                LazyColumn(
+                    state = hintListState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(allInstructions.size) {
+                            detectVerticalDragGestures { change, dragAmount ->
+                                change.consumePositionChange()
+                                hintScope.launch {
+                                    hintListState.scrollBy(-dragAmount)
+                                }
+                            }
+                        },
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    userScrollEnabled = false
+                ) {
+                    items(allInstructions) { text ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(hintBackground, RoundedCornerShape(10.dp))
+                                .border(1.dp, scheme.outlineVariant, RoundedCornerShape(10.dp))
+                                .padding(horizontal = 12.dp, vertical = 7.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Filled.Lightbulb,
-                                contentDescription = null,
-                                tint = hintAccent,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = text,
-                                color = hintTextColor,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Lightbulb,
+                                    contentDescription = null,
+                                    tint = hintAccent,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = text,
+                                    color = hintTextColor,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
+                    }
+                }
+
+                if (hiddenHintCount > 0) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(6.dp)
+                            .background(scheme.surface.copy(alpha = 0.95f), RoundedCornerShape(10.dp))
+                            .border(1.dp, scheme.outlineVariant, RoundedCornerShape(10.dp))
+                            .clickable {
+                                hintScope.launch {
+                                    val layout = hintListState.layoutInfo
+                                    val viewportStart = layout.viewportStartOffset
+                                    val viewportEnd = layout.viewportEndOffset
+                                    val lastFullyVisible = layout.visibleItemsInfo
+                                        .filter { it.offset >= viewportStart && (it.offset + it.size) <= viewportEnd }
+                                        .maxOfOrNull { it.index }
+                                    val next = (
+                                        (lastFullyVisible ?: (layout.visibleItemsInfo.lastOrNull()?.index ?: hintListState.firstVisibleItemIndex)) + 1
+                                    ).coerceAtMost(allInstructions.lastIndex)
+
+                                    hintListState.animateScrollToItem(next, 0)
+
+                                    val updated = hintListState.layoutInfo
+                                    val updatedViewportStart = updated.viewportStartOffset
+                                    val updatedViewportEnd = updated.viewportEndOffset
+                                    val targetItem = updated.visibleItemsInfo.firstOrNull { it.index == next }
+                                    if (targetItem != null) {
+                                        val viewportHeight = updatedViewportEnd - updatedViewportStart
+                                        val isFullyVisible =
+                                            targetItem.offset >= updatedViewportStart &&
+                                                (targetItem.offset + targetItem.size) <= updatedViewportEnd
+                                        if (!isFullyVisible && targetItem.size <= viewportHeight) {
+                                            val overflowBottom = (targetItem.offset + targetItem.size) - updatedViewportEnd
+                                            if (overflowBottom > 0) {
+                                                hintListState.animateScrollBy(overflowBottom.toFloat())
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = scheme.primary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = hiddenHintCount.toString(),
+                            color = scheme.primary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
@@ -313,6 +416,3 @@ private fun stringToIndex(raw: String): Int? {
         else -> null
     }
 }
-
-
-
