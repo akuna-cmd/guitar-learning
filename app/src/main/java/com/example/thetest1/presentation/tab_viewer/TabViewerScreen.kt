@@ -115,6 +115,58 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
+private class TabJsBridge {
+    var onAsciiTabCallback: (String) -> Unit = {}
+    var onTabAnalysisCallback: (String) -> Unit = {}
+    var onCompactTabsCallback: (String) -> Unit = {}
+    var onJsReadyCallback: () -> Unit = {}
+    var onScoreLoadedCallback: (Int) -> Unit = {}
+    var onDetectedTempoCallback: (Int) -> Unit = {}
+    var onAlphaTabStatusCallback: (String) -> Unit = {}
+    var onTickPositionCallback: (Long, Boolean) -> Unit = { _, _ -> }
+    var onPlaybackProgressCallback: (Long, Boolean, Int) -> Unit = { _, _, _ -> }
+    var onRestoreAppliedCallback: (Long, Int, Int) -> Unit = { _, _, _ -> }
+
+    @JavascriptInterface fun postAsciiTab(ascii: String) = onAsciiTabCallback(ascii)
+    @JavascriptInterface fun postTabAnalysis(json: String) = onTabAnalysisCallback(json)
+    @JavascriptInterface fun postCompactTabs(tabs: String) = onCompactTabsCallback(tabs)
+    @JavascriptInterface fun onJsReady() = onJsReadyCallback.invoke()
+    @JavascriptInterface fun onScoreLoaded(totalMeasures: Int) = onScoreLoadedCallback(totalMeasures)
+    @JavascriptInterface fun onDetectedTempo(bpm: Int) = onDetectedTempoCallback(bpm)
+    @JavascriptInterface fun onAlphaTabStatus(message: String) = onAlphaTabStatusCallback(message)
+    @JavascriptInterface fun onTickPosition(tick: Long, isPlaying: Boolean) = onTickPositionCallback(tick, isPlaying)
+    @JavascriptInterface fun onPlaybackProgress(tick: Long, isPlaying: Boolean, barIndex: Int) =
+        onPlaybackProgressCallback(tick, isPlaying, barIndex)
+    @JavascriptInterface fun onRestoreApplied(tick: Long, currentBarIndex: Int, requestedBarIndex: Int) =
+        onRestoreAppliedCallback(tick, currentBarIndex, requestedBarIndex)
+}
+
+private data class TabWebViewEntry(
+    val webView: WebView,
+    val bridge: TabJsBridge,
+    var jsReady: Boolean = false,
+    var loadedTotalMeasures: Int = 0,
+    var soundFontLoaded: Boolean = false
+)
+
+private object SharedTabWebViewPool {
+    private const val MAX_ENTRIES = 4
+    private val entries = LinkedHashMap<String, TabWebViewEntry>(8, 0.75f, true)
+
+    @Synchronized
+    fun get(fileName: String): TabWebViewEntry? = entries[fileName]
+
+    @Synchronized
+    fun put(fileName: String, entry: TabWebViewEntry) {
+        entries[fileName] = entry
+        while (entries.size > MAX_ENTRIES) {
+            val eldestKey = entries.entries.firstOrNull()?.key ?: break
+            val evicted = entries.remove(eldestKey)
+            runCatching { evicted?.webView?.destroy() }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TabViewerScreen(
@@ -419,6 +471,7 @@ private fun TabViewer(
     modifier: Modifier = Modifier
 ) {
     val restoreTag = "TabRestoreFlow"
+    val loadTag = "TabLoadPerf"
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
@@ -433,10 +486,51 @@ private fun TabViewer(
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
             .build()
     }
-    var isReady    by remember { mutableStateOf(false) }
-    var isScoreLoaded by remember { mutableStateOf(false) }
+    val webEntry = remember(fileName) {
+        SharedTabWebViewPool.get(fileName) ?: run {
+            val webView = WebView(context).apply {
+                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                setBackgroundColor(if (isDark) android.graphics.Color.parseColor("#1c1b1f") else android.graphics.Color.WHITE)
+
+                settings.apply {
+                    javaScriptEnabled = true
+                    domStorageEnabled = true
+                    allowFileAccess = true
+                    allowContentAccess = true
+                    allowFileAccessFromFileURLs = true
+                    allowUniversalAccessFromFileURLs = true
+                    mediaPlaybackRequiresUserGesture = false
+                }
+
+                webChromeClient = object : WebChromeClient() {
+                    override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                        Log.d("WebViewConsole", "${consoleMessage?.message()}")
+                        return true
+                    }
+                }
+
+                webViewClient = object : WebViewClient() {
+                    override fun shouldInterceptRequest(view: WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
+                        val url = request?.url ?: return null
+                        return assetLoader.shouldInterceptRequest(url)
+                    }
+                    override fun onPageFinished(view: WebView?, url: String?) {}
+                }
+            }
+            val bridge = TabJsBridge()
+            webView.addJavascriptInterface(bridge, "Android")
+            webView.loadUrl("https://appassets.androidplatform.net/assets/tab_viewer.html")
+            val created = TabWebViewEntry(webView = webView, bridge = bridge)
+            SharedTabWebViewPool.put(fileName, created)
+            created
+        }
+    }
+    var isReady by remember(fileName) { mutableStateOf(webEntry.jsReady) }
+    var isScoreLoaded by remember(fileName) { mutableStateOf(webEntry.loadedTotalMeasures > 0) }
     var totalBars by remember { mutableStateOf(0) }
     var loadedSourceForCurrentLesson by remember { mutableStateOf<String?>(null) }
+    var loadRequestAtMs by remember { mutableStateOf(0L) }
+    var jsReadyAtMs by remember { mutableStateOf(0L) }
     var showDisplaySheet by remember { mutableStateOf(false) }
     var showLearningSheet by remember { mutableStateOf(false) }
     var metronomeEnabled by remember { mutableStateOf(false) }
@@ -445,100 +539,113 @@ private fun TabViewer(
     val displaySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val learningSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     
-    val webView = remember {
-        WebView(context).apply {
-            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-            setBackgroundColor(if (isDark) android.graphics.Color.parseColor("#1c1b1f") else android.graphics.Color.WHITE)
-            
-            settings.apply {
-                javaScriptEnabled = true
-                domStorageEnabled = true
-                allowFileAccess = true
-                allowContentAccess = true
-                allowFileAccessFromFileURLs = true
-                allowUniversalAccessFromFileURLs = true
-                mediaPlaybackRequiresUserGesture = false
-            }
-            
-            webChromeClient = object : WebChromeClient() {
-                override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
-                    Log.d("WebViewConsole", "${consoleMessage?.message()}")
-                    return true
-                }
-            }
+    val webView = webEntry.webView
 
-            addJavascriptInterface(object {
-                @JavascriptInterface
-                fun postAsciiTab(ascii: String) { onAsciiTabGenerated(ascii) }
-                @JavascriptInterface
-                fun postTabAnalysis(json: String) { onTabAnalysis(json) }
-                @JavascriptInterface
-                fun postCompactTabs(tabs: String) { onCompactTabsGenerated(tabs) }
-                @JavascriptInterface
-                fun onJsReady() {
-                    Handler(Looper.getMainLooper()).post { isReady = true }
-                }
-                @JavascriptInterface
-                fun onScoreLoaded(totalMeasures: Int) {
-                    Handler(Looper.getMainLooper()).post { 
-                        isScoreLoaded = true 
-                        totalBars = totalMeasures
-                        Log.d(restoreTag, "onScoreLoaded(totalMeasures=$totalMeasures)")
-                        onTotalMeasuresLoaded(totalMeasures)
-                    }
-                }
-                @JavascriptInterface
-                fun onDetectedTempo(bpm: Int) {
-                    Handler(Looper.getMainLooper()).post {
-                        if (!metronomeBpmTouched) {
-                            metronomeBpm = bpm.coerceIn(40, 240)
-                        }
-                    }
-                }
-                @JavascriptInterface
-                fun onAlphaTabStatus(message: String) {
-                    Log.d("AlphaTabStatus", message)
-                }
-                @JavascriptInterface
-                fun onTickPosition(tick: Long, isPlaying: Boolean) {
-                    onTickPosition(tick, isPlaying)
-                }
-                @JavascriptInterface
-                fun onPlaybackProgress(tick: Long, isPlaying: Boolean, barIndex: Int) {
-                    onPlaybackProgress(tick, isPlaying, barIndex, totalBars)
-                }
-                @JavascriptInterface
-                fun onRestoreApplied(tick: Long, currentBarIndex: Int, requestedBarIndex: Int) {
-                    Log.d(
-                        restoreTag,
-                        "JS onRestoreApplied(tick=$tick currentBar=$currentBarIndex requestedBar=$requestedBarIndex)"
-                    )
-                    onRestoreApplied(tick, currentBarIndex, requestedBarIndex)
-                }
-            }, "Android")
-            
-            webViewClient = object : WebViewClient() {
-                override fun shouldInterceptRequest(view: WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
-                    val url = request?.url ?: return null
-                    return assetLoader.shouldInterceptRequest(url)
-                }
-                override fun onPageFinished(view: WebView?, url: String?) {
+    LaunchedEffect(Unit) {
+        runCatching {
+            webView.onResume()
+            webView.resumeTimers()
+        }
+    }
+
+    val bridge = webEntry.bridge
+
+    DisposableEffect(
+        bridge,
+        onAsciiTabGenerated,
+        onTabAnalysis,
+        onCompactTabsGenerated,
+        onTickPosition,
+        onPlaybackProgress,
+        onRestoreApplied,
+        fileName,
+        metronomeBpmTouched
+    ) {
+        bridge.onAsciiTabCallback = onAsciiTabGenerated
+        bridge.onTabAnalysisCallback = onTabAnalysis
+        bridge.onCompactTabsCallback = onCompactTabsGenerated
+        bridge.onJsReadyCallback = {
+            Handler(Looper.getMainLooper()).post {
+                webEntry.jsReady = true
+                jsReadyAtMs = System.currentTimeMillis()
+                Log.d(loadTag, "onJsReady file=$fileName")
+                isReady = true
+            }
+        }
+        bridge.onScoreLoadedCallback = { totalMeasures ->
+            Handler(Looper.getMainLooper()).post {
+                isScoreLoaded = true
+                totalBars = totalMeasures
+                webEntry.loadedTotalMeasures = totalMeasures
+                val now = System.currentTimeMillis()
+                val fromRequest = if (loadRequestAtMs > 0L) now - loadRequestAtMs else -1L
+                val fromJsReady = if (jsReadyAtMs > 0L) now - jsReadyAtMs else -1L
+                Log.d(
+                    loadTag,
+                    "onScoreLoaded file=$fileName bars=$totalMeasures fromRequestMs=$fromRequest fromJsReadyMs=$fromJsReady source=$loadedSourceForCurrentLesson"
+                )
+                Log.d(restoreTag, "onScoreLoaded(totalMeasures=$totalMeasures)")
+                onTotalMeasuresLoaded(totalMeasures)
+            }
+        }
+        bridge.onDetectedTempoCallback = { bpm ->
+            Handler(Looper.getMainLooper()).post {
+                if (!metronomeBpmTouched) {
+                    metronomeBpm = bpm.coerceIn(40, 240)
                 }
             }
-            loadUrl("https://appassets.androidplatform.net/assets/tab_viewer.html")
         }
+        bridge.onAlphaTabStatusCallback = { message ->
+            Log.d("AlphaTabStatus", message)
+            if (message.contains("soundFontLoaded")) {
+                webEntry.soundFontLoaded = true
+            }
+        }
+        bridge.onTickPositionCallback = { tick, playing -> onTickPosition(tick, playing) }
+        bridge.onPlaybackProgressCallback = { tick, playing, barIndex -> onPlaybackProgress(tick, playing, barIndex, totalBars) }
+        bridge.onRestoreAppliedCallback = { tick, currentBarIndex, requestedBarIndex ->
+            Log.d(
+                restoreTag,
+                "JS onRestoreApplied(tick=$tick currentBar=$currentBarIndex requestedBar=$requestedBarIndex)"
+            )
+            onRestoreApplied(tick, currentBarIndex, requestedBarIndex)
+        }
+        onDispose {}
     }
 
     DisposableEffect(Unit) {
         onDispose {
             webView.evaluateJavascript("window.stopAudio();", null)
-            webView.destroy()
+            runCatching {
+                webView.onPause()
+                webView.pauseTimers()
+            }
         }
     }
 
     LaunchedEffect(fileName) {
-        loadedSourceForCurrentLesson = null
+        val canReuseRendered =
+            webEntry.jsReady &&
+                webEntry.loadedTotalMeasures > 0
+        if (canReuseRendered) {
+            loadedSourceForCurrentLesson = "reused-webview"
+            isScoreLoaded = true
+            isReady = true
+            totalBars = webEntry.loadedTotalMeasures
+            onTotalMeasuresLoaded(webEntry.loadedTotalMeasures)
+            Log.d(loadTag, "file change -> REUSE rendered score file=$fileName bars=${webEntry.loadedTotalMeasures}")
+        } else {
+            loadedSourceForCurrentLesson = null
+            isScoreLoaded = false
+            Log.d(
+                loadTag,
+                "file change -> COLD load file=$fileName entry={jsReady=${webEntry.jsReady}, bars=${webEntry.loadedTotalMeasures}}"
+            )
+        }
         metronomeBpmTouched = false
+        loadRequestAtMs = 0L
+        jsReadyAtMs = 0L
+        Log.d(loadTag, "file change -> reset timing markers file=$fileName")
     }
 
     // Load SoundFont + score only once per lesson to avoid late resets of cursor after restore.
@@ -550,20 +657,39 @@ private fun TabViewer(
                 isScoreLoaded = false
                 val soundFont = soundFontBase64
                 if (soundFont != null) {
-                    Log.d(restoreTag, "loading soundfont before score")
-                    webView.evaluateJavascript("window.loadSoundFontFromBase64('$soundFont');", null)
+                    if (!webEntry.soundFontLoaded) {
+                        Log.d(restoreTag, "loading soundfont before score")
+                        webView.evaluateJavascript("window.loadSoundFontFromBase64('$soundFont');", null)
+                    } else {
+                        Log.d(loadTag, "skip soundfont reload (already loaded in reused WebView)")
+                    }
                 }
                 val base64 = tabBytesBase64
-                if (base64 != null) {
+                val isAbsoluteLocalFile = fileName.startsWith("/")
+                val isBundledAssetRelative = !fileName.contains("://") && !isAbsoluteLocalFile
+                if (isBundledAssetRelative) {
+                    val assetUrl = "https://appassets.androidplatform.net/assets/$fileName"
+                    loadedSourceForCurrentLesson = "asset-url"
+                    loadRequestAtMs = System.currentTimeMillis()
+                    Log.d(restoreTag, "loading score from asset url")
+                    Log.d(loadTag, "request load assetUrl=$assetUrl")
+                    webView.evaluateJavascript("window.loadTab('$assetUrl');", null)
+                } else if (base64 != null) {
                     loadedSourceForCurrentLesson = "base64"
+                    loadRequestAtMs = System.currentTimeMillis()
                     Log.d(restoreTag, "loading score from base64")
+                    Log.d(loadTag, "request load base64 file=$fileName len=${base64.length}")
                     webView.evaluateJavascript("window.loadTabFromBase64('$base64');", null)
-                } else if (fileName.startsWith("/")) {
-                    loadedSourceForCurrentLesson = "file"
-                    Log.d(restoreTag, "loading score from file")
+                } else if (isAbsoluteLocalFile) {
+                    // Fallback only. In WebView appassets context local file:// may be blocked on some devices.
+                    loadedSourceForCurrentLesson = "file-fallback"
+                    loadRequestAtMs = System.currentTimeMillis()
+                    Log.d(restoreTag, "loading score from file fallback")
+                    Log.d(loadTag, "request load file fallback path=$fileName")
                     webView.evaluateJavascript("window.loadTab('$fileName');", null)
                 } else {
                     Log.d(restoreTag, "waiting for base64 bytes, skip file fallback for bundled tab path: $fileName")
+                    Log.d(loadTag, "waiting for tab bytes file=$fileName")
                 }
             }
         }
@@ -686,7 +812,10 @@ private fun TabViewer(
                 contentAlignment = Alignment.Center
             ) {
                 AndroidView(
-                    factory = { webView },
+                    factory = {
+                        (webView.parent as? ViewGroup)?.removeView(webView)
+                        webView
+                    },
                     modifier = Modifier.fillMaxSize(),
                     update = { view -> 
                         view.setBackgroundColor(if (isDark) android.graphics.Color.parseColor("#1c1b1f") else android.graphics.Color.WHITE)
@@ -694,9 +823,12 @@ private fun TabViewer(
                 )
                 
                 // Loading overlay
+                val isReusedSession = loadedSourceForCurrentLesson == "reused-webview"
                 val alpha by androidx.compose.animation.core.animateFloatAsState(
                     targetValue = if (isScoreLoaded) 0f else 1f,
-                    animationSpec = androidx.compose.animation.core.tween(durationMillis = 500)
+                    animationSpec = androidx.compose.animation.core.tween(
+                        durationMillis = if (isReusedSession) 120 else 500
+                    )
                 )
                 if (alpha > 0f) {
                     Box(

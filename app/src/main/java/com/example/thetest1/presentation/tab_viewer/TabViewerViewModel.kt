@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
+import java.security.MessageDigest
 import java.util.Date
 import kotlin.math.abs
 
@@ -115,6 +116,10 @@ class TabViewerViewModel(
 ) : ViewModel() {
     private companion object {
         const val RESTORE_TAG = "TabRestoreFlow"
+        const val LOAD_TAG = "TabLoadPerf"
+        // Process-wide lightweight cache for already opened tabs/soundfont.
+        private val tabBase64Cache = LinkedHashMap<String, String>(32, 0.75f, true)
+        private var soundFontBase64Cache: String? = null
     }
 
     private val _uiState = MutableStateFlow(TabViewerUiState())
@@ -201,9 +206,38 @@ class TabViewerViewModel(
 
     fun loadTabBytes(path: String) {
         if (_uiState.value.tabBytesPath == path) return
+        val t0 = System.currentTimeMillis()
+        val cached = synchronized(tabBase64Cache) { tabBase64Cache[path] }
+        if (cached != null) {
+            Log.d(LOAD_TAG, "tabBytes memory cache HIT path=$path len=${cached.length} took=${System.currentTimeMillis()-t0}ms")
+            _uiState.update { it.copy(tabBytesBase64 = cached, tabBytesPath = path) }
+            return
+        }
         viewModelScope.launch(Dispatchers.IO) {
+            val diskCached = readTabBase64FromDisk(path)
+            if (diskCached != null) {
+                synchronized(tabBase64Cache) {
+                    tabBase64Cache[path] = diskCached
+                }
+                Log.d(LOAD_TAG, "tabBytes disk cache HIT path=$path len=${diskCached.length} took=${System.currentTimeMillis()-t0}ms")
+                _uiState.update { it.copy(tabBytesBase64 = diskCached, tabBytesPath = path) }
+                return@launch
+            }
+            val sourceStart = System.currentTimeMillis()
             val base64 = getTabFileBytesUseCase(path).getOrNull()?.let { bytes ->
                 Base64.encodeToString(bytes, Base64.NO_WRAP)
+            }
+            Log.d(LOAD_TAG, "tabBytes source load path=$path base64Len=${base64?.length ?: 0} sourceMs=${System.currentTimeMillis()-sourceStart} totalMs=${System.currentTimeMillis()-t0}")
+            if (base64 != null) {
+                synchronized(tabBase64Cache) {
+                    tabBase64Cache[path] = base64
+                    // Keep cache bounded.
+                    while (tabBase64Cache.size > 40) {
+                        val firstKey = tabBase64Cache.entries.firstOrNull()?.key ?: break
+                        tabBase64Cache.remove(firstKey)
+                    }
+                }
+                writeTabBase64ToDisk(path, base64)
             }
             _uiState.update { it.copy(tabBytesBase64 = base64, tabBytesPath = path) }
         }
@@ -211,11 +245,77 @@ class TabViewerViewModel(
 
     private fun loadSoundFont() {
         if (_uiState.value.soundFontBase64 != null) return
+        val t0 = System.currentTimeMillis()
+        soundFontBase64Cache?.let { cached ->
+            Log.d(LOAD_TAG, "soundFont memory cache HIT len=${cached.length} took=${System.currentTimeMillis()-t0}ms")
+            _uiState.update { it.copy(soundFontBase64 = cached) }
+            return
+        }
         viewModelScope.launch(Dispatchers.IO) {
+            val diskCached = readSoundFontBase64FromDisk()
+            if (diskCached != null) {
+                soundFontBase64Cache = diskCached
+                Log.d(LOAD_TAG, "soundFont disk cache HIT len=${diskCached.length} took=${System.currentTimeMillis()-t0}ms")
+                _uiState.update { it.copy(soundFontBase64 = diskCached) }
+                return@launch
+            }
+            val sourceStart = System.currentTimeMillis()
             val base64 = getSoundFontBytesUseCase().getOrNull()?.let { bytes ->
                 Base64.encodeToString(bytes, Base64.NO_WRAP)
             }
+            Log.d(LOAD_TAG, "soundFont source load base64Len=${base64?.length ?: 0} sourceMs=${System.currentTimeMillis()-sourceStart} totalMs=${System.currentTimeMillis()-t0}")
+            if (base64 != null) {
+                soundFontBase64Cache = base64
+                writeSoundFontBase64ToDisk(base64)
+            }
             _uiState.update { it.copy(soundFontBase64 = base64) }
+        }
+    }
+
+    private fun cacheRootDir(): File {
+        return File(context.cacheDir, "tab_b64_cache").apply { mkdirs() }
+    }
+
+    private fun pathHash(path: String): String {
+        val digest = MessageDigest.getInstance("SHA-1").digest(path.toByteArray(Charsets.UTF_8))
+        return digest.joinToString("") { b -> "%02x".format(b) }
+    }
+
+    private fun tabCacheFile(path: String): File {
+        return File(cacheRootDir(), "tab_${pathHash(path)}.b64")
+    }
+
+    private fun soundFontCacheFile(): File {
+        return File(cacheRootDir(), "soundfont.b64")
+    }
+
+    private fun readTabBase64FromDisk(path: String): String? {
+        return try {
+            val file = tabCacheFile(path)
+            if (!file.exists()) null else file.readText()
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun writeTabBase64ToDisk(path: String, value: String) {
+        runCatching {
+            tabCacheFile(path).writeText(value)
+        }
+    }
+
+    private fun readSoundFontBase64FromDisk(): String? {
+        return try {
+            val file = soundFontCacheFile()
+            if (!file.exists()) null else file.readText()
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun writeSoundFontBase64ToDisk(value: String) {
+        runCatching {
+            soundFontCacheFile().writeText(value)
         }
     }
 
