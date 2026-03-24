@@ -57,7 +57,10 @@ private data class FretNote(
     val fret: Int?,
     val isMuted: Boolean,
     val finger: String,
-    val color: Color
+    val color: Color,
+    val isHammer: Boolean,
+    val isSlide: Boolean,
+    val isVibrato: Boolean
 )
 
 @OptIn(ExperimentalTextApi::class)
@@ -105,7 +108,10 @@ fun GuitarFretboard(
                 fret = fretInt,
                 isMuted = isMuted,
                 finger = note.finger.ifBlank { "?" },
-                color = dotColor
+                color = dotColor,
+                isHammer = note.isHammer,
+                isSlide = note.isSlide,
+                isVibrato = note.isVibrato
             )
         }
     }
@@ -113,8 +119,8 @@ fun GuitarFretboard(
     val fretted = notes.mapNotNull { it.fret }.filter { it > 0 }
     val startFret = if (fretted.isEmpty()) 0 else max(0, (fretted.minOrNull() ?: 1) - 1)
     val endFret = max(startFret + 5, (fretted.maxOrNull() ?: 0) + 1)
-    val hintBackground = scheme.secondaryContainer
-    val hintTextColor = scheme.onSecondaryContainer
+    val hintBackground = scheme.surfaceContainerHighest
+    val hintTextColor = scheme.onSurface
     val hintAccent = scheme.primary
 
     Column(
@@ -238,14 +244,14 @@ fun GuitarFretboard(
                     if (fret == 0) {
                         val x = nutX + 10f
                         drawCircle(
-                            color = scheme.surface,
-                            radius = 11f,
+                            color = scheme.primary,
+                            radius = 12.5f,
                             center = Offset(x, y),
-                            style = Stroke(width = 2.6f)
+                            style = Stroke(width = 2.8f)
                         )
                         val txt = textMeasurer.measure(
                             text = "0",
-                            style = TextStyle(color = scheme.onSurface, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            style = TextStyle(color = scheme.onPrimary, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                         )
                         drawText(txt, topLeft = Offset(x - txt.size.width / 2f, y - txt.size.height / 2f))
                         return@forEach
@@ -283,6 +289,50 @@ fun GuitarFretboard(
                         cornerRadius = CornerRadius(6f, 6f)
                     )
                     drawText(fretText, topLeft = Offset(badgeX + 1f, badgeY + 1f))
+
+                    val articulation = when {
+                        note.isSlide -> "S"
+                        note.isHammer -> "H"
+                        note.isVibrato -> "V"
+                        else -> null
+                    }
+                    if (articulation != null) {
+                        val art = textMeasurer.measure(
+                            text = articulation,
+                            style = TextStyle(
+                                color = scheme.onTertiaryContainer,
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                        val artX = x - 17f
+                        val artY = y - 20f
+                        drawRoundRect(
+                            color = scheme.tertiaryContainer.copy(alpha = 0.95f),
+                            topLeft = Offset(artX - 2f, artY - 1f),
+                            size = Size(art.size.width + 6f, art.size.height + 4f),
+                            cornerRadius = CornerRadius(6f, 6f)
+                        )
+                        drawText(art, topLeft = Offset(artX + 1f, artY + 1f))
+                    }
+                }
+            }
+
+            analysis?.contextHint?.takeIf { it.isNotBlank() }?.let { hint ->
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .background(scheme.tertiaryContainer.copy(alpha = 0.92f), RoundedCornerShape(8.dp))
+                        .border(1.dp, scheme.outlineVariant, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = hint,
+                        color = scheme.onTertiaryContainer,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
         }
@@ -314,22 +364,22 @@ fun GuitarFretboard(
                                 .fillMaxWidth()
                                 .background(hintBackground, RoundedCornerShape(10.dp))
                                 .border(1.dp, scheme.outlineVariant, RoundedCornerShape(10.dp))
-                                .padding(horizontal = 12.dp, vertical = 7.dp)
+                                .padding(horizontal = 10.dp, vertical = 5.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Filled.Lightbulb,
                                     contentDescription = null,
                                     tint = hintAccent,
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(14.dp)
                                 )
                                 Text(
                                     text = text,
                                     color = hintTextColor,
-                                    fontSize = 12.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }

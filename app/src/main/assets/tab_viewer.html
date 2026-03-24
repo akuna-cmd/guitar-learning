@@ -137,14 +137,12 @@ function configCost(frets, pos) {
 function detectBarre(notes) {
     const pr=notes.filter(n=>n.fret>0); if(!pr.length)return null;
     const mn=Math.min(...pr.map(n=>n.fret)), on=pr.filter(n=>n.fret===mn);
-    // Suggest barre only in clearly realistic cases.
+    // Suggest barre only in clearly realistic cases: at least 3 notes on same fret.
     if(on.length>=3){
-        const span = Math.max(...on.map(n=>n.string)) - Math.min(...on.map(n=>n.string));
-        if(span >= 2) return mn;
-    }
-    if(on.length===2){
-        const s=on.map(n=>n.string);
-        if(Math.max(...s)-Math.min(...s)>=3) return mn;
+        const sortedStrings = on.map(n=>n.string).sort((a,b)=>a-b);
+        const span = sortedStrings[sortedStrings.length - 1] - sortedStrings[0];
+        const hasConsecutive = sortedStrings.some((s,i)=>i>0 && (s - sortedStrings[i-1])===1);
+        if(span >= 2 && hasConsecutive) return mn;
     }
     return null;
 }
@@ -175,32 +173,97 @@ function dpFingering(data) {
 
 function assignLhFingers(notes, pos, barre, prevF, prevBeatPlacement) {
     const sorted=[...notes].sort((a,b)=>(a.fret-b.fret)||(a.string-b.string)),lhMap={},newF={};
-    const usedInBeat = new Set();
+
     for(const{string:s,fret:f,isDead}of sorted){
         if(f===0){lhMap[`${s}_${f}`]='-';continue;}
-        if(f===barre && !isDead){lhMap[`${s}_${f}`]='1 (можливе баре)';newF[s]=1;continue;}
-        // Prefer standard one-finger-per-fret mapping around current position.
-        let bf=Math.min(Math.max(f-pos+1,1),4);
-        if(prevF[s] && Math.abs(prevF[s]-bf) > 2){
-            bf = prevF[s] + Math.sign(bf - prevF[s]) * 2;
-            bf = Math.min(Math.max(bf,1),4);
-        }
-        // Avoid same finger on adjacent strings for same fret unless it is an explicit barre.
-        const prevAdjacentLower = prevBeatPlacement?.[s + 1];
-        const prevAdjacentUpper = prevBeatPlacement?.[s - 1];
-        const clashesWithPrevAdjacent =
-            (prevAdjacentLower && prevAdjacentLower.fret === f && prevAdjacentLower.finger === bf) ||
-            (prevAdjacentUpper && prevAdjacentUpper.fret === f && prevAdjacentUpper.finger === bf);
-        if(clashesWithPrevAdjacent){
-            bf = Math.min(4, bf + 1);
-        }
-        while(usedInBeat.has(bf) && bf < 4){
-            bf += 1;
-        }
-        lhMap[`${s}_${f}`]=LH_NAMES[bf]||String(bf);
-        newF[s]=bf;
-        usedInBeat.add(bf);
+        if(f===barre && !isDead){lhMap[`${s}_${f}`]='1 (можливе баре)';newF[s]=1;}
     }
+
+    const toAssign = sorted.filter(n => n.fret > 0 && !n.isDead && !(barre !== null && n.fret === barre));
+    if(!toAssign.length) return {lhMap,newF};
+
+    function baseFinger(f){
+        return Math.min(Math.max(f-pos+1,1),4);
+    }
+    function candSet(n){
+        const b = baseFinger(n.fret);
+        const out = [b, b-1, b+1, b-2, b+2].filter(v => v>=1 && v<=4);
+        if(prevF[n.string] && !out.includes(prevF[n.string])) out.push(prevF[n.string]);
+        return out;
+    }
+    function pairPenalty(a,b){
+        let p = 0;
+        if(a.finger === b.finger){
+            // Same finger for two notes in one beat is generally undesirable.
+            // Especially impossible on different frets at the same time.
+            if(a.fret !== b.fret){
+                p += 140;
+            } else {
+                p += (Math.abs(a.string - b.string) <= 1) ? 70 : 45;
+            }
+        }
+        // Keep finger order mostly aligned with fret order.
+        if(a.fret < b.fret && a.finger > b.finger) p += 8;
+        if(a.fret > b.fret && a.finger < b.finger) p += 8;
+        // For same-fret double-stops/chords, keep ergonomic order across strings:
+        // lower-pitched string (bigger string index) should not use a higher finger
+        // than the higher-pitched string on the same fret.
+        if(a.fret === b.fret){
+            if(a.string > b.string && a.finger > b.finger) p += 22;
+            if(a.string < b.string && a.finger < b.finger) p += 22;
+        }
+        return p;
+    }
+
+    let bestCost = Infinity;
+    let bestAssign = null;
+    const current = [];
+
+    function dfs(i, cost){
+        if(cost >= bestCost) return;
+        if(i >= toAssign.length){
+            bestCost = cost;
+            bestAssign = current.slice();
+            return;
+        }
+        const n = toAssign[i];
+        const b = baseFinger(n.fret);
+        const candidates = candSet(n);
+        for(const finger of candidates){
+            let c = cost;
+            c += Math.abs(finger - b) * 2.5;
+            if(prevF[n.string]){
+                c += Math.abs(finger - prevF[n.string]) * 2.0;
+            }
+            const prevSameString = prevBeatPlacement?.[n.string];
+            if(prevSameString && prevSameString.fret === n.fret){
+                // Same note on same string/fret between beats: keep the same finger.
+                if(prevSameString.finger === finger) c -= 6;
+                else c += 38;
+            }
+            const prevAdjacentLower = prevBeatPlacement?.[n.string + 1];
+            const prevAdjacentUpper = prevBeatPlacement?.[n.string - 1];
+            if(
+                (prevAdjacentLower && prevAdjacentLower.fret === n.fret && prevAdjacentLower.finger === finger) ||
+                (prevAdjacentUpper && prevAdjacentUpper.fret === n.fret && prevAdjacentUpper.finger === finger)
+            ){
+                c += 10;
+            }
+            for(const a of current){
+                c += pairPenalty(a, {string:n.string, fret:n.fret, finger});
+            }
+            current.push({string:n.string, fret:n.fret, finger});
+            dfs(i+1, c);
+            current.pop();
+        }
+    }
+    dfs(0, 0);
+
+    for(const item of (bestAssign || [])){
+        lhMap[`${item.string}_${item.fret}`]=LH_NAMES[item.finger]||String(item.finger);
+        newF[item.string]=item.finger;
+    }
+
     return{lhMap,newF};
 }
 
@@ -340,7 +403,7 @@ function buildAnalysis(barIdx, notes, rawNotes, lhMap, rhMap, barre, pos, isTapp
              finger:open?'0':lbl.charAt(0), 
              fingerName:open?'Відкрита струна':lbl, 
              string:sn, stringIndex:s, fret:isDead?'x':String(f), 
-             color:open?'#9E9E9E':(isDead?'#757575':'#D07B30'),
+             color:open?'#4FC3F7':(isDead?'#757575':'#D07B30'),
              isHammer: !!rn.isHammer,
              isPullOff: false,
              isSlide: !!rn.slideIn || !!rn.slideOut,
