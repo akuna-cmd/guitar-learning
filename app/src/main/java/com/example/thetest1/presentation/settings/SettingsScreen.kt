@@ -1,17 +1,11 @@
 package com.example.thetest1.presentation.settings
-
-import android.util.Log
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
@@ -27,6 +21,7 @@ import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.*
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,25 +34,24 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.thetest1.R
 import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.presentation.auth.AuthViewModel
 import com.example.thetest1.presentation.main.ThemeMode
 import com.example.thetest1.presentation.main.ThemeViewModel
 import com.example.thetest1.presentation.main.TabDisplayMode
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModelFactory: ViewModelFactory) {
-    val themeViewModel: ThemeViewModel = viewModel(factory = viewModelFactory)
-    val authViewModel: AuthViewModel = viewModel(factory = viewModelFactory)
-    val uiState by themeViewModel.uiState.collectAsState()
-    val authState by authViewModel.uiState.collectAsState()
+fun SettingsScreen(
+    viewModelFactory: ViewModelFactory,
+    themeViewModel: ThemeViewModel
+) {
+    val uiState by themeViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var showAccountSheet by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -66,25 +60,9 @@ fun SettingsScreen(viewModelFactory: ViewModelFactory) {
     ) {
         // ─── Profile / Auth ───────────────────────────────────────
         item {
-            val user = authState.user
-            AnimatedContent(targetState = user != null, label = "auth_state") { isLoggedIn ->
-                if (isLoggedIn && user != null) {
-                    ProfileCard(
-                        displayName = user.displayName,
-                        email = user.email,
-                        onSignOut = { authViewModel.signOut(context) {} }
-                    )
-                } else {
-                    AuthCard(
-                        authViewModel = authViewModel,
-                        isLoading = authState.isLoading,
-                        error = authState.error,
-                        onGoogleSignIn = {
-                            authViewModel.signInWithGoogleCredentialManager(context) {}
-                        }
-                    )
-                }
-            }
+            AccountEntryCard(
+                onOpen = { showAccountSheet = true }
+            )
         }
 
         // ─── Theme ────────────────────────────────────────────────
@@ -144,6 +122,72 @@ fun SettingsScreen(viewModelFactory: ViewModelFactory) {
                         onClick = { themeViewModel.setTabDisplayMode(TabDisplayMode.TAB_ONLY) }
                     )
                 }
+            }
+        }
+    }
+
+    if (showAccountSheet) {
+        val authViewModel: AuthViewModel = viewModel(factory = viewModelFactory)
+        val authState by authViewModel.uiState.collectAsStateWithLifecycle()
+        ModalBottomSheet(
+            onDismissRequest = { showAccountSheet = false }
+        ) {
+            val user = authState.user
+            if (user != null) {
+                ProfileCard(
+                    displayName = user.displayName,
+                    email = user.email,
+                    onSignOut = { authViewModel.signOut(context) {} }
+                )
+            } else {
+                AuthCard(
+                    authViewModel = authViewModel,
+                    isLoading = authState.isLoading,
+                    error = authState.error,
+                    onGoogleSignIn = {
+                        authViewModel.signInWithGoogleCredentialManager(context) {}
+                    }
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun AccountEntryCard(
+    onOpen: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Filled.AccountCircle,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Акаунт",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = "Увійти, профіль і безпека",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            TextButton(onClick = onOpen) {
+                Text("Відкрити")
             }
         }
     }
@@ -238,29 +282,9 @@ private fun HoldableIconButton(
     contentDescription: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector
 ) {
-    val scope = rememberCoroutineScope()
-    var job by remember { mutableStateOf<Job?>(null) }
     IconButton(
         onClick = onClick,
-        modifier = Modifier
-            .size(36.dp)
-            .pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val down = awaitFirstDown()
-                        job?.cancel()
-                        job = scope.launch {
-                            delay(250)
-                            while (down.pressed) {
-                                onClick()
-                                delay(80)
-                            }
-                        }
-                        waitForUpOrCancellation()
-                        job?.cancel()
-                    }
-                }
-            }
+        modifier = Modifier.size(36.dp)
     ) {
         Icon(imageVector = icon, contentDescription = contentDescription)
     }
@@ -374,21 +398,18 @@ private fun AuthCard(
             ) {
 
                 // ── Sign Up extras ───────────────────────────────
-                AnimatedContent(targetState = selectedTab, label = "tab_content") { tab ->
-                    if (tab == 1) {
-                        // Name field only shown for sign-up
-                        OutlinedTextField(
-                            value = displayName,
-                            onValueChange = { displayName = it },
-                            label = { Text("Ім'я") },
-                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    } else {
-                        Box(modifier = Modifier.fillMaxWidth())
-                    }
+                if (selectedTab == 1) {
+                    OutlinedTextField(
+                        value = displayName,
+                        onValueChange = { displayName = it },
+                        label = { Text("Ім'я") },
+                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    Spacer(modifier = Modifier.height(0.dp))
                 }
 
                 // ── Email ────────────────────────────────────────

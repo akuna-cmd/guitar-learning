@@ -36,13 +36,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.thetest1.R
 import com.example.thetest1.domain.model.AudioNote
+import com.example.thetest1.presentation.util.formatDurationShort
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Locale
-import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -178,11 +178,11 @@ private fun AudioNoteItem(
             ) {
                 val currentPosition = (duration * progress).toLong()
                 Text(
-                    text = formatDuration(currentPosition),
+                    text = formatDurationShort(currentPosition),
                     style = androidx.compose.material3.MaterialTheme.typography.bodySmall
                 )
                 Text(
-                    text = formatDuration(duration.toLong()),
+                    text = formatDurationShort(duration.toLong()),
                     style = androidx.compose.material3.MaterialTheme.typography.bodySmall
                 )
             }
@@ -207,10 +207,4 @@ private fun AudioNoteItem(
             }
         }
     }
-}
-
-private fun formatDuration(millis: Long): String {
-    val minutes = TimeUnit.MILLISECONDS.toMinutes(millis)
-    val seconds = TimeUnit.MILLISECONDS.toSeconds(millis) % 60
-    return String.format("%02d:%02d", minutes, seconds)
 }

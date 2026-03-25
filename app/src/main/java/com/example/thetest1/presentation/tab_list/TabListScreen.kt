@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
@@ -30,23 +31,27 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.thetest1.R
 import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.domain.model.Difficulty
 import com.example.thetest1.domain.model.TabItem
+import com.example.thetest1.presentation.common.WebViewWarmup
 import com.example.thetest1.presentation.util.formatDuration
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,7 +60,8 @@ fun TabListScreen(
     onTabClick: (String) -> Unit
 ) {
     val viewModel: TabListViewModel = viewModel(factory = viewModelFactory)
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     val pickFileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -63,6 +69,11 @@ fun TabListScreen(
             uri?.let { viewModel.addUserTab(it) }
         }
     )
+
+    LaunchedEffect(Unit) {
+        delay(350)
+        WebViewWarmup.warm(context)
+    }
 
     Scaffold(
         floatingActionButton = {
@@ -181,13 +192,24 @@ private fun UserTabsScreen(
             fontWeight = FontWeight.Bold
         )
         Spacer(modifier = Modifier.height(8.dp))
+        if (uiState.isUserTabsLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 28.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+            return@Column
+        }
         if (uiState.userTabs.isEmpty()) {
             EmptyTabsState(onAddFirstTab = onAddFirstTab)
             return@Column
         }
         LazyColumn(modifier = Modifier.fillMaxWidth()) {
-            items(uiState.userTabs) { tab ->
-                val progress = uiState.progressByTabId[tab.id] ?: 0
+            items(uiState.userTabs, key = { it.id }) { tab ->
+                val progress = if (uiState.areMetricsLoading) null else (uiState.progressByTabId[tab.id] ?: 0)
                 val lastDuration = uiState.lastSessionDurationByTabId[tab.id]
                 ElevatedCard(
                     modifier = Modifier
@@ -295,9 +317,18 @@ private fun LessonsScreen(
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(16.dp))
+            if (uiState.isTabsLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+                return@Column
+            }
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(uiState.filteredTabs) { tab ->
-                    val progress = uiState.progressByTabId[tab.id] ?: 0
+                items(uiState.filteredTabs, key = { it.id }) { tab ->
+                    val progress = if (uiState.areMetricsLoading) null else (uiState.progressByTabId[tab.id] ?: 0)
                     val lastDuration = uiState.lastSessionDurationByTabId[tab.id]
                     ElevatedCard(
                         modifier = Modifier
@@ -346,7 +377,7 @@ private fun LessonsScreen(
 
 @Composable
 private fun TabMetricsRow(
-    progressPercent: Int,
+    progressPercent: Int?,
     lastSessionDuration: Long?
 ) {
     Column(
@@ -377,11 +408,13 @@ private fun TabMetricsRow(
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = stringResource(
-                    R.string.tab_progress_value,
-                    stringResource(R.string.tab_progress_label),
-                    progressPercent
-                ),
+                text = progressPercent?.let {
+                    stringResource(
+                        R.string.tab_progress_value,
+                        stringResource(R.string.tab_progress_label),
+                        it
+                    )
+                } ?: "${stringResource(R.string.tab_progress_label)}: --",
                 style = MaterialTheme.typography.labelMedium
             )
         }

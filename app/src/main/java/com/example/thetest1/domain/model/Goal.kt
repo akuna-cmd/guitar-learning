@@ -2,6 +2,7 @@ package com.example.thetest1.domain.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import androidx.compose.runtime.Immutable
 
 enum class GoalType {
     SESSION_TIME,
@@ -9,6 +10,7 @@ enum class GoalType {
     CUSTOM
 }
 
+@Immutable
 @Entity(tableName = "goals")
 data class Goal(
     @PrimaryKey(autoGenerate = true)

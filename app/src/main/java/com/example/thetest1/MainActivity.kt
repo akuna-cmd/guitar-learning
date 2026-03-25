@@ -9,23 +9,23 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -34,14 +34,16 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.presentation.common.AppBar
+import com.example.thetest1.presentation.common.WebViewWarmup
 import com.example.thetest1.presentation.goals.GoalsScreen
 import com.example.thetest1.presentation.main.HomeScreen
 import com.example.thetest1.presentation.main.MainViewModel
 import com.example.thetest1.presentation.main.ThemeViewModel
 import com.example.thetest1.presentation.navigation.BottomNavItem
-import com.example.thetest1.presentation.navigation.LessonsNavHost
+import com.example.thetest1.presentation.navigation.lessonsNavGraph
 import com.example.thetest1.presentation.settings.SettingsScreen
 import com.example.thetest1.presentation.ui.theme.TheTest1Theme
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private lateinit var viewModelFactory: ViewModelFactory
@@ -53,9 +55,9 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val themeViewModel: ThemeViewModel = viewModel(factory = viewModelFactory)
-            val themeUiState by themeViewModel.uiState.collectAsState()
+            val themeUiState by themeViewModel.uiState.collectAsStateWithLifecycle()
 
-            splashScreen.setKeepOnScreenCondition { themeUiState.isLoading }
+            splashScreen.setKeepOnScreenCondition { false }
 
             val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
             val isDarkTheme = when (themeUiState.themeMode) {
@@ -82,28 +84,55 @@ fun MainScreen(
     themeViewModel: ThemeViewModel,
     isDarkTheme: Boolean
 ) {
+    val context = LocalContext.current
     val mainViewModel: MainViewModel = viewModel(factory = viewModelFactory)
-    val mainUiState by mainViewModel.uiState.collectAsState()
+    val shellUiState by mainViewModel.shellUiState.collectAsStateWithLifecycle()
 
     val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
+    val bottomRoutes = remember {
+        setOf(
+            BottomNavItem.Main.route,
+            BottomNavItem.GuitarTabs.route,
+            BottomNavItem.Goals.route,
+            BottomNavItem.Settings.route
+        )
+    }
+    val isBottomBarVisible = currentDestination
+        ?.hierarchy
+        ?.any { destination -> destination.route in bottomRoutes } == true
+    LaunchedEffect(shellUiState.continueLessonId) {
+        val lessonId = shellUiState.continueLessonId
+        if (!lessonId.isNullOrBlank()) {
+            val encodedId = java.net.URLEncoder.encode(lessonId, "UTF-8")
+            navController.navigate("lesson/$encodedId") {
+                launchSingleTop = true
+            }
+            mainViewModel.consumeContinueLesson()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        delay(900)
+        WebViewWarmup.warm(context)
+    }
+
     Scaffold(
         topBar = {
-            if (mainUiState.isSessionActive) {
+            if (shellUiState.isSessionActive) {
                 AppBar(
-                    sessionDuration = mainUiState.sessionDuration,
+                    sessionDuration = shellUiState.sessionDuration,
                     onStopSession = mainViewModel::stopSession
                 )
             }
         },
         bottomBar = {
-            AnimatedVisibility(
-                visible = mainUiState.showBottomBar,
-                enter = slideInVertically { it } + expandVertically(),
-                exit = slideOutVertically { it } + shrinkVertically()
-            ) {
+            if (isBottomBarVisible) {
                 NavigationBar {
-                    val navBackStackEntry by navController.currentBackStackEntryAsState()
-                    val currentDestination = navBackStackEntry?.destination
+                    val navItemColors = NavigationBarItemDefaults.colors(
+                        indicatorColor = Color.Transparent
+                    )
                     val items = listOf(
                         BottomNavItem.Main,
                         BottomNavItem.GuitarTabs,
@@ -111,6 +140,9 @@ fun MainScreen(
                         BottomNavItem.Settings
                     )
                     items.forEach { screen ->
+                        val isSelected = currentDestination
+                            ?.hierarchy
+                            ?.any { destination -> destination.route == screen.route } == true
                         NavigationBarItem(
                             icon = { Icon(screen.icon, contentDescription = null) },
                             label = {
@@ -123,14 +155,18 @@ fun MainScreen(
                                     textAlign = TextAlign.Center
                                 )
                             },
-                            selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                            selected = isSelected,
+                            colors = navItemColors,
                             onClick = {
+                                if (isSelected) {
+                                    return@NavigationBarItem
+                                }
                                 navController.navigate(screen.route) {
                                     popUpTo(navController.graph.findStartDestination().id) {
                                         saveState = true
                                     }
-                                    launchSingleTop = true
                                     restoreState = true
+                                    launchSingleTop = true
                                 }
                             }
                         )
@@ -145,17 +181,15 @@ fun MainScreen(
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(BottomNavItem.Main.route) {
+                val mainUiState by mainViewModel.uiState.collectAsStateWithLifecycle()
                 HomeScreen(
                     sessions = mainUiState.sessions,
                     onStartSession = mainViewModel::startSession,
                     onContinueLesson = { tabId ->
                         mainViewModel.requestContinueLesson(tabId)
                         navController.navigate(BottomNavItem.GuitarTabs.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
+                            popUpTo(navController.graph.findStartDestination().id)
                             launchSingleTop = true
-                            restoreState = true
                         }
                     },
                     isSessionActive = mainUiState.isSessionActive,
@@ -164,17 +198,24 @@ fun MainScreen(
                     totalLessons = mainUiState.totalLessons,
                     userTabsCount = mainUiState.userTabsCount,
                     viewModelFactory = viewModelFactory,
-                    lastPlaybackProgress = mainUiState.lastPlaybackProgress
+                    lastPlaybackProgressFlow = mainViewModel.lastPlaybackProgress
                 )
             }
-            composable(BottomNavItem.GuitarTabs.route) {
-                LessonsNavHost(viewModelFactory = viewModelFactory, mainViewModel = mainViewModel)
-            }
+            lessonsNavGraph(
+                navController = navController,
+                viewModelFactory = viewModelFactory,
+                mainViewModel = mainViewModel,
+                themeViewModel = themeViewModel,
+                route = BottomNavItem.GuitarTabs.route
+            )
             composable(BottomNavItem.Goals.route) {
                 GoalsScreen(viewModelFactory = viewModelFactory)
             }
             composable(BottomNavItem.Settings.route) {
-                SettingsScreen(viewModelFactory = viewModelFactory)
+                SettingsScreen(
+                    viewModelFactory = viewModelFactory,
+                    themeViewModel = themeViewModel
+                )
             }
         }
     }

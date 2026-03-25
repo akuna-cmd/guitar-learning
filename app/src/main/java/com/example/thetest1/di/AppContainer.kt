@@ -59,6 +59,8 @@ import com.example.thetest1.domain.usecase.UpdateTabUseCase
 import com.example.thetest1.domain.usecase.UpdateTextNoteUseCase
 import com.example.thetest1.domain.usecase.UpdateTabPlaybackProgressUseCase
 import com.google.ai.client.generativeai.GenerativeModel
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.flow.first
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
@@ -159,39 +161,50 @@ class AppContainer(val context: Context) {
 
     val viewModelFactory: ViewModelFactory by lazy {
         ViewModelFactory(
-            context = context,
-            dataStore = context.dataStore,
-            getTabsUseCase = getTabsUseCase,
-            getLessonUseCase = getLessonUseCase,
-            getTabItemUseCase = getTabItemUseCase,
-            getTabFileBytesUseCase = getTabFileBytesUseCase,
-            getSoundFontBytesUseCase = getSoundFontBytesUseCase,
-            updateTabUseCase = updateTabUseCase,
-            getAudioNotesUseCase = getAudioNotesUseCase,
-            addAudioNoteUseCase = addAudioNoteUseCase,
-            deleteAudioNoteUseCase = deleteAudioNoteUseCase,
-            getTextNotesUseCase = getTextNotesUseCase,
-            addTextNoteUseCase = addTextNoteUseCase,
-            updateTextNoteUseCase = updateTextNoteUseCase,
-            deleteTextNoteUseCase = deleteTextNoteUseCase,
-            getAllSessionsUseCase = getAllSessionsUseCase,
-            addSessionUseCase = addSessionUseCase,
-            getCompletedLessonsCountUseCase = getCompletedLessonsCountUseCase,
-            getTotalLessonsCountUseCase = getTotalLessonsCountUseCase,
-            getUserTabsUseCase = getUserTabsUseCase,
-            addUserTabUseCase = addUserTabUseCase,
-            getSessionsForLastMonthUseCase = getSessionsForLastMonthUseCase,
-            deleteUserTabUseCase = deleteUserTabUseCase,
-            renameUserTabUseCase = renameUserTabUseCase,
-            getUserTabsCountUseCase = getUserTabsCountUseCase,
-            addGoalUseCase = addGoalUseCase,
-            updateGoalUseCase = updateGoalUseCase,
-            deleteGoalUseCase = deleteGoalUseCase,
-            askAiAssistantUseCase = askAiAssistantUseCase,
-            observeGoalsProgressUseCase = observeGoalsProgressUseCase,
-            observeTabPlaybackProgressUseCase = observeTabPlaybackProgressUseCase,
-            getTabPlaybackProgressUseCase = getTabPlaybackProgressUseCase,
-            updateTabPlaybackProgressUseCase = updateTabPlaybackProgressUseCase
+            dependencies = ViewModelFactory.Dependencies(
+                context = context,
+                dataStore = context.dataStore,
+                getTabsUseCase = getTabsUseCase,
+                getLessonUseCase = getLessonUseCase,
+                getTabItemUseCase = getTabItemUseCase,
+                getTabFileBytesUseCase = getTabFileBytesUseCase,
+                getSoundFontBytesUseCase = getSoundFontBytesUseCase,
+                updateTabUseCase = updateTabUseCase,
+                getAudioNotesUseCase = getAudioNotesUseCase,
+                addAudioNoteUseCase = addAudioNoteUseCase,
+                deleteAudioNoteUseCase = deleteAudioNoteUseCase,
+                getTextNotesUseCase = getTextNotesUseCase,
+                addTextNoteUseCase = addTextNoteUseCase,
+                updateTextNoteUseCase = updateTextNoteUseCase,
+                deleteTextNoteUseCase = deleteTextNoteUseCase,
+                getAllSessionsUseCase = getAllSessionsUseCase,
+                addSessionUseCase = addSessionUseCase,
+                getCompletedLessonsCountUseCase = getCompletedLessonsCountUseCase,
+                getTotalLessonsCountUseCase = getTotalLessonsCountUseCase,
+                getUserTabsUseCase = getUserTabsUseCase,
+                addUserTabUseCase = addUserTabUseCase,
+                getSessionsForLastMonthUseCase = getSessionsForLastMonthUseCase,
+                deleteUserTabUseCase = deleteUserTabUseCase,
+                renameUserTabUseCase = renameUserTabUseCase,
+                getUserTabsCountUseCase = getUserTabsCountUseCase,
+                addGoalUseCase = addGoalUseCase,
+                updateGoalUseCase = updateGoalUseCase,
+                deleteGoalUseCase = deleteGoalUseCase,
+                askAiAssistantUseCaseProvider = { askAiAssistantUseCase },
+                observeGoalsProgressUseCase = observeGoalsProgressUseCase,
+                observeTabPlaybackProgressUseCase = observeTabPlaybackProgressUseCase,
+                getTabPlaybackProgressUseCase = getTabPlaybackProgressUseCase,
+                updateTabPlaybackProgressUseCase = updateTabPlaybackProgressUseCase
+            )
         )
+    }
+
+    suspend fun warmUp() {
+        runCatching { tabRepository.getTabs().first() }
+        runCatching { tabRepository.getUserTabs() }
+        runCatching { tabPlaybackProgressRepository.observeAll().first() }
+        runCatching { FirebaseAuth.getInstance().currentUser }
+        runCatching { context.assets.open("tab_viewer.html").close() }
+        runCatching { context.assets.open("alphatab_local.js").close() }
     }
 }

@@ -1,5 +1,8 @@
 package com.example.thetest1.domain.model
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 data class Lesson(
     val id: String,
     val level: String,

@@ -19,3 +19,12 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Keep JavaScript bridge methods used from tab_viewer.html.
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
+# Keep JSON field names for analysis payload parsed from WebView JS.
+-keep class com.example.thetest1.presentation.tab_viewer.TabAnalysis { *; }
+-keep class com.example.thetest1.presentation.tab_viewer.FingerInfo { *; }

@@ -6,6 +6,8 @@ import android.util.Log
 import android.util.Base64
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.compose.runtime.Immutable
+import com.example.thetest1.BuildConfig
 import com.example.thetest1.domain.model.Lesson
 import com.example.thetest1.domain.model.AudioNote
 import com.example.thetest1.domain.model.TextNote
@@ -29,6 +31,8 @@ import com.example.thetest1.presentation.audio_notes.PlayerState
 import com.google.gson.Gson
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,6 +50,7 @@ enum class LessonTab {
     NOTES
 }
 
+@Immutable
 data class FingerInfo(
     val finger: String,
     val fingerName: String,
@@ -62,6 +67,7 @@ data class FingerInfo(
     val isGhost: Boolean = false
 )
 
+@Immutable
 data class TabAnalysis(
     val barIndex: Int,
     val leftHand: List<FingerInfo>,
@@ -86,16 +92,15 @@ data class TabViewerUiState(
     val asciiTab: String? = null,
     val compactTabs: String? = null,
     val tabAnalysis: TabAnalysis? = null,
-    val tabBytesBase64: String? = null,
+    // Lightweight flags — actual bytes are held in ViewModel fields to avoid Compose recompositions
+    val tabBytesReady: Boolean = false,
     val tabBytesPath: String? = null,
-    val soundFontBase64: String? = null,
-    val lastTickPosition: Long? = null,
-    val lastBarIndex: Int? = null,
+    val soundFontReady: Boolean = false,
     val totalBars: Int? = null,
     val restoreTickPosition: Long? = null,
     val restoreBarIndex: Int? = null,
-    val wasPlaying: Boolean = false,
-    val restorePending: Boolean = false
+    val restorePending: Boolean = false,
+    val isScoreLoaded: Boolean = false
 )
 
 class TabViewerViewModel(
@@ -117,13 +122,30 @@ class TabViewerViewModel(
     private companion object {
         const val RESTORE_TAG = "TabRestoreFlow"
         const val LOAD_TAG = "TabLoadPerf"
+        const val ENABLE_PERF_LOGS = false
         // Process-wide lightweight cache for already opened tabs/soundfont.
         private val tabBase64Cache = LinkedHashMap<String, String>(32, 0.75f, true)
         private var soundFontBase64Cache: String? = null
     }
 
+    private fun perfLog(tag: String, message: String) {
+        if (BuildConfig.DEBUG && ENABLE_PERF_LOGS) {
+            Log.d(tag, message)
+        }
+    }
+
     private val _uiState = MutableStateFlow(TabViewerUiState())
     val uiState: StateFlow<TabViewerUiState> = _uiState.asStateFlow()
+
+    private val _lastTickPosition = MutableStateFlow<Long?>(null)
+    val lastTickPosition = _lastTickPosition.asStateFlow()
+
+    private val _lastBarIndex = MutableStateFlow<Int?>(null)
+    val lastBarIndex = _lastBarIndex.asStateFlow()
+
+    private val _isPlaying = MutableStateFlow(false)
+    val isPlaying = _isPlaying.asStateFlow()
+
 
     private val audioRecorder by lazy { AudioRecorder(context) }
     private val audioPlayer by lazy { AudioPlayer(context) }
@@ -133,6 +155,9 @@ class TabViewerViewModel(
     private val gson = Gson()
     private var lastSavedBarIndex: Int = -1
     private var lastSavedAt: Long = 0L
+    private var activeLessonId: String? = null
+    private var lessonOpenedAt: Long = 0L
+    private var restoreFloorBarIndex: Int = 0
 
     init {
         viewModelScope.launch {
@@ -143,15 +168,32 @@ class TabViewerViewModel(
         loadSoundFont()
     }
 
+    // Direct references — not flowed through Compose state to avoid giant recompositions
+    @Volatile var tabBytesRef: String? = null
+        private set
+    @Volatile var soundFontRef: String? = null
+        private set
+
     fun loadLesson(id: String) {
-        viewModelScope.launch {
-            val lesson = getLessonUseCase(id)
-            val tabItem = getTabItemUseCase(id)
-            val savedProgress = getTabPlaybackProgressUseCase(id)
-            val shouldRestore = savedProgress?.lastTick?.let { it > 0L } == true
-            Log.d(
+        viewModelScope.launch(Dispatchers.IO) {
+            // Parallelize all 3 DB queries
+            val (lesson, tabItem, savedProgress) = coroutineScope {
+                val l = async { getLessonUseCase(id) }
+                val t = async { getTabItemUseCase(id) }
+                val p = async { getTabPlaybackProgressUseCase(id) }
+                Triple(l.await(), t.await(), p.await())
+            }
+            val savedBar = savedProgress?.lastBarIndex ?: 0
+            val savedTick = savedProgress?.lastTick ?: 0L
+            val shouldRestore = savedBar > 1 || savedTick > 1L
+            activeLessonId = id
+            lessonOpenedAt = System.currentTimeMillis()
+            restoreFloorBarIndex = savedBar.coerceAtLeast(0)
+            lastSavedBarIndex = savedBar.takeIf { it > 0 } ?: -1
+            lastSavedAt = 0L
+            perfLog(
                 RESTORE_TAG,
-                "loadLesson(id=$id) savedProgress={tick=${savedProgress?.lastTick}, bar=${savedProgress?.lastBarIndex}, total=${savedProgress?.totalBars}} shouldRestore=$shouldRestore"
+                "loadLesson(id=$id) savedProgress={tick=${savedProgress?.lastTick}, bar=${savedProgress?.lastBarIndex}, total=${savedProgress?.totalBars}} shouldRestore=$shouldRestore restoreFloor=$restoreFloorBarIndex"
             )
             _uiState.update { currentState ->
                 val isUserTab = tabItem?.isUserTab == true
@@ -168,34 +210,35 @@ class TabViewerViewModel(
                 }
                 val selectedTabIndex = tabs.indexOf(selectedTab)
 
+                _lastTickPosition.value = savedProgress?.lastTick
+                _lastBarIndex.value = savedProgress?.lastBarIndex
+
                 currentState.copy(
                     lesson = lesson,
                     isUserTab = isUserTab,
                     tabs = tabs,
                     selectedTab = selectedTab,
                     selectedTabIndex = if (selectedTabIndex != -1) selectedTabIndex else 0,
-                    lastTickPosition = savedProgress?.lastTick,
-                    lastBarIndex = savedProgress?.lastBarIndex,
                     totalBars = savedProgress?.totalBars,
                     restoreTickPosition = savedProgress?.lastTick,
                     restoreBarIndex = savedProgress?.lastBarIndex,
-                    wasPlaying = false,
                     restorePending = shouldRestore
                 )
             }
+            // Launch tab bytes and audio/text notes loading in parallel (don't wait for lesson)
             val tabPath = lesson?.tabsGpPath ?: tabItem?.filePath
             if (tabPath != null) {
-                loadTabBytes(tabPath)
+                launch { loadTabBytes(tabPath) }
             }
             lesson?.let {
                 audioNotesJob?.cancel()
-                audioNotesJob = viewModelScope.launch {
+                audioNotesJob = launch {
                     getAudioNotesUseCase(it.id).collect { audioNotes ->
                         _uiState.update { it.copy(audioNotes = audioNotes) }
                     }
                 }
                 textNotesJob?.cancel()
-                textNotesJob = viewModelScope.launch {
+                textNotesJob = launch {
                     getTextNotesUseCase(it.id).collect { textNotes ->
                         _uiState.update { it.copy(textNotes = textNotes) }
                     }
@@ -209,8 +252,9 @@ class TabViewerViewModel(
         val t0 = System.currentTimeMillis()
         val cached = synchronized(tabBase64Cache) { tabBase64Cache[path] }
         if (cached != null) {
-            Log.d(LOAD_TAG, "tabBytes memory cache HIT path=$path len=${cached.length} took=${System.currentTimeMillis()-t0}ms")
-            _uiState.update { it.copy(tabBytesBase64 = cached, tabBytesPath = path) }
+            perfLog(LOAD_TAG, "tabBytes memory cache HIT path=$path len=${cached.length} took=${System.currentTimeMillis()-t0}ms")
+            tabBytesRef = cached
+            _uiState.update { it.copy(tabBytesReady = true, tabBytesPath = path) }
             return
         }
         viewModelScope.launch(Dispatchers.IO) {
@@ -219,56 +263,62 @@ class TabViewerViewModel(
                 synchronized(tabBase64Cache) {
                     tabBase64Cache[path] = diskCached
                 }
-                Log.d(LOAD_TAG, "tabBytes disk cache HIT path=$path len=${diskCached.length} took=${System.currentTimeMillis()-t0}ms")
-                _uiState.update { it.copy(tabBytesBase64 = diskCached, tabBytesPath = path) }
+                perfLog(LOAD_TAG, "tabBytes disk cache HIT path=$path len=${diskCached.length} took=${System.currentTimeMillis()-t0}ms")
+                tabBytesRef = diskCached
+                _uiState.update { it.copy(tabBytesReady = true, tabBytesPath = path) }
                 return@launch
             }
             val sourceStart = System.currentTimeMillis()
             val base64 = getTabFileBytesUseCase(path).getOrNull()?.let { bytes ->
                 Base64.encodeToString(bytes, Base64.NO_WRAP)
             }
-            Log.d(LOAD_TAG, "tabBytes source load path=$path base64Len=${base64?.length ?: 0} sourceMs=${System.currentTimeMillis()-sourceStart} totalMs=${System.currentTimeMillis()-t0}")
+            perfLog(LOAD_TAG, "tabBytes source load path=$path base64Len=${base64?.length ?: 0} sourceMs=${System.currentTimeMillis()-sourceStart} totalMs=${System.currentTimeMillis()-t0}")
             if (base64 != null) {
                 synchronized(tabBase64Cache) {
                     tabBase64Cache[path] = base64
-                    // Keep cache bounded.
                     while (tabBase64Cache.size > 40) {
                         val firstKey = tabBase64Cache.entries.firstOrNull()?.key ?: break
                         tabBase64Cache.remove(firstKey)
                     }
                 }
                 writeTabBase64ToDisk(path, base64)
+                tabBytesRef = base64
+                _uiState.update { it.copy(tabBytesReady = true, tabBytesPath = path) }
+            } else {
+                _uiState.update { it.copy(tabBytesReady = false, tabBytesPath = path) }
             }
-            _uiState.update { it.copy(tabBytesBase64 = base64, tabBytesPath = path) }
         }
     }
 
     private fun loadSoundFont() {
-        if (_uiState.value.soundFontBase64 != null) return
+        if (_uiState.value.soundFontReady) return
         val t0 = System.currentTimeMillis()
         soundFontBase64Cache?.let { cached ->
-            Log.d(LOAD_TAG, "soundFont memory cache HIT len=${cached.length} took=${System.currentTimeMillis()-t0}ms")
-            _uiState.update { it.copy(soundFontBase64 = cached) }
+            perfLog(LOAD_TAG, "soundFont memory cache HIT len=${cached.length} took=${System.currentTimeMillis()-t0}ms")
+            soundFontRef = cached
+            _uiState.update { it.copy(soundFontReady = true) }
             return
         }
         viewModelScope.launch(Dispatchers.IO) {
             val diskCached = readSoundFontBase64FromDisk()
             if (diskCached != null) {
                 soundFontBase64Cache = diskCached
-                Log.d(LOAD_TAG, "soundFont disk cache HIT len=${diskCached.length} took=${System.currentTimeMillis()-t0}ms")
-                _uiState.update { it.copy(soundFontBase64 = diskCached) }
+                perfLog(LOAD_TAG, "soundFont disk cache HIT len=${diskCached.length} took=${System.currentTimeMillis()-t0}ms")
+                soundFontRef = diskCached
+                _uiState.update { it.copy(soundFontReady = true) }
                 return@launch
             }
             val sourceStart = System.currentTimeMillis()
             val base64 = getSoundFontBytesUseCase().getOrNull()?.let { bytes ->
                 Base64.encodeToString(bytes, Base64.NO_WRAP)
             }
-            Log.d(LOAD_TAG, "soundFont source load base64Len=${base64?.length ?: 0} sourceMs=${System.currentTimeMillis()-sourceStart} totalMs=${System.currentTimeMillis()-t0}")
+            perfLog(LOAD_TAG, "soundFont source load base64Len=${base64?.length ?: 0} sourceMs=${System.currentTimeMillis()-sourceStart} totalMs=${System.currentTimeMillis()-t0}")
             if (base64 != null) {
                 soundFontBase64Cache = base64
                 writeSoundFontBase64ToDisk(base64)
+                soundFontRef = base64
+                _uiState.update { it.copy(soundFontReady = true) }
             }
-            _uiState.update { it.copy(soundFontBase64 = base64) }
         }
     }
 
@@ -328,10 +378,8 @@ class TabViewerViewModel(
     }
 
     fun setTabAnalysis(analysisJson: String) {
-        Log.d("TabViewerViewModel", "Received analysis JSON: $analysisJson")
         try {
             val analysis = gson.fromJson(analysisJson, TabAnalysis::class.java)
-            Log.d("TabViewerViewModel", "Parsed analysis: $analysis")
             _uiState.update { it.copy(tabAnalysis = analysis) }
         } catch (e: Exception) {
             Log.e("TabViewerViewModel", "Error parsing analysis", e)
@@ -339,16 +387,13 @@ class TabViewerViewModel(
     }
 
     fun updatePlaybackState(tick: Long, isPlaying: Boolean) {
-        _uiState.update { state ->
-            state.copy(
-                lastTickPosition = tick,
-                wasPlaying = isPlaying
-            )
-        }
+        _lastTickPosition.value = tick
+        _isPlaying.value = isPlaying
     }
 
     fun markRestoreCompleted() {
-        Log.d(RESTORE_TAG, "markRestoreCompleted()")
+        perfLog(RESTORE_TAG, "markRestoreCompleted()")
+        restoreFloorBarIndex = 0
         _uiState.update { state ->
             if (!state.restorePending) state else state.copy(restorePending = false)
         }
@@ -360,7 +405,7 @@ class TabViewerViewModel(
             val expectedBar = state.restoreBarIndex ?: -1
             if (expectedBar > 0 && requestedBarIndex > 0 && requestedBarIndex != expectedBar) {
                 // Ignore callbacks from internal re-renders (scale/mode) that are not our restore target.
-                Log.d(
+                perfLog(
                     RESTORE_TAG,
                     "onRestoreApplied ignored (requestedBar=$requestedBarIndex expectedBar=$expectedBar tick=$tick currentBar=$currentBarIndex)"
                 )
@@ -371,15 +416,16 @@ class TabViewerViewModel(
                 targetBar > 1 -> tick > 0L && abs(currentBarIndex - targetBar) <= 1
                 else -> tick > 0L
             }
-            Log.d(
+            perfLog(
                 RESTORE_TAG,
                 "onRestoreApplied tick=$tick currentBar=$currentBarIndex requestedBar=$requestedBarIndex targetBar=$targetBar reached=$reached"
             )
             if (!reached) return@update state
+            restoreFloorBarIndex = 0
+            _lastTickPosition.value = tick
+            _lastBarIndex.value = if (currentBarIndex > 0) currentBarIndex else _lastBarIndex.value
             state.copy(
                 restorePending = false,
-                lastTickPosition = tick,
-                lastBarIndex = if (currentBarIndex > 0) currentBarIndex else state.lastBarIndex
             )
         }
     }
@@ -388,40 +434,41 @@ class TabViewerViewModel(
         lessonId: String,
         lessonTitle: String,
         tick: Long,
+        isPlaying: Boolean,
         barIndex: Int,
         totalBars: Int
     ) {
         val currentState = _uiState.value
+        if (activeLessonId != lessonId) {
+            return
+        }
         if (currentState.restorePending) {
-            Log.d(
-                RESTORE_TAG,
-                "updatePlaybackProgress skipped: restorePending tick=$tick barIndex=$barIndex"
-            )
+            return
+        }
+        val openedAgoMs = System.currentTimeMillis() - lessonOpenedAt
+        val floor = restoreFloorBarIndex
+        if (floor > 1 && openedAgoMs < 7000L && barIndex < floor) {
             return
         }
         if (tick <= 0L || barIndex <= 0 || totalBars <= 0) {
-            if (tick > 0L) {
-                Log.d(RESTORE_TAG, "updatePlaybackProgress skipped: tick=$tick barIndex=$barIndex totalBars=$totalBars")
-            }
+            return
+        }
+        if (!isPlaying && barIndex < lastSavedBarIndex && openedAgoMs < 15000L) {
             return
         }
         val now = System.currentTimeMillis()
-        val shouldUpdate = barIndex != lastSavedBarIndex || now - lastSavedAt > 2000L
+        val shouldUpdate = barIndex != lastSavedBarIndex
         if (!shouldUpdate || totalBars <= 0 || barIndex <= 0) return
         lastSavedBarIndex = barIndex
         lastSavedAt = now
+        _lastTickPosition.value = tick
+        _lastBarIndex.value = barIndex
         _uiState.update {
             it.copy(
-                lastTickPosition = tick,
-                lastBarIndex = barIndex,
                 totalBars = totalBars
             )
         }
         viewModelScope.launch {
-            Log.d(
-                RESTORE_TAG,
-                "persist progress: lessonId=$lessonId tick=$tick bar=$barIndex total=$totalBars"
-            )
             updateTabPlaybackProgressUseCase(
                 TabPlaybackProgress(
                     tabId = lessonId,

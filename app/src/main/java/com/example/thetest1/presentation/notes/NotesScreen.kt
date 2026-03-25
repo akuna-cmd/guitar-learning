@@ -56,13 +56,13 @@ import com.example.thetest1.R
 import com.example.thetest1.domain.model.AudioNote
 import com.example.thetest1.domain.model.TextNote
 import com.example.thetest1.presentation.audio_notes.PlayerState
+import com.example.thetest1.presentation.util.formatDurationShort
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Locale
-import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -164,13 +164,13 @@ fun NotesScreen(
                 }
             }
         } else {
-            items(audioNotes) {
+            items(audioNotes, key = { it.id }) { audioNote ->
                 AudioNoteItem(
-                    audioNote = it,
+                    audioNote = audioNote,
                     playerState = playerState,
-                    onPlay = { onPlayAudio(it) },
-                    onSeek = { progress -> onSeekAudio(it.id.toString(), progress) },
-                    onDelete = { onDeleteAudioNote(it.id) }
+                    onPlay = { onPlayAudio(audioNote) },
+                    onSeek = { progress -> onSeekAudio(audioNote.id.toString(), progress) },
+                    onDelete = { onDeleteAudioNote(audioNote.id) }
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -196,8 +196,8 @@ fun NotesScreen(
             }
         }
 
-        items(textNotes) {
-            TextNoteItem(note = it, onUpdate = onUpdateTextNote, onDelete = onDeleteTextNote)
+        items(textNotes, key = { it.id }) { note ->
+            TextNoteItem(note = note, onUpdate = onUpdateTextNote, onDelete = onDeleteTextNote)
             Spacer(modifier = Modifier.height(8.dp))
         }
 
@@ -291,11 +291,11 @@ private fun AudioNoteItem(
             ) {
                 val currentPosition = (duration * progress).toLong()
                 Text(
-                    text = if (duration > 0 || isCurrentlyPlaying) formatDuration(currentPosition) else "--:--",
+                    text = if (duration > 0 || isCurrentlyPlaying) formatDurationShort(currentPosition) else "--:--",
                     style = MaterialTheme.typography.bodySmall
                 )
                 Text(
-                    text = if (duration > 0) formatDuration(duration.toLong()) else "--:--",
+                    text = if (duration > 0) formatDurationShort(duration.toLong()) else "--:--",
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -400,10 +400,4 @@ private fun TextNoteItem(
             }
         }
     }
-}
-
-private fun formatDuration(millis: Long): String {
-    val minutes = TimeUnit.MILLISECONDS.toMinutes(millis)
-    val seconds = TimeUnit.MILLISECONDS.toSeconds(millis) % 60
-    return String.format("%02d:%02d", minutes, seconds)
 }

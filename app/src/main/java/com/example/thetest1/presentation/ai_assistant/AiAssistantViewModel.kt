@@ -17,6 +17,7 @@ enum class Author {
 }
 
 data class ChatMessage(
+    val id: String = java.util.UUID.randomUUID().toString(),
     val text: UiText,
     val author: Author
 )
@@ -38,7 +39,7 @@ class AiAssistantViewModel(
             _uiState.update {
                 it.copy(
                     isLoading = true,
-                    messages = it.messages + ChatMessage(UiText.Plain(question), Author.USER)
+                    messages = it.messages + ChatMessage(text = UiText.Plain(question), author = Author.USER)
                 )
             }
             val result = askAiAssistantUseCase(
@@ -57,7 +58,7 @@ class AiAssistantViewModel(
                 )
                 current.copy(
                     isLoading = false,
-                    messages = current.messages + ChatMessage(message, Author.AI)
+                    messages = current.messages + ChatMessage(text = message, author = Author.AI)
                 )
             }
         }

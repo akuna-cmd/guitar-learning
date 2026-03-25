@@ -157,18 +157,20 @@ function dpFingering(data) {
         return Array.from({length:hi-lo+1},(_,i)=>lo+i);
     }
     let dp=new Map();
-    for(const pos of cands(data[0]))dp.set(pos,{cost:configCost(data[0].notes.map(n=>n.fret),pos),path:[pos]});
+    for(const pos of cands(data[0]))dp.set(pos,{cost:configCost(data[0].notes.map(n=>n.fret),pos),prev:null,pos:pos});
     for(let i=1;i<data.length;i++){
         const d=data[i],fr=d.notes.map(n=>n.fret),pd=data[i-1].duration,nd=new Map();
         for(const pos of cands(d)){
             const cc=configCost(fr,pos);let bc=Infinity,bp=null;
-            for(const[pp,{cost:pc,path:pp2}]of dp){const t=pc+transCost(pp,pos,pd)+cc;if(t<bc){bc=t;bp=[...pp2,pos];}}
-            nd.set(pos,{cost:bc,path:bp||[]});
+            for(const[pp,{cost:pc}]of dp){const t=pc+transCost(pp,pos,pd)+cc;if(t<bc){bc=t;bp=dp.get(pp);}}
+            nd.set(pos,{cost:bc,prev:bp,pos:pos});
         }
         dp=nd;
     }
     let best=null; for(const v of dp.values())if(!best||v.cost<best.cost)best=v;
-    return best?best.path:[];
+    if(!best)return[];
+    const path=[]; while(best){path.push(best.pos);best=best.prev;}
+    return path.reverse();
 }
 
 function assignLhFingers(notes, pos, barre, prevF, prevBeatPlacement) {
@@ -597,6 +599,14 @@ window.setTheme = (isDark) => {
     document.body.classList.toggle('dark', isDark);
     document.documentElement.classList.toggle('dark', isDark);
     applyCanvasTheme();
+};
+
+window.initSettings = (isDark, isPractice, speed, scale, displayMode) => {
+    window.setTheme(isDark);
+    if(window.setPracticeModeLayout) window.setPracticeModeLayout(isPractice);
+    if(window.setPlaybackSpeed) window.setPlaybackSpeed(speed);
+    if(window.setTabScale) window.setTabScale(scale);
+    if(window.setTabDisplayMode) window.setTabDisplayMode(displayMode);
 };
 
 window.setPracticeModeSpeed = (isPractice) => {

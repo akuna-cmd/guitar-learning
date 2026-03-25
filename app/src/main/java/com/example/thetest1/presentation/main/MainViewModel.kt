@@ -13,16 +13,24 @@ import com.example.thetest1.domain.usecase.GetUserTabsCountUseCase
 import com.example.thetest1.domain.usecase.ObserveTabPlaybackProgressUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.SharingStarted
 import java.util.Date
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 data class MainUiState(
-    val sessions: List<Session> = emptyList(),
+    val sessions: ImmutableList<Session> = persistentListOf(),
     val isSessionActive: Boolean = false,
     val sessionStartTime: Long = 0L,
     val sessionDuration: Long = 0L,
@@ -30,10 +38,14 @@ data class MainUiState(
     val lessonsCompleted: Int = 0,
     val totalLessons: Int = 0,
     val userTabsCount: Int = 0,
-    val practicedTabs: List<PracticedTab> = emptyList(),
+    val practicedTabs: ImmutableList<PracticedTab> = persistentListOf(),
     val currentTab: PracticedTab? = null,
-    val showBottomBar: Boolean = true,
-    val lastPlaybackProgress: TabPlaybackProgress? = null,
+    val continueLessonId: String? = null
+)
+
+data class MainShellUiState(
+    val isSessionActive: Boolean = false,
+    val sessionDuration: Long = 0L,
     val continueLessonId: String? = null
 )
 
@@ -48,6 +60,30 @@ class MainViewModel(
 
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
+    
+    val shellUiState: StateFlow<MainShellUiState> = uiState
+        .map {
+            MainShellUiState(
+                isSessionActive = it.isSessionActive,
+                sessionDuration = it.sessionDuration,
+                continueLessonId = it.continueLessonId
+            )
+        }
+        .distinctUntilChanged()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = MainShellUiState()
+        )
+
+    val lastPlaybackProgress: StateFlow<TabPlaybackProgress?> = observeTabPlaybackProgressUseCase()
+        .map { list -> list.maxByOrNull { it.updatedAt } }
+        .distinctUntilChanged()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = null
+        )
 
     private var timerJob: Job? = null
     private var tabTimerJob: Job? = null
@@ -57,24 +93,21 @@ class MainViewModel(
     }
 
     private fun loadData() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.Default) {
             combine(
                 getAllSessionsUseCase(),
                 getCompletedLessonsCountUseCase(),
                 getTotalLessonsCountUseCase(),
-                getUserTabsCountUseCase(),
-                observeTabPlaybackProgressUseCase()
-            ) { sessions, lessonsCompleted, totalLessons, userTabsCount, progressList ->
-                val lastProgress = progressList.maxByOrNull { it.updatedAt }
+                getUserTabsCountUseCase()
+            ) { sessions, lessonsCompleted, totalLessons, userTabsCount ->
                 val totalSessionTime = sessions.sumOf { it.duration }
-                _uiState.update {
-                    it.copy(
-                        sessions = sessions,
+                _uiState.update { current ->
+                    current.copy(
+                        sessions = sessions.toImmutableList(),
                         lessonsCompleted = lessonsCompleted,
                         totalLessons = totalLessons,
                         totalSessionTime = totalSessionTime,
-                        userTabsCount = userTabsCount,
-                        lastPlaybackProgress = lastProgress
+                        userTabsCount = userTabsCount
                     )
                 }
             }.collect {}
@@ -87,7 +120,7 @@ class MainViewModel(
             it.copy(
                 isSessionActive = true,
                 sessionStartTime = startTime,
-                practicedTabs = emptyList()
+                practicedTabs = persistentListOf()
             )
         }
         timerJob = viewModelScope.launch {
@@ -105,10 +138,10 @@ class MainViewModel(
         val endTime = Date()
         val startTime = Date(_uiState.value.sessionStartTime)
         val duration = _uiState.value.sessionDuration
-        val practicedTabs = _uiState.value.practicedTabs.toMutableList()
+        val currentPracticedTabs = _uiState.value.practicedTabs.toMutableList()
 
         _uiState.value.currentTab?.let {
-            practicedTabs.add(it)
+            currentPracticedTabs.add(it)
         }
 
         viewModelScope.launch {
@@ -117,7 +150,7 @@ class MainViewModel(
                     startTime = startTime,
                     endTime = endTime,
                     duration = duration,
-                    practicedTabs = practicedTabs
+                    practicedTabs = currentPracticedTabs
                 )
             )
         }
@@ -125,7 +158,7 @@ class MainViewModel(
             it.copy(
                 isSessionActive = false,
                 sessionDuration = 0L,
-                practicedTabs = emptyList(),
+                practicedTabs = persistentListOf(),
                 currentTab = null
             )
         }
@@ -138,8 +171,7 @@ class MainViewModel(
 
         _uiState.value.currentTab?.let {
             _uiState.update { uiState ->
-                val updatedPracticedTabs = uiState.practicedTabs.toMutableList()
-                updatedPracticedTabs.add(it)
+                val updatedPracticedTabs = (uiState.practicedTabs + it).toImmutableList()
                 uiState.copy(practicedTabs = updatedPracticedTabs)
             }
         }
@@ -156,10 +188,6 @@ class MainViewModel(
                 }
             }
         }
-    }
-
-    fun setShowBottomBar(show: Boolean) {
-        _uiState.update { it.copy(showBottomBar = show) }
     }
 
     fun requestContinueLesson(tabId: String) {

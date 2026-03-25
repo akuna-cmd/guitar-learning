@@ -31,12 +31,25 @@ android {
     }
 
     buildTypes {
-        release {
+        debug {
+            // Keep debug snappy, but this variant is still slower than perf/release by design.
             isMinifyEnabled = false
+        }
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        create("perf") {
+            initWith(getByName("release"))
+            // Installable on local devices without release keystore.
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+            isDebuggable = false
+            isJniDebuggable = false
         }
     }
     compileOptions {
@@ -56,6 +69,7 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -74,6 +88,8 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.webkit:webkit:1.10.0")
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.3.5")
 
     // Room
     implementation("androidx.room:room-runtime:2.6.1")

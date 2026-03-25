@@ -47,104 +47,108 @@ import com.example.thetest1.presentation.tab_viewer.TabViewerViewModel
 
 @Suppress("UNCHECKED_CAST")
 class ViewModelFactory(
-    private val context: Context,
-    private val dataStore: DataStore<Preferences>,
-    private val getTabsUseCase: GetTabsUseCase,
-    private val getLessonUseCase: GetLessonUseCase,
-    private val getTabItemUseCase: GetTabItemUseCase,
-    private val getTabFileBytesUseCase: GetTabFileBytesUseCase,
-    private val getSoundFontBytesUseCase: GetSoundFontBytesUseCase,
-    private val updateTabUseCase: UpdateTabUseCase,
-    private val getAudioNotesUseCase: GetAudioNotesUseCase,
-    private val addAudioNoteUseCase: AddAudioNoteUseCase,
-    private val deleteAudioNoteUseCase: DeleteAudioNoteUseCase,
-    private val getTextNotesUseCase: GetTextNotesUseCase,
-    private val addTextNoteUseCase: AddTextNoteUseCase,
-    private val updateTextNoteUseCase: UpdateTextNoteUseCase,
-    private val deleteTextNoteUseCase: DeleteTextNoteUseCase,
-    private val getAllSessionsUseCase: GetAllSessionsUseCase,
-    private val addSessionUseCase: AddSessionUseCase,
-    private val getCompletedLessonsCountUseCase: GetCompletedLessonsCountUseCase,
-    private val getTotalLessonsCountUseCase: GetTotalLessonsCountUseCase,
-    private val getUserTabsUseCase: GetUserTabsUseCase,
-    private val addUserTabUseCase: AddUserTabUseCase,
-    private val getSessionsForLastMonthUseCase: GetSessionsForLastMonthUseCase,
-    private val deleteUserTabUseCase: DeleteUserTabUseCase,
-    private val renameUserTabUseCase: RenameUserTabUseCase,
-    private val getUserTabsCountUseCase: GetUserTabsCountUseCase,
-    private val addGoalUseCase: AddGoalUseCase,
-    private val updateGoalUseCase: UpdateGoalUseCase,
-    private val deleteGoalUseCase: DeleteGoalUseCase,
-    private val askAiAssistantUseCase: AskAiAssistantUseCase,
-    private val observeGoalsProgressUseCase: ObserveGoalsProgressUseCase,
-    private val observeTabPlaybackProgressUseCase: ObserveTabPlaybackProgressUseCase,
-    private val getTabPlaybackProgressUseCase: GetTabPlaybackProgressUseCase,
-    private val updateTabPlaybackProgressUseCase: UpdateTabPlaybackProgressUseCase
+    private val dependencies: Dependencies
 ) : ViewModelProvider.Factory {
+
+    data class Dependencies(
+        val context: Context,
+        val dataStore: DataStore<Preferences>,
+        val getTabsUseCase: GetTabsUseCase,
+        val getLessonUseCase: GetLessonUseCase,
+        val getTabItemUseCase: GetTabItemUseCase,
+        val getTabFileBytesUseCase: GetTabFileBytesUseCase,
+        val getSoundFontBytesUseCase: GetSoundFontBytesUseCase,
+        val updateTabUseCase: UpdateTabUseCase,
+        val getAudioNotesUseCase: GetAudioNotesUseCase,
+        val addAudioNoteUseCase: AddAudioNoteUseCase,
+        val deleteAudioNoteUseCase: DeleteAudioNoteUseCase,
+        val getTextNotesUseCase: GetTextNotesUseCase,
+        val addTextNoteUseCase: AddTextNoteUseCase,
+        val updateTextNoteUseCase: UpdateTextNoteUseCase,
+        val deleteTextNoteUseCase: DeleteTextNoteUseCase,
+        val getAllSessionsUseCase: GetAllSessionsUseCase,
+        val addSessionUseCase: AddSessionUseCase,
+        val getCompletedLessonsCountUseCase: GetCompletedLessonsCountUseCase,
+        val getTotalLessonsCountUseCase: GetTotalLessonsCountUseCase,
+        val getUserTabsUseCase: GetUserTabsUseCase,
+        val addUserTabUseCase: AddUserTabUseCase,
+        val getSessionsForLastMonthUseCase: GetSessionsForLastMonthUseCase,
+        val deleteUserTabUseCase: DeleteUserTabUseCase,
+        val renameUserTabUseCase: RenameUserTabUseCase,
+        val getUserTabsCountUseCase: GetUserTabsCountUseCase,
+        val addGoalUseCase: AddGoalUseCase,
+        val updateGoalUseCase: UpdateGoalUseCase,
+        val deleteGoalUseCase: DeleteGoalUseCase,
+        val askAiAssistantUseCaseProvider: () -> AskAiAssistantUseCase,
+        val observeGoalsProgressUseCase: ObserveGoalsProgressUseCase,
+        val observeTabPlaybackProgressUseCase: ObserveTabPlaybackProgressUseCase,
+        val getTabPlaybackProgressUseCase: GetTabPlaybackProgressUseCase,
+        val updateTabPlaybackProgressUseCase: UpdateTabPlaybackProgressUseCase
+    )
 
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         return when {
             modelClass.isAssignableFrom(MainViewModel::class.java) -> {
                 MainViewModel(
-                    getAllSessionsUseCase,
-                    addSessionUseCase,
-                    getCompletedLessonsCountUseCase,
-                    getTotalLessonsCountUseCase,
-                    getUserTabsCountUseCase,
-                    observeTabPlaybackProgressUseCase
+                    dependencies.getAllSessionsUseCase,
+                    dependencies.addSessionUseCase,
+                    dependencies.getCompletedLessonsCountUseCase,
+                    dependencies.getTotalLessonsCountUseCase,
+                    dependencies.getUserTabsCountUseCase,
+                    dependencies.observeTabPlaybackProgressUseCase
                 ) as T
             }
 
             modelClass.isAssignableFrom(TabListViewModel::class.java) -> {
                 TabListViewModel(
-                    getTabsUseCase = getTabsUseCase,
-                    updateTabUseCase = updateTabUseCase,
-                    getUserTabsUseCase = getUserTabsUseCase,
-                    addUserTabUseCase = addUserTabUseCase,
-                    deleteUserTabUseCase = deleteUserTabUseCase,
-                    renameUserTabUseCase = renameUserTabUseCase,
-                    getAllSessionsUseCase = getAllSessionsUseCase,
-                    observeTabPlaybackProgressUseCase = observeTabPlaybackProgressUseCase
+                    getTabsUseCase = dependencies.getTabsUseCase,
+                    updateTabUseCase = dependencies.updateTabUseCase,
+                    getUserTabsUseCase = dependencies.getUserTabsUseCase,
+                    addUserTabUseCase = dependencies.addUserTabUseCase,
+                    deleteUserTabUseCase = dependencies.deleteUserTabUseCase,
+                    renameUserTabUseCase = dependencies.renameUserTabUseCase,
+                    getAllSessionsUseCase = dependencies.getAllSessionsUseCase,
+                    observeTabPlaybackProgressUseCase = dependencies.observeTabPlaybackProgressUseCase
                 ) as T
             }
 
             modelClass.isAssignableFrom(TabViewerViewModel::class.java) -> {
                 TabViewerViewModel(
-                    context = context,
-                    getLessonUseCase = getLessonUseCase,
-                    getTabItemUseCase = getTabItemUseCase,
-                    getTabFileBytesUseCase = getTabFileBytesUseCase,
-                    getSoundFontBytesUseCase = getSoundFontBytesUseCase,
-                    getAudioNotesUseCase = getAudioNotesUseCase,
-                    addAudioNoteUseCase = addAudioNoteUseCase,
-                    deleteAudioNoteUseCase = deleteAudioNoteUseCase,
-                    getTextNotesUseCase = getTextNotesUseCase,
-                    addTextNoteUseCase = addTextNoteUseCase,
-                    updateTextNoteUseCase = updateTextNoteUseCase,
-                    deleteTextNoteUseCase = deleteTextNoteUseCase,
-                    getTabPlaybackProgressUseCase = getTabPlaybackProgressUseCase,
-                    updateTabPlaybackProgressUseCase = updateTabPlaybackProgressUseCase
+                    context = dependencies.context,
+                    getLessonUseCase = dependencies.getLessonUseCase,
+                    getTabItemUseCase = dependencies.getTabItemUseCase,
+                    getTabFileBytesUseCase = dependencies.getTabFileBytesUseCase,
+                    getSoundFontBytesUseCase = dependencies.getSoundFontBytesUseCase,
+                    getAudioNotesUseCase = dependencies.getAudioNotesUseCase,
+                    addAudioNoteUseCase = dependencies.addAudioNoteUseCase,
+                    deleteAudioNoteUseCase = dependencies.deleteAudioNoteUseCase,
+                    getTextNotesUseCase = dependencies.getTextNotesUseCase,
+                    addTextNoteUseCase = dependencies.addTextNoteUseCase,
+                    updateTextNoteUseCase = dependencies.updateTextNoteUseCase,
+                    deleteTextNoteUseCase = dependencies.deleteTextNoteUseCase,
+                    getTabPlaybackProgressUseCase = dependencies.getTabPlaybackProgressUseCase,
+                    updateTabPlaybackProgressUseCase = dependencies.updateTabPlaybackProgressUseCase
                 ) as T
             }
 
             modelClass.isAssignableFrom(AiAssistantViewModel::class.java) -> {
-                AiAssistantViewModel(askAiAssistantUseCase) as T
+                AiAssistantViewModel(dependencies.askAiAssistantUseCaseProvider()) as T
             }
 
             modelClass.isAssignableFrom(PracticeHeatmapViewModel::class.java) -> {
-                PracticeHeatmapViewModel(getSessionsForLastMonthUseCase) as T
+                PracticeHeatmapViewModel(dependencies.getSessionsForLastMonthUseCase) as T
             }
 
             modelClass.isAssignableFrom(ThemeViewModel::class.java) -> {
-                ThemeViewModel(dataStore) as T
+                ThemeViewModel(dependencies.dataStore) as T
             }
 
             modelClass.isAssignableFrom(GoalsViewModel::class.java) -> {
                 GoalsViewModel(
-                    addGoalUseCase = addGoalUseCase,
-                    updateGoalUseCase = updateGoalUseCase,
-                    deleteGoalUseCase = deleteGoalUseCase,
-                    observeGoalsProgressUseCase = observeGoalsProgressUseCase
+                    addGoalUseCase = dependencies.addGoalUseCase,
+                    updateGoalUseCase = dependencies.updateGoalUseCase,
+                    deleteGoalUseCase = dependencies.deleteGoalUseCase,
+                    observeGoalsProgressUseCase = dependencies.observeGoalsProgressUseCase
                 ) as T
             }
 

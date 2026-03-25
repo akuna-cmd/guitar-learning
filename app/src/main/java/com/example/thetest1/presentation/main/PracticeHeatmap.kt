@@ -18,7 +18,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,6 +31,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.thetest1.R
 import com.example.thetest1.di.ViewModelFactory
 import java.text.SimpleDateFormat
@@ -44,7 +44,7 @@ fun PracticeHeatmap(
     viewModelFactory: ViewModelFactory
 ) {
     val viewModel: PracticeHeatmapViewModel = viewModel(factory = viewModelFactory)
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Heatmap(activityData = uiState.activityData)
 

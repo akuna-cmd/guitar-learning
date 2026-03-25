@@ -358,7 +358,7 @@ fun GuitarFretboard(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                     userScrollEnabled = false
                 ) {
-                    items(allInstructions) { text ->
+                    items(allInstructions, key = { it.hashCode() }) { instruction ->
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -377,7 +377,7 @@ fun GuitarFretboard(
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Text(
-                                    text = text,
+                                    text = instruction,
                                     color = hintTextColor,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold

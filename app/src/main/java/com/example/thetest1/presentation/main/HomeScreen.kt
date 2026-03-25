@@ -30,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,9 +40,12 @@ import androidx.compose.ui.unit.dp
 import com.example.thetest1.R
 import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.domain.model.Session
+import com.example.thetest1.presentation.util.formatDuration
+import kotlinx.coroutines.flow.StateFlow
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
 import java.text.SimpleDateFormat
 import java.util.Locale
-import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
 import androidx.compose.foundation.BorderStroke
 
@@ -56,11 +60,14 @@ fun HomeScreen(
     totalLessons: Int,
     userTabsCount: Int,
     viewModelFactory: ViewModelFactory,
-    lastPlaybackProgress: com.example.thetest1.domain.model.TabPlaybackProgress?
+    lastPlaybackProgressFlow: StateFlow<com.example.thetest1.domain.model.TabPlaybackProgress?>
 ) {
-    val lastTabName = lastPlaybackProgress?.tabName
-    val progressValue = if (lastPlaybackProgress != null && lastPlaybackProgress.totalBars > 0) {
-        lastPlaybackProgress.lastBarIndex.toFloat() / lastPlaybackProgress.totalBars.toFloat()
+    val lastPlaybackProgress by lastPlaybackProgressFlow.collectAsStateWithLifecycle()
+    val recentSessions = remember(sessions) { sessions.take(20) }
+    val progress = lastPlaybackProgress
+    val lastTabName = progress?.tabName
+    val progressValue = if (progress != null && progress.totalBars > 0) {
+        progress.lastBarIndex.toFloat() / progress.totalBars.toFloat()
     } else {
         0f
     }
@@ -78,7 +85,8 @@ fun HomeScreen(
                 progressPercent = progressPercent,
                 progressValue = progressValue,
                 onContinue = {
-                    val tabId = lastPlaybackProgress?.tabId
+                    val progress = lastPlaybackProgressFlow.value
+                    val tabId = progress?.tabId
                     if (tabId != null) {
                         onContinueLesson(tabId)
                     } else {
@@ -111,7 +119,7 @@ fun HomeScreen(
                 Text(stringResource(id = R.string.start_practice))
             }
         }
-        items(sessions) { session ->
+        items(recentSessions, key = { it.id }) { session ->
             SessionItem(session)
         }
     }
@@ -387,9 +395,3 @@ fun SessionItem(session: Session) {
     }
 }
 
-fun formatDuration(millis: Long): String {
-    val hours = TimeUnit.MILLISECONDS.toHours(millis)
-    val minutes = TimeUnit.MILLISECONDS.toMinutes(millis) % 60
-    val seconds = TimeUnit.MILLISECONDS.toSeconds(millis) % 60
-    return String.format("%02d:%02d:%02d", hours, minutes, seconds)
-}

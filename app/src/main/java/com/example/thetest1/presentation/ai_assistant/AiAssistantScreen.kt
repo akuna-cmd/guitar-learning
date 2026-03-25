@@ -77,7 +77,7 @@ fun AiAssistantScreen(
         LazyColumn(
             modifier = Modifier.weight(1f)
         ) {
-            items(uiState.messages) { message ->
+            items(uiState.messages, key = { it.id }) { message ->
                 ChatMessageItem(message = message)
             }
         }

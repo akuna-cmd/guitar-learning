@@ -20,10 +20,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 
 data class TabListUiState(
     val tabs: List<TabItem> = emptyList(),
     val userTabs: List<TabItem> = emptyList(),
+    val isTabsLoading: Boolean = true,
+    val isUserTabsLoading: Boolean = true,
+    val areMetricsLoading: Boolean = true,
     val selectedDifficulty: Difficulty = Difficulty.BEGINNER,
     val selectedTabIndex: Int = 0,
     val progressByTabId: Map<String, Int> = emptyMap(),
@@ -115,16 +119,16 @@ class TabListViewModel(
     }
 
     private fun loadTabs() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             getTabsUseCase().let { tabs ->
-                _uiState.update { it.copy(tabs = tabs) }
+                _uiState.update { it.copy(tabs = tabs, isTabsLoading = false) }
             }
         }
     }
 
     private fun loadUserTabs() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(userTabs = getUserTabsUseCase()) }
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.update { it.copy(userTabs = getUserTabsUseCase(), isUserTabsLoading = false) }
         }
     }
 
@@ -140,10 +144,20 @@ class TabListViewModel(
                 val lastSessionDurationMap = buildLastSessionDurationMap(sessions)
                 progressMap to lastSessionDurationMap
             }.collect { (progressMap, lastSessionDurationMap) ->
-                _uiState.update {
-                    it.copy(
-                        progressByTabId = progressMap,
-                        lastSessionDurationByTabId = lastSessionDurationMap
+                _uiState.update { current ->
+                    val mergedProgress = if (
+                        progressMap.isEmpty() &&
+                        current.progressByTabId.isNotEmpty()
+                    ) {
+                        // Prevent a transient 0% flicker while DataStore/flows are re-emitting.
+                        current.progressByTabId
+                    } else {
+                        progressMap
+                    }
+                    current.copy(
+                        progressByTabId = mergedProgress,
+                        lastSessionDurationByTabId = lastSessionDurationMap,
+                        areMetricsLoading = false
                     )
                 }
             }

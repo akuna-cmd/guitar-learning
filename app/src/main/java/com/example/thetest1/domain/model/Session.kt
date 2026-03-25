@@ -1,12 +1,10 @@
 package com.example.thetest1.domain.model
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
 import java.util.Date
+import androidx.compose.runtime.Immutable
 
-@Entity(tableName = "sessions")
+@Immutable
 data class Session(
-    @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
     val startTime: Date,
     val endTime: Date,
@@ -14,6 +12,7 @@ data class Session(
     val practicedTabs: List<PracticedTab> = emptyList()
 )
 
+@Immutable
 data class PracticedTab(
     val tabId: String,
     val tabName: String,
