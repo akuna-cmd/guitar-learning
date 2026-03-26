@@ -16,4 +16,8 @@ interface TabRepository {
     suspend fun deleteUserTab(tab: TabItem)
     suspend fun renameUserTab(tab: TabItem, newName: String)
     suspend fun getTabById(id: String): TabItem?
+    suspend fun markTabOpened(tabId: String, openedAt: Long = System.currentTimeMillis())
+    suspend fun updateTabTags(tabId: String, tags: List<String>)
+    suspend fun updateTabFolder(tabId: String, folder: String)
+    suspend fun markOfflineReady(tabId: String, ready: Boolean)
 }

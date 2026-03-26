@@ -51,11 +51,15 @@ import com.example.thetest1.domain.usecase.GetTotalLessonsCountUseCase
 import com.example.thetest1.domain.usecase.GetTabPlaybackProgressUseCase
 import com.example.thetest1.domain.usecase.GetUserTabsCountUseCase
 import com.example.thetest1.domain.usecase.GetUserTabsUseCase
+import com.example.thetest1.domain.usecase.MarkTabOfflineReadyUseCase
+import com.example.thetest1.domain.usecase.MarkTabOpenedUseCase
 import com.example.thetest1.domain.usecase.ObserveTabPlaybackProgressUseCase
 import com.example.thetest1.domain.usecase.ObserveGoalsProgressUseCase
 import com.example.thetest1.domain.usecase.RenameUserTabUseCase
 import com.example.thetest1.domain.usecase.UpdateGoalUseCase
 import com.example.thetest1.domain.usecase.UpdateTabUseCase
+import com.example.thetest1.domain.usecase.UpdateTabFolderUseCase
+import com.example.thetest1.domain.usecase.UpdateTabTagsUseCase
 import com.example.thetest1.domain.usecase.UpdateTextNoteUseCase
 import com.example.thetest1.domain.usecase.UpdateTabPlaybackProgressUseCase
 import com.google.ai.client.generativeai.GenerativeModel
@@ -116,6 +120,10 @@ class AppContainer(val context: Context) {
     private val getTotalLessonsCountUseCase by lazy { GetTotalLessonsCountUseCase(tabRepository) }
     private val getUserTabsUseCase by lazy { GetUserTabsUseCase(tabRepository) }
     private val addUserTabUseCase by lazy { AddUserTabUseCase(tabRepository) }
+    private val markTabOpenedUseCase by lazy { MarkTabOpenedUseCase(tabRepository) }
+    private val updateTabFolderUseCase by lazy { UpdateTabFolderUseCase(tabRepository) }
+    private val updateTabTagsUseCase by lazy { UpdateTabTagsUseCase(tabRepository) }
+    private val markTabOfflineReadyUseCase by lazy { MarkTabOfflineReadyUseCase(tabRepository) }
     private val deleteUserTabUseCase by lazy { DeleteUserTabUseCase(tabRepository) }
     private val renameUserTabUseCase by lazy { RenameUserTabUseCase(tabRepository) }
     private val getUserTabsCountUseCase by lazy { GetUserTabsCountUseCase(tabRepository) }
@@ -183,6 +191,10 @@ class AppContainer(val context: Context) {
                 getTotalLessonsCountUseCase = getTotalLessonsCountUseCase,
                 getUserTabsUseCase = getUserTabsUseCase,
                 addUserTabUseCase = addUserTabUseCase,
+                markTabOpenedUseCase = markTabOpenedUseCase,
+                updateTabFolderUseCase = updateTabFolderUseCase,
+                updateTabTagsUseCase = updateTabTagsUseCase,
+                markTabOfflineReadyUseCase = markTabOfflineReadyUseCase,
                 getSessionsForLastMonthUseCase = getSessionsForLastMonthUseCase,
                 deleteUserTabUseCase = deleteUserTabUseCase,
                 renameUserTabUseCase = renameUserTabUseCase,

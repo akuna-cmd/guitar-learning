@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,6 +50,7 @@ import androidx.compose.ui.input.pointer.consumePositionChange
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.rememberLazyListState
+import com.example.thetest1.presentation.main.FretboardDisplayMode
 import kotlinx.coroutines.launch
 import kotlin.math.max
 
@@ -68,11 +70,17 @@ private data class FretNote(
 fun GuitarFretboard(
     analysis: TabAnalysis?,
     isPlaying: Boolean = true,
+    displayMode: FretboardDisplayMode = FretboardDisplayMode.DETAILED,
     modifier: Modifier = Modifier
 ) {
     val textMeasurer = rememberTextMeasurer()
     val scheme = MaterialTheme.colorScheme
-    val allInstructions = analysis?.instructions?.filter { it.isNotBlank() } ?: emptyList()
+    val rawInstructions = analysis?.instructions?.filter { it.isNotBlank() } ?: emptyList()
+    val allInstructions = if (displayMode == FretboardDisplayMode.SIMPLE) {
+        rawInstructions.take(4)
+    } else {
+        rawInstructions
+    }
     val hintListState = rememberLazyListState()
     val hintScope = rememberCoroutineScope()
     val hiddenHintCount by remember(allInstructions.size) {
@@ -129,10 +137,18 @@ fun GuitarFretboard(
             .padding(vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            AssistChip(onClick = {}, enabled = false, label = { Text("Палець = цифра в колі") })
+            AssistChip(onClick = {}, enabled = false, label = { Text("L = лад, 0 = відкрита") })
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(210.dp)
+                .height(if (displayMode == FretboardDisplayMode.SIMPLE) 170.dp else 185.dp)
                 .background(scheme.surfaceContainerHigh, RoundedCornerShape(14.dp))
                 .border(1.dp, scheme.outlineVariant, RoundedCornerShape(14.dp))
                 .padding(8.dp)
@@ -140,7 +156,7 @@ fun GuitarFretboard(
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val w = size.width
                 val h = size.height
-                val left = 66f
+                val left = 88f
                 val right = w - 12f
                 val top = 18f
                 val bottom = h - 18f
@@ -204,16 +220,16 @@ fun GuitarFretboard(
                     val labelText = textMeasurer.measure(
                         text = label,
                         style = TextStyle(
-                            color = scheme.onPrimaryContainer,
+                            color = scheme.onSecondaryContainer,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold
                         )
                     )
                     val labelY = yForString(i) - labelText.size.height / 2f
                     drawRoundRect(
-                        color = scheme.primaryContainer.copy(alpha = 0.92f),
+                        color = scheme.secondaryContainer.copy(alpha = 0.95f),
                         topLeft = Offset(6f, labelY - 1f),
-                        size = Size(48f, labelText.size.height + 2f),
+                        size = Size(68f, labelText.size.height + 2f),
                         cornerRadius = CornerRadius(8f, 8f)
                     )
                     drawText(labelText, topLeft = Offset(10f, yForString(i) - labelText.size.height / 2f))
@@ -296,7 +312,7 @@ fun GuitarFretboard(
                         note.isVibrato -> "V"
                         else -> null
                     }
-                    if (articulation != null) {
+                    if (articulation != null && displayMode == FretboardDisplayMode.DETAILED) {
                         val art = textMeasurer.measure(
                             text = articulation,
                             style = TextStyle(
@@ -318,7 +334,7 @@ fun GuitarFretboard(
                 }
             }
 
-            analysis?.contextHint?.takeIf { it.isNotBlank() }?.let { hint ->
+            analysis?.contextHint?.takeIf { it.isNotBlank() && displayMode == FretboardDisplayMode.DETAILED }?.let { hint ->
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -341,7 +357,7 @@ fun GuitarFretboard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(190.dp)
+                    .height(if (displayMode == FretboardDisplayMode.SIMPLE) 200.dp else 240.dp)
             ) {
                 LazyColumn(
                     state = hintListState,
@@ -388,7 +404,7 @@ fun GuitarFretboard(
                 }
 
                 if (hiddenHintCount > 0) {
-                    Row(
+                    Box(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .padding(6.dp)
@@ -426,22 +442,29 @@ fun GuitarFretboard(
                                     }
                                 }
                             }
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.KeyboardArrowDown,
-                            contentDescription = null,
-                            tint = scheme.primary,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Text(
-                            text = hiddenHintCount.toString(),
-                            color = scheme.primary,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Icon(
+                                imageVector = Icons.Filled.KeyboardArrowDown,
+                                contentDescription = null,
+                                tint = scheme.primary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .background(scheme.primary.copy(alpha = 0.14f), RoundedCornerShape(9.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = hiddenHintCount.toString(),
+                                    color = scheme.primary,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 }
             }

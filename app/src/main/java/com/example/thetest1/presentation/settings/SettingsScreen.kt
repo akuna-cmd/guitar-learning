@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.*
 import androidx.compose.material3.TextButton
@@ -42,6 +43,7 @@ import com.example.thetest1.presentation.auth.AuthViewModel
 import com.example.thetest1.presentation.main.ThemeMode
 import com.example.thetest1.presentation.main.ThemeViewModel
 import com.example.thetest1.presentation.main.TabDisplayMode
+import com.example.thetest1.presentation.main.FretboardDisplayMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -120,6 +122,25 @@ fun SettingsScreen(
                         selected = uiState.tabDisplayMode == TabDisplayMode.TAB_ONLY,
                         icon = Icons.Default.QueueMusic,
                         onClick = { themeViewModel.setTabDisplayMode(TabDisplayMode.TAB_ONLY) }
+                    )
+                }
+            }
+        }
+
+        item {
+            SettingsSection(title = "Відображення грифа") {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SettingsIconOptionRow(
+                        label = "Просте",
+                        selected = uiState.fretboardDisplayMode == FretboardDisplayMode.SIMPLE,
+                        icon = Icons.Default.Visibility,
+                        onClick = { themeViewModel.setFretboardDisplayMode(FretboardDisplayMode.SIMPLE) }
+                    )
+                    SettingsIconOptionRow(
+                        label = "Детальне",
+                        selected = uiState.fretboardDisplayMode == FretboardDisplayMode.DETAILED,
+                        icon = Icons.Default.Tune,
+                        onClick = { themeViewModel.setFretboardDisplayMode(FretboardDisplayMode.DETAILED) }
                     )
                 }
             }

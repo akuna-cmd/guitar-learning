@@ -16,5 +16,10 @@ data class TabItem(
     val isCompleted: Boolean = false,
     val isUserTab: Boolean = false,
     val filePath: String? = null,
-    val asciiTabs: String? = null
+    val asciiTabs: String? = null,
+    val tagsCsv: String = "",
+    val folder: String = "Без папки",
+    val openCount: Int = 0,
+    val lastOpenedAt: Long = 0L,
+    val offlineReady: Boolean = false
 )

@@ -201,7 +201,7 @@ function assignLhFingers(notes, pos, barre, prevF, prevBeatPlacement) {
             if(a.fret !== b.fret){
                 p += 140;
             } else {
-                p += (Math.abs(a.string - b.string) <= 1) ? 70 : 45;
+                p += (Math.abs(a.string - b.string) <= 1) ? 95 : 55;
             }
         }
         // Keep finger order mostly aligned with fret order.
@@ -211,8 +211,8 @@ function assignLhFingers(notes, pos, barre, prevF, prevBeatPlacement) {
         // lower-pitched string (bigger string index) should not use a higher finger
         // than the higher-pitched string on the same fret.
         if(a.fret === b.fret){
-            if(a.string > b.string && a.finger > b.finger) p += 22;
-            if(a.string < b.string && a.finger < b.finger) p += 22;
+            if(a.string > b.string && a.finger > b.finger) p += 64;
+            if(a.string < b.string && a.finger < b.finger) p += 64;
         }
         return p;
     }
@@ -240,8 +240,8 @@ function assignLhFingers(notes, pos, barre, prevF, prevBeatPlacement) {
             const prevSameString = prevBeatPlacement?.[n.string];
             if(prevSameString && prevSameString.fret === n.fret){
                 // Same note on same string/fret between beats: keep the same finger.
-                if(prevSameString.finger === finger) c -= 6;
-                else c += 38;
+                if(prevSameString.finger === finger) c -= 14;
+                else c += 120;
             }
             const prevAdjacentLower = prevBeatPlacement?.[n.string + 1];
             const prevAdjacentUpper = prevBeatPlacement?.[n.string - 1];

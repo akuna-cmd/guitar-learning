@@ -29,10 +29,14 @@ import com.example.thetest1.domain.usecase.GetTotalLessonsCountUseCase
 import com.example.thetest1.domain.usecase.GetTabPlaybackProgressUseCase
 import com.example.thetest1.domain.usecase.GetUserTabsCountUseCase
 import com.example.thetest1.domain.usecase.GetUserTabsUseCase
+import com.example.thetest1.domain.usecase.MarkTabOfflineReadyUseCase
+import com.example.thetest1.domain.usecase.MarkTabOpenedUseCase
 import com.example.thetest1.domain.usecase.ObserveGoalsProgressUseCase
 import com.example.thetest1.domain.usecase.ObserveTabPlaybackProgressUseCase
 import com.example.thetest1.domain.usecase.RenameUserTabUseCase
 import com.example.thetest1.domain.usecase.UpdateGoalUseCase
+import com.example.thetest1.domain.usecase.UpdateTabFolderUseCase
+import com.example.thetest1.domain.usecase.UpdateTabTagsUseCase
 import com.example.thetest1.domain.usecase.UpdateTabUseCase
 import com.example.thetest1.domain.usecase.UpdateTextNoteUseCase
 import com.example.thetest1.domain.usecase.UpdateTabPlaybackProgressUseCase
@@ -72,6 +76,10 @@ class ViewModelFactory(
         val getTotalLessonsCountUseCase: GetTotalLessonsCountUseCase,
         val getUserTabsUseCase: GetUserTabsUseCase,
         val addUserTabUseCase: AddUserTabUseCase,
+        val markTabOpenedUseCase: MarkTabOpenedUseCase,
+        val updateTabFolderUseCase: UpdateTabFolderUseCase,
+        val updateTabTagsUseCase: UpdateTabTagsUseCase,
+        val markTabOfflineReadyUseCase: MarkTabOfflineReadyUseCase,
         val getSessionsForLastMonthUseCase: GetSessionsForLastMonthUseCase,
         val deleteUserTabUseCase: DeleteUserTabUseCase,
         val renameUserTabUseCase: RenameUserTabUseCase,
@@ -105,10 +113,16 @@ class ViewModelFactory(
                     updateTabUseCase = dependencies.updateTabUseCase,
                     getUserTabsUseCase = dependencies.getUserTabsUseCase,
                     addUserTabUseCase = dependencies.addUserTabUseCase,
+                    markTabOpenedUseCase = dependencies.markTabOpenedUseCase,
+                    updateTabFolderUseCase = dependencies.updateTabFolderUseCase,
+                    updateTabTagsUseCase = dependencies.updateTabTagsUseCase,
+                    markTabOfflineReadyUseCase = dependencies.markTabOfflineReadyUseCase,
                     deleteUserTabUseCase = dependencies.deleteUserTabUseCase,
                     renameUserTabUseCase = dependencies.renameUserTabUseCase,
                     getAllSessionsUseCase = dependencies.getAllSessionsUseCase,
-                    observeTabPlaybackProgressUseCase = dependencies.observeTabPlaybackProgressUseCase
+                    observeTabPlaybackProgressUseCase = dependencies.observeTabPlaybackProgressUseCase,
+                    getTabFileBytesUseCase = dependencies.getTabFileBytesUseCase,
+                    getSoundFontBytesUseCase = dependencies.getSoundFontBytesUseCase
                 ) as T
             }
 

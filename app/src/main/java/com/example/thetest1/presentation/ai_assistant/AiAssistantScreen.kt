@@ -60,14 +60,26 @@ fun AiAssistantScreen(
     viewModelFactory: ViewModelFactory,
     asciiTab: String?,
     compactTabs: String?,
-    totalMeasures: Int
+    totalMeasures: Int,
+    initialMeasureRange: IntRange? = null
 ) {
     val viewModel: AiAssistantViewModel = viewModel(factory = viewModelFactory)
     val uiState by viewModel.uiState.collectAsState()
     var question by remember { mutableStateOf("") }
     
-    var isFullContext by remember { mutableStateOf(true) }
-    var measureRange by remember { mutableStateOf(1f..totalMeasures.coerceAtLeast(1).toFloat()) }
+    var isFullContext by remember(initialMeasureRange, totalMeasures) {
+        mutableStateOf(initialMeasureRange == null)
+    }
+    var measureRange by remember(initialMeasureRange, totalMeasures) {
+        val range = initialMeasureRange
+        mutableStateOf(
+            if (range != null) {
+                range.first.toFloat()..range.last.toFloat()
+            } else {
+                1f..totalMeasures.coerceAtLeast(1).toFloat()
+            }
+        )
+    }
 
     Column(
         modifier = Modifier

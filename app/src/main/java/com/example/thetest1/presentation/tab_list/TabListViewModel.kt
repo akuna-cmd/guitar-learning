@@ -7,10 +7,16 @@ import com.example.thetest1.domain.model.Difficulty
 import com.example.thetest1.domain.model.TabItem
 import com.example.thetest1.domain.usecase.AddUserTabUseCase
 import com.example.thetest1.domain.usecase.DeleteUserTabUseCase
+import com.example.thetest1.domain.usecase.GetSoundFontBytesUseCase
+import com.example.thetest1.domain.usecase.GetTabFileBytesUseCase
 import com.example.thetest1.domain.usecase.GetTabsUseCase
 import com.example.thetest1.domain.usecase.GetUserTabsUseCase
+import com.example.thetest1.domain.usecase.MarkTabOfflineReadyUseCase
+import com.example.thetest1.domain.usecase.MarkTabOpenedUseCase
 import com.example.thetest1.domain.usecase.RenameUserTabUseCase
 import com.example.thetest1.domain.usecase.UpdateTabUseCase
+import com.example.thetest1.domain.usecase.UpdateTabFolderUseCase
+import com.example.thetest1.domain.usecase.UpdateTabTagsUseCase
 import com.example.thetest1.domain.usecase.GetAllSessionsUseCase
 import com.example.thetest1.domain.usecase.ObserveTabPlaybackProgressUseCase
 import com.example.thetest1.domain.model.TabPlaybackProgress
@@ -31,10 +37,29 @@ data class TabListUiState(
     val selectedDifficulty: Difficulty = Difficulty.BEGINNER,
     val selectedTabIndex: Int = 0,
     val progressByTabId: Map<String, Int> = emptyMap(),
-    val lastSessionDurationByTabId: Map<String, Long> = emptyMap()
+    val lastSessionDurationByTabId: Map<String, Long> = emptyMap(),
+    val selectedFolder: String? = null,
+    val customFolders: List<String> = emptyList(),
+    val isDownloadingOfflinePackage: Boolean = false
 ) {
+    private fun tags(tab: TabItem): Set<String> =
+        tab.tagsCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+
+    fun displayFolder(tab: TabItem): String {
+        return tab.folder.trim().ifEmpty { "Без папки" }
+    }
+
+    val availableFolders: List<String>
+        get() = listOf("Без папки") + (customFolders + userTabs.map { displayFolder(it) })
+            .filter { it != "Без папки" }
+            .distinct()
+            .sorted()
+
     val filteredTabs: List<TabItem>
-        get() = tabs.filter { it.difficulty == selectedDifficulty }
+        get() = tabs.filter { it.difficulty == selectedDifficulty }.sortedBy { it.lessonNumber }
+
+    val filteredUserTabs: List<TabItem>
+        get() = applyLibraryRules(userTabs, applyFolderFilter = true)
 
     val completedLessonsInSelectedDifficulty: Int
         get() = filteredTabs.count { it.isCompleted }
@@ -50,6 +75,22 @@ data class TabListUiState(
 
     val totalUserTabs: Int
         get() = userTabs.size
+
+    private fun applyLibraryRules(
+        source: List<TabItem>,
+        applyFolderFilter: Boolean = false
+    ): List<TabItem> {
+        val filtered = source.filter { tab ->
+            val folderMatches = !applyFolderFilter || selectedFolder == null || displayFolder(tab) == selectedFolder
+            folderMatches
+        }
+        return filtered
+    }
+
+    fun isOfflineAvailable(tab: TabItem): Boolean {
+        if (!tab.isUserTab) return true
+        return tab.offlineReady || tags(tab).contains("offline")
+    }
 }
 
 class TabListViewModel(
@@ -57,10 +98,16 @@ class TabListViewModel(
     private val updateTabUseCase: UpdateTabUseCase,
     private val getUserTabsUseCase: GetUserTabsUseCase,
     private val addUserTabUseCase: AddUserTabUseCase,
+    private val markTabOpenedUseCase: MarkTabOpenedUseCase,
+    private val updateTabFolderUseCase: UpdateTabFolderUseCase,
+    private val updateTabTagsUseCase: UpdateTabTagsUseCase,
+    private val markTabOfflineReadyUseCase: MarkTabOfflineReadyUseCase,
     private val deleteUserTabUseCase: DeleteUserTabUseCase,
     private val renameUserTabUseCase: RenameUserTabUseCase,
     private val getAllSessionsUseCase: GetAllSessionsUseCase,
-    private val observeTabPlaybackProgressUseCase: ObserveTabPlaybackProgressUseCase
+    private val observeTabPlaybackProgressUseCase: ObserveTabPlaybackProgressUseCase,
+    private val getTabFileBytesUseCase: GetTabFileBytesUseCase,
+    private val getSoundFontBytesUseCase: GetSoundFontBytesUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TabListUiState())
@@ -78,6 +125,90 @@ class TabListViewModel(
 
     fun selectTab(index: Int) {
         _uiState.update { it.copy(selectedTabIndex = index) }
+    }
+
+    fun selectFolder(folder: String?) {
+        _uiState.update { it.copy(selectedFolder = folder) }
+    }
+
+    fun createFolder(folderName: String) {
+        val normalized = folderName.trim()
+        if (normalized.isEmpty() || normalized == "Без папки") return
+        _uiState.update { current ->
+            current.copy(
+                customFolders = (current.customFolders + normalized).distinct().sorted(),
+                selectedFolder = normalized
+            )
+        }
+    }
+
+    fun markTabOpened(tabId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            markTabOpenedUseCase(tabId)
+            loadTabs()
+            loadUserTabs()
+        }
+    }
+
+    fun moveToFolder(tab: TabItem, folder: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            updateTabFolderUseCase(tab.id, folder)
+            loadTabs()
+            loadUserTabs()
+        }
+    }
+
+    fun renameFolder(oldName: String, newName: String) {
+        val target = newName.trim().ifEmpty { return }
+        if (oldName == "Без папки" || target == "Без папки") return
+        viewModelScope.launch(Dispatchers.IO) {
+            val tabsToMove = _uiState.value.userTabs.filter { it.folder == oldName }
+            tabsToMove.forEach { tab ->
+                updateTabFolderUseCase(tab.id, target)
+            }
+            _uiState.update { current ->
+                current.copy(
+                    selectedFolder = if (current.selectedFolder == oldName) target else current.selectedFolder,
+                    customFolders = current.customFolders.map { if (it == oldName) target else it }.distinct().sorted()
+                )
+            }
+            loadUserTabs()
+        }
+    }
+
+    fun deleteFolder(folderName: String) {
+        if (folderName == "Без папки") return
+        viewModelScope.launch(Dispatchers.IO) {
+            val tabsToMove = _uiState.value.userTabs.filter { it.folder == folderName }
+            tabsToMove.forEach { tab ->
+                updateTabFolderUseCase(tab.id, "Без папки")
+            }
+            _uiState.update { current ->
+                current.copy(
+                    selectedFolder = if (current.selectedFolder == folderName) null else current.selectedFolder,
+                    customFolders = current.customFolders.filterNot { it == folderName }
+                )
+            }
+            loadUserTabs()
+        }
+    }
+
+    fun markOfflinePackage(tab: TabItem) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.update { it.copy(isDownloadingOfflinePackage = true) }
+            runCatching {
+                tab.filePath?.takeIf { it.isNotBlank() }?.let { path ->
+                    getTabFileBytesUseCase(path)
+                }
+                getSoundFontBytesUseCase()
+                markTabOfflineReadyUseCase(tab.id, true)
+                val existingTags = tab.tagsCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                updateTabTagsUseCase(tab.id, (existingTags + "offline").distinct())
+            }
+            _uiState.update { it.copy(isDownloadingOfflinePackage = false) }
+            loadTabs()
+            loadUserTabs()
+        }
     }
 
     fun toggleCompleted(tabId: String) {

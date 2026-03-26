@@ -58,7 +58,13 @@ class TabRepositoryImpl(
                     },
                     lessonNumber = index + 1,
                     isCompleted = false,
-                    isUserTab = false
+                    isUserTab = false,
+                    tagsCsv = buildString {
+                        append(lesson.level)
+                        append(",lesson")
+                    },
+                    folder = "Без папки",
+                    offlineReady = true
                 )
             }
             tabDao.insertTabs(tabsToInsert)
@@ -123,7 +129,9 @@ class TabRepositoryImpl(
             isCompleted = false,
             isUserTab = true,
             filePath = file.absolutePath,
-            asciiTabs = asciiTabs
+            asciiTabs = asciiTabs,
+            tagsCsv = "custom,user",
+            folder = "Без папки"
         )
         tabDao.insertTab(tabItem)
     }
@@ -148,6 +156,39 @@ class TabRepositoryImpl(
 
     override suspend fun getTabById(id: String): TabItem? {
         return tabDao.getTabById(id)
+    }
+
+    override suspend fun markTabOpened(tabId: String, openedAt: Long) {
+        val tab = tabDao.getTabById(tabId) ?: return
+        tabDao.updateTab(
+            tab.copy(
+                openCount = tab.openCount + 1,
+                lastOpenedAt = openedAt
+            )
+        )
+    }
+
+    override suspend fun updateTabTags(tabId: String, tags: List<String>) {
+        val tab = tabDao.getTabById(tabId) ?: return
+        tabDao.updateTab(
+            tab.copy(
+                tagsCsv = tags
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .distinct()
+                    .joinToString(",")
+            )
+        )
+    }
+
+    override suspend fun updateTabFolder(tabId: String, folder: String) {
+        val tab = tabDao.getTabById(tabId) ?: return
+        tabDao.updateTab(tab.copy(folder = folder))
+    }
+
+    override suspend fun markOfflineReady(tabId: String, ready: Boolean) {
+        val tab = tabDao.getTabById(tabId) ?: return
+        tabDao.updateTab(tab.copy(offlineReady = ready))
     }
 
     private fun getFileName(uri: Uri): String? {

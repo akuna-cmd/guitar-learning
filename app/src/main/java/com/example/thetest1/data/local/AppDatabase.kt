@@ -17,7 +17,7 @@ import com.example.thetest1.domain.model.TextNote
         TabItem::class,
         Goal::class
     ],
-    version = 11
+    version = 12
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
