@@ -127,7 +127,7 @@ fun GoalsScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(uiState.goals, key = { it.id }) { goal ->
+                    items(uiState.goals, key = { it.syncId }) { goal ->
                         GoalItem(
                             goal = goal,
                             onDelete = { goalToDelete = goal },

@@ -44,6 +44,8 @@ import com.example.thetest1.presentation.main.ThemeMode
 import com.example.thetest1.presentation.main.ThemeViewModel
 import com.example.thetest1.presentation.main.TabDisplayMode
 import com.example.thetest1.presentation.main.FretboardDisplayMode
+import java.text.DateFormat
+import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,8 +54,11 @@ fun SettingsScreen(
     themeViewModel: ThemeViewModel
 ) {
     val uiState by themeViewModel.uiState.collectAsStateWithLifecycle()
+    val settingsViewModel: SettingsViewModel = viewModel(factory = viewModelFactory)
+    val settingsUiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
+    val authViewModel: AuthViewModel = viewModel(factory = viewModelFactory)
+    val authState by authViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    var showAccountSheet by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -62,9 +67,39 @@ fun SettingsScreen(
     ) {
         // ─── Profile / Auth ───────────────────────────────────────
         item {
-            AccountEntryCard(
-                onOpen = { showAccountSheet = true }
-            )
+            val user = authState.user
+            if (user != null) {
+                ProfileCard(
+                    displayName = user.displayName,
+                    email = user.email,
+                    isSyncing = settingsUiState.isSyncing,
+                    lastSyncedTime = settingsUiState.lastSyncedTime,
+                    message = settingsUiState.message,
+                    onSync = settingsViewModel::syncCloud,
+                    onSignOut = { authViewModel.signOut(context) }
+                )
+            } else {
+                AuthCard(
+                    authViewModel = authViewModel,
+                    isLoading = authState.isLoading,
+                    error = authState.error,
+                    onGoogleSignIn = {
+                        authViewModel.signInWithGoogleCredentialManager(context) {
+                            settingsViewModel.syncCloud()
+                        }
+                    },
+                    onEmailSignIn = { email, password ->
+                        authViewModel.signInWithEmail(email, password) {
+                            settingsViewModel.syncCloud()
+                        }
+                    },
+                    onEmailSignUp = { email, password, displayName ->
+                        authViewModel.signUpWithEmail(email, password, displayName) {
+                            settingsViewModel.syncCloud()
+                        }
+                    }
+                )
+            }
         }
 
         // ─── Theme ────────────────────────────────────────────────
@@ -143,72 +178,6 @@ fun SettingsScreen(
                         onClick = { themeViewModel.setFretboardDisplayMode(FretboardDisplayMode.DETAILED) }
                     )
                 }
-            }
-        }
-    }
-
-    if (showAccountSheet) {
-        val authViewModel: AuthViewModel = viewModel(factory = viewModelFactory)
-        val authState by authViewModel.uiState.collectAsStateWithLifecycle()
-        ModalBottomSheet(
-            onDismissRequest = { showAccountSheet = false }
-        ) {
-            val user = authState.user
-            if (user != null) {
-                ProfileCard(
-                    displayName = user.displayName,
-                    email = user.email,
-                    onSignOut = { authViewModel.signOut(context) {} }
-                )
-            } else {
-                AuthCard(
-                    authViewModel = authViewModel,
-                    isLoading = authState.isLoading,
-                    error = authState.error,
-                    onGoogleSignIn = {
-                        authViewModel.signInWithGoogleCredentialManager(context) {}
-                    }
-                )
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-    }
-}
-
-@Composable
-private fun AccountEntryCard(
-    onOpen: () -> Unit
-) {
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Filled.AccountCircle,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Акаунт",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = "Увійти, профіль і безпека",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            TextButton(onClick = onOpen) {
-                Text("Відкрити")
             }
         }
     }
@@ -314,9 +283,20 @@ private fun HoldableIconButton(
 // ── Logged-in profile ─────────────────────────────────────────────────────
 
 @Composable
-private fun ProfileCard(displayName: String?, email: String?, onSignOut: () -> Unit) {
+private fun ProfileCard(
+    displayName: String?,
+    email: String?,
+    isSyncing: Boolean,
+    lastSyncedTime: Long?,
+    message: String?,
+    onSync: () -> Unit,
+    onSignOut: () -> Unit
+) {
     val initials = (displayName ?: email ?: "?")
         .split(" ").mapNotNull { it.firstOrNull()?.uppercaseChar() }.take(2).joinToString("")
+    val syncText = lastSyncedTime?.let {
+        "Остання синхронізація: ${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(it))}"
+    } ?: "Синхронізація ще не виконувалась"
 
     Card(
         shape = RoundedCornerShape(20.dp),
@@ -354,7 +334,36 @@ private fun ProfileCard(displayName: String?, email: String?, onSignOut: () -> U
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.65f)
                 )
             }
-            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = syncText,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                textAlign = TextAlign.Center
+            )
+            if (!message.isNullOrBlank()) {
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    textAlign = TextAlign.Center
+                )
+            }
+            Button(
+                onClick = onSync,
+                enabled = !isSyncing,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (isSyncing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Text("Синхронізувати зараз")
+                }
+            }
             OutlinedButton(
                 onClick = onSignOut,
                 shape = RoundedCornerShape(12.dp),
@@ -373,7 +382,9 @@ private fun AuthCard(
     authViewModel: AuthViewModel,
     isLoading: Boolean,
     error: String?,
-    onGoogleSignIn: () -> Unit
+    onGoogleSignIn: () -> Unit,
+    onEmailSignIn: (String, String) -> Unit,
+    onEmailSignUp: (String, String, String) -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }  // 0=Sign In, 1=Sign Up
 
@@ -518,9 +529,9 @@ private fun AuthCard(
                     onClick = {
                         authViewModel.clearError()
                         if (selectedTab == 0) {
-                            authViewModel.signInWithEmail(email, password) {}
+                            onEmailSignIn(email, password)
                         } else {
-                            authViewModel.signUpWithEmail(email, password, displayName) {}
+                            onEmailSignUp(email, password, displayName)
                         }
                     },
                     enabled = canSubmit,

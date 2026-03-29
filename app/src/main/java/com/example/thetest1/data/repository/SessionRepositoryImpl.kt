@@ -8,6 +8,7 @@ import com.example.thetest1.domain.model.PracticedTab
 import com.example.thetest1.domain.model.Session
 import com.example.thetest1.domain.repository.SessionRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.util.Date
 
@@ -19,6 +20,10 @@ class SessionRepositoryImpl(
         return sessionDao.getAllSessions().map { it.toDomain() }
     }
 
+    override suspend fun getAllSessionsSync(): List<Session> {
+        return sessionDao.getAllSessions().first().toDomain()
+    }
+
     override fun getSessionsSince(since: Date): Flow<List<Session>> {
         return sessionDao.getSessionsSince(since).map { it.toDomain() }
     }
@@ -26,6 +31,7 @@ class SessionRepositoryImpl(
     override suspend fun addSession(session: Session) {
         sessionDao.insertSessionWithTabs(
             session = SessionEntity(
+                id = session.id,
                 startTime = session.startTime,
                 endTime = session.endTime,
                 duration = session.duration
@@ -39,6 +45,30 @@ class SessionRepositoryImpl(
                 )
             }
         )
+    }
+
+    override suspend fun importHistory(sessions: List<Session>) {
+        if (sessions.isEmpty()) return
+
+        val existingSessions = getAllSessionsSync()
+        val existingIds = existingSessions.mapTo(mutableSetOf()) { it.id }.apply { remove(0) }
+        val existingKeys = existingSessions.mapTo(mutableSetOf()) { it.syncKey() }
+
+        sessions.forEach { session ->
+            val sessionIdExists = session.id != 0 && session.id in existingIds
+            val sessionKey = session.syncKey()
+            if (sessionIdExists || sessionKey in existingKeys) return@forEach
+
+            addSession(session)
+            if (session.id != 0) {
+                existingIds.add(session.id)
+            }
+            existingKeys.add(sessionKey)
+        }
+    }
+
+    override suspend fun clearHistory() {
+        sessionDao.clearHistory()
     }
 }
 
@@ -55,6 +85,21 @@ private fun List<SessionWithPracticedTabs>.toDomain(): List<Session> =
                     tabName = it.tabName,
                     duration = it.duration
                 )
+            }
+        )
+    }
+
+private fun Session.syncKey(): String =
+    buildString {
+        append(startTime.time)
+        append('|')
+        append(endTime.time)
+        append('|')
+        append(duration)
+        append('|')
+        append(
+            practicedTabs.joinToString(";") {
+                "${it.tabId}:${it.tabName}:${it.duration}"
             }
         )
     }

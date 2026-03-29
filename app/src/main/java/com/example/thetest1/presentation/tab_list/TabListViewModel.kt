@@ -19,11 +19,15 @@ import com.example.thetest1.domain.usecase.UpdateTabFolderUseCase
 import com.example.thetest1.domain.usecase.UpdateTabTagsUseCase
 import com.example.thetest1.domain.usecase.GetAllSessionsUseCase
 import com.example.thetest1.domain.usecase.ObserveTabPlaybackProgressUseCase
+import com.example.thetest1.domain.usecase.ObserveTabsUseCase
+import com.example.thetest1.domain.usecase.ObserveUserTabsUseCase
 import com.example.thetest1.domain.model.TabPlaybackProgress
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -95,8 +99,10 @@ data class TabListUiState(
 
 class TabListViewModel(
     private val getTabsUseCase: GetTabsUseCase,
+    private val observeTabsUseCase: ObserveTabsUseCase,
     private val updateTabUseCase: UpdateTabUseCase,
     private val getUserTabsUseCase: GetUserTabsUseCase,
+    private val observeUserTabsUseCase: ObserveUserTabsUseCase,
     private val addUserTabUseCase: AddUserTabUseCase,
     private val markTabOpenedUseCase: MarkTabOpenedUseCase,
     private val updateTabFolderUseCase: UpdateTabFolderUseCase,
@@ -114,8 +120,8 @@ class TabListViewModel(
     val uiState: StateFlow<TabListUiState> = _uiState.asStateFlow()
 
     init {
-        loadTabs()
-        loadUserTabs()
+        observeTabs()
+        observeUserTabs()
         observeTabMetrics()
     }
 
@@ -261,6 +267,22 @@ class TabListViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(userTabs = getUserTabsUseCase(), isUserTabsLoading = false) }
         }
+    }
+
+    private fun observeTabs() {
+        observeTabsUseCase()
+            .onEach { tabs ->
+                _uiState.update { it.copy(tabs = tabs, isTabsLoading = false) }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    private fun observeUserTabs() {
+        observeUserTabsUseCase()
+            .onEach { userTabs ->
+                _uiState.update { it.copy(userTabs = userTabs, isUserTabsLoading = false) }
+            }
+            .launchIn(viewModelScope)
     }
 
     private fun observeTabMetrics() {

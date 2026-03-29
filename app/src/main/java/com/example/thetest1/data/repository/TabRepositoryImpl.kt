@@ -64,6 +64,7 @@ class TabRepositoryImpl(
                         append(",lesson")
                     },
                     folder = "Без папки",
+                    updatedAt = 0L,
                     offlineReady = true
                 )
             }
@@ -72,6 +73,12 @@ class TabRepositoryImpl(
         } else {
             emit(tabsFromDb)
         }
+    }
+
+    override fun observeUserTabs(): Flow<List<TabItem>> = tabDao.getUserTabs()
+
+    override suspend fun getAllTabsSync(): List<TabItem> {
+        return tabDao.getTabs().first() + tabDao.getUserTabs().first()
     }
 
     override suspend fun getLesson(id: String): DomainLesson? {
@@ -94,7 +101,12 @@ class TabRepositoryImpl(
     }
 
     override suspend fun updateTab(tab: TabItem) {
-        tabDao.updateTab(tab)
+        tabDao.updateTab(tab.copy(updatedAt = System.currentTimeMillis()))
+    }
+
+    override suspend fun upsertTabs(tabs: List<TabItem>) {
+        if (tabs.isEmpty()) return
+        tabDao.insertTabs(tabs)
     }
 
     override fun getCompletedLessonsCount(): Flow<Int> {
@@ -131,7 +143,8 @@ class TabRepositoryImpl(
             filePath = file.absolutePath,
             asciiTabs = asciiTabs,
             tagsCsv = "custom,user",
-            folder = "Без папки"
+            folder = "Без папки",
+            updatedAt = System.currentTimeMillis()
         )
         tabDao.insertTab(tabItem)
     }
@@ -149,8 +162,16 @@ class TabRepositoryImpl(
         tabDao.deleteTab(tab)
     }
 
+    override suspend fun deleteTabs(tabs: List<TabItem>) {
+        tabs.forEach { deleteUserTab(it) }
+    }
+
+    override suspend fun deleteAllUserTabs() {
+        getUserTabs().forEach { deleteUserTab(it) }
+    }
+
     override suspend fun renameUserTab(tab: TabItem, newName: String) {
-        val updatedTab = tab.copy(name = newName)
+        val updatedTab = tab.copy(name = newName, updatedAt = System.currentTimeMillis())
         tabDao.updateTab(updatedTab)
     }
 
@@ -163,7 +184,8 @@ class TabRepositoryImpl(
         tabDao.updateTab(
             tab.copy(
                 openCount = tab.openCount + 1,
-                lastOpenedAt = openedAt
+                lastOpenedAt = openedAt,
+                updatedAt = openedAt
             )
         )
     }
@@ -176,19 +198,27 @@ class TabRepositoryImpl(
                     .map { it.trim() }
                     .filter { it.isNotEmpty() }
                     .distinct()
-                    .joinToString(",")
+                    .joinToString(","),
+                updatedAt = System.currentTimeMillis()
             )
         )
     }
 
     override suspend fun updateTabFolder(tabId: String, folder: String) {
         val tab = tabDao.getTabById(tabId) ?: return
-        tabDao.updateTab(tab.copy(folder = folder))
+        tabDao.updateTab(tab.copy(folder = folder, updatedAt = System.currentTimeMillis()))
     }
 
     override suspend fun markOfflineReady(tabId: String, ready: Boolean) {
         val tab = tabDao.getTabById(tabId) ?: return
-        tabDao.updateTab(tab.copy(offlineReady = ready))
+        tabDao.updateTab(tab.copy(offlineReady = ready, updatedAt = System.currentTimeMillis()))
+    }
+
+    override suspend fun clearAllTabs() {
+        getUserTabs().forEach { tab ->
+            tab.filePath?.let { File(it).delete() }
+        }
+        tabDao.deleteAllTabs()
     }
 
     private fun getFileName(uri: Uri): String? {

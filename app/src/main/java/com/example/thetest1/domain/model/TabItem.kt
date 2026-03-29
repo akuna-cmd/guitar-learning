@@ -21,5 +21,6 @@ data class TabItem(
     val folder: String = "Без папки",
     val openCount: Int = 0,
     val lastOpenedAt: Long = 0L,
+    val updatedAt: Long = 0L,
     val offlineReady: Boolean = false
 )

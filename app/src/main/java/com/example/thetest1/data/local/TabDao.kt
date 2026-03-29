@@ -23,6 +23,9 @@ interface TabDao {
     @Delete
     suspend fun deleteTab(tab: TabItem)
 
+    @Query("DELETE FROM tabs")
+    suspend fun deleteAllTabs()
+
     @Query("SELECT * FROM tabs WHERE isUserTab = 0")
     fun getTabs(): Flow<List<TabItem>>
 

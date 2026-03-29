@@ -25,6 +25,9 @@ interface SessionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPracticedTabs(items: List<PracticedTabEntity>)
 
+    @Query("DELETE FROM sessions")
+    suspend fun clearHistory()
+
     @Transaction
     suspend fun insertSessionWithTabs(session: SessionEntity, tabs: List<PracticedTabEntity>) {
         val sessionId = insertSession(session).toInt()

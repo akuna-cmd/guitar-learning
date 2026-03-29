@@ -33,15 +33,24 @@ class TabPlaybackProgressRepositoryImpl(
         dataStore.edit { preferences ->
             val raw = preferences[progressKey].orEmpty()
             val json = if (raw.isBlank()) JSONObject() else JSONObject(raw)
-            json.put(progress.tabId, JSONObject().apply {
-                put("tabId", progress.tabId)
-                put("tabName", progress.tabName)
-                put("lastTick", progress.lastTick)
-                put("lastBarIndex", progress.lastBarIndex)
-                put("totalBars", progress.totalBars)
-                put("updatedAt", progress.updatedAt)
-            })
+            json.put(progress.tabId, progress.toJson())
             preferences[progressKey] = json.toString()
+        }
+    }
+
+    override suspend fun replaceAll(progressList: List<TabPlaybackProgress>) {
+        dataStore.edit { preferences ->
+            val json = JSONObject()
+            progressList.forEach { progress ->
+                json.put(progress.tabId, progress.toJson())
+            }
+            preferences[progressKey] = json.toString()
+        }
+    }
+
+    override suspend fun clearAll() {
+        dataStore.edit { preferences ->
+            preferences.remove(progressKey)
         }
     }
 
@@ -74,5 +83,16 @@ class TabPlaybackProgressRepositoryImpl(
             totalBars = obj.optInt("totalBars"),
             updatedAt = obj.optLong("updatedAt")
         )
+    }
+
+    private fun TabPlaybackProgress.toJson(): JSONObject {
+        return JSONObject().apply {
+            put("tabId", tabId)
+            put("tabName", tabName)
+            put("lastTick", lastTick)
+            put("lastBarIndex", lastBarIndex)
+            put("totalBars", totalBars)
+            put("updatedAt", updatedAt)
+        }
     }
 }

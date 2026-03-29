@@ -5,6 +5,9 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.example.thetest1.data.settings.AppSettingsRepository
+import com.example.thetest1.domain.repository.SessionRepository
+import com.example.thetest1.domain.repository.SyncRepository
 import com.example.thetest1.domain.usecase.AddAudioNoteUseCase
 import com.example.thetest1.domain.usecase.AddGoalUseCase
 import com.example.thetest1.domain.usecase.AddSessionUseCase
@@ -32,7 +35,9 @@ import com.example.thetest1.domain.usecase.GetUserTabsUseCase
 import com.example.thetest1.domain.usecase.MarkTabOfflineReadyUseCase
 import com.example.thetest1.domain.usecase.MarkTabOpenedUseCase
 import com.example.thetest1.domain.usecase.ObserveGoalsProgressUseCase
+import com.example.thetest1.domain.usecase.ObserveTabsUseCase
 import com.example.thetest1.domain.usecase.ObserveTabPlaybackProgressUseCase
+import com.example.thetest1.domain.usecase.ObserveUserTabsUseCase
 import com.example.thetest1.domain.usecase.RenameUserTabUseCase
 import com.example.thetest1.domain.usecase.UpdateGoalUseCase
 import com.example.thetest1.domain.usecase.UpdateTabFolderUseCase
@@ -46,6 +51,7 @@ import com.example.thetest1.presentation.goals.GoalsViewModel
 import com.example.thetest1.presentation.main.MainViewModel
 import com.example.thetest1.presentation.main.PracticeHeatmapViewModel
 import com.example.thetest1.presentation.main.ThemeViewModel
+import com.example.thetest1.presentation.settings.SettingsViewModel
 import com.example.thetest1.presentation.tab_list.TabListViewModel
 import com.example.thetest1.presentation.tab_viewer.TabViewerViewModel
 
@@ -57,7 +63,9 @@ class ViewModelFactory(
     data class Dependencies(
         val context: Context,
         val dataStore: DataStore<Preferences>,
+        val appSettingsRepository: AppSettingsRepository,
         val getTabsUseCase: GetTabsUseCase,
+        val observeTabsUseCase: ObserveTabsUseCase,
         val getLessonUseCase: GetLessonUseCase,
         val getTabItemUseCase: GetTabItemUseCase,
         val getTabFileBytesUseCase: GetTabFileBytesUseCase,
@@ -84,6 +92,7 @@ class ViewModelFactory(
         val deleteUserTabUseCase: DeleteUserTabUseCase,
         val renameUserTabUseCase: RenameUserTabUseCase,
         val getUserTabsCountUseCase: GetUserTabsCountUseCase,
+        val observeUserTabsUseCase: ObserveUserTabsUseCase,
         val addGoalUseCase: AddGoalUseCase,
         val updateGoalUseCase: UpdateGoalUseCase,
         val deleteGoalUseCase: DeleteGoalUseCase,
@@ -91,7 +100,9 @@ class ViewModelFactory(
         val observeGoalsProgressUseCase: ObserveGoalsProgressUseCase,
         val observeTabPlaybackProgressUseCase: ObserveTabPlaybackProgressUseCase,
         val getTabPlaybackProgressUseCase: GetTabPlaybackProgressUseCase,
-        val updateTabPlaybackProgressUseCase: UpdateTabPlaybackProgressUseCase
+        val updateTabPlaybackProgressUseCase: UpdateTabPlaybackProgressUseCase,
+        val sessionRepository: SessionRepository,
+        val syncRepository: SyncRepository
     )
 
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -110,8 +121,10 @@ class ViewModelFactory(
             modelClass.isAssignableFrom(TabListViewModel::class.java) -> {
                 TabListViewModel(
                     getTabsUseCase = dependencies.getTabsUseCase,
+                    observeTabsUseCase = dependencies.observeTabsUseCase,
                     updateTabUseCase = dependencies.updateTabUseCase,
                     getUserTabsUseCase = dependencies.getUserTabsUseCase,
+                    observeUserTabsUseCase = dependencies.observeUserTabsUseCase,
                     addUserTabUseCase = dependencies.addUserTabUseCase,
                     markTabOpenedUseCase = dependencies.markTabOpenedUseCase,
                     updateTabFolderUseCase = dependencies.updateTabFolderUseCase,
@@ -154,7 +167,7 @@ class ViewModelFactory(
             }
 
             modelClass.isAssignableFrom(ThemeViewModel::class.java) -> {
-                ThemeViewModel(dependencies.dataStore) as T
+                ThemeViewModel(dependencies.appSettingsRepository) as T
             }
 
             modelClass.isAssignableFrom(GoalsViewModel::class.java) -> {
@@ -168,6 +181,13 @@ class ViewModelFactory(
 
             modelClass.isAssignableFrom(AuthViewModel::class.java) -> {
                 AuthViewModel() as T
+            }
+
+            modelClass.isAssignableFrom(SettingsViewModel::class.java) -> {
+                SettingsViewModel(
+                    sessionRepository = dependencies.sessionRepository,
+                    syncRepository = dependencies.syncRepository
+                ) as T
             }
 
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

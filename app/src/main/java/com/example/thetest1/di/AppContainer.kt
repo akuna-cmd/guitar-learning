@@ -7,7 +7,9 @@ import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
 import com.example.thetest1.BuildConfig
 import com.example.thetest1.data.local.AppDatabase
+import com.example.thetest1.data.local.Migration12To13
 import com.example.thetest1.data.remote.AiAssistantConfig
+import com.example.thetest1.data.repository.FirestoreSyncRepositoryImpl
 import com.example.thetest1.data.repository.AudioNoteRepositoryImpl
 import com.example.thetest1.data.repository.AiAssistantRepositoryImpl
 import com.example.thetest1.data.repository.GoalRepositoryImpl
@@ -17,6 +19,7 @@ import com.example.thetest1.data.repository.TabFileRepositoryImpl
 import com.example.thetest1.data.repository.TabPlaybackProgressRepositoryImpl
 import com.example.thetest1.data.repository.TabRepositoryImpl
 import com.example.thetest1.data.repository.TextNoteRepositoryImpl
+import com.example.thetest1.data.settings.AppSettingsRepository
 import com.example.thetest1.domain.repository.AiAssistantRepository
 import com.example.thetest1.domain.repository.AudioNoteRepository
 import com.example.thetest1.domain.repository.GoalRepository
@@ -26,6 +29,7 @@ import com.example.thetest1.domain.repository.TabFileRepository
 import com.example.thetest1.domain.repository.TabPlaybackProgressRepository
 import com.example.thetest1.domain.repository.TabRepository
 import com.example.thetest1.domain.repository.TextNoteRepository
+import com.example.thetest1.domain.repository.SyncRepository
 import com.example.thetest1.domain.usecase.AskAiAssistantUseCase
 import com.example.thetest1.domain.usecase.AddAudioNoteUseCase
 import com.example.thetest1.domain.usecase.AddGoalUseCase
@@ -55,6 +59,8 @@ import com.example.thetest1.domain.usecase.MarkTabOfflineReadyUseCase
 import com.example.thetest1.domain.usecase.MarkTabOpenedUseCase
 import com.example.thetest1.domain.usecase.ObserveTabPlaybackProgressUseCase
 import com.example.thetest1.domain.usecase.ObserveGoalsProgressUseCase
+import com.example.thetest1.domain.usecase.ObserveTabsUseCase
+import com.example.thetest1.domain.usecase.ObserveUserTabsUseCase
 import com.example.thetest1.domain.usecase.RenameUserTabUseCase
 import com.example.thetest1.domain.usecase.UpdateGoalUseCase
 import com.example.thetest1.domain.usecase.UpdateTabUseCase
@@ -74,7 +80,9 @@ class AppContainer(val context: Context) {
         Room.databaseBuilder(
             context.applicationContext,
             AppDatabase::class.java, "app_database"
-        ).fallbackToDestructiveMigration().build()
+        ).addMigrations(Migration12To13)
+            .fallbackToDestructiveMigration()
+            .build()
     }
 
     private val audioNoteDao by lazy { appDatabase.audioNoteDao() }
@@ -105,8 +113,20 @@ class AppContainer(val context: Context) {
     private val tabPlaybackProgressRepository: TabPlaybackProgressRepository by lazy {
         TabPlaybackProgressRepositoryImpl(context.dataStore)
     }
+    private val appSettingsRepository by lazy { AppSettingsRepository(context.dataStore) }
+    private val syncRepository: SyncRepository by lazy {
+        FirestoreSyncRepositoryImpl(
+            context = context,
+            tabRepository = tabRepository,
+            sessionRepository = sessionRepository,
+            goalRepository = goalRepository,
+            progressRepository = tabPlaybackProgressRepository,
+            appSettingsRepository = appSettingsRepository
+        )
+    }
 
     private val getTabsUseCase by lazy { GetTabsUseCase(tabRepository) }
+    private val observeTabsUseCase by lazy { ObserveTabsUseCase(tabRepository) }
     private val getLessonUseCase by lazy { GetLessonUseCase(tabRepository) }
     private val getTabItemUseCase by lazy { GetTabItemUseCase(tabRepository) }
     private val updateTabUseCase by lazy { UpdateTabUseCase(tabRepository) }
@@ -119,6 +139,7 @@ class AppContainer(val context: Context) {
     }
     private val getTotalLessonsCountUseCase by lazy { GetTotalLessonsCountUseCase(tabRepository) }
     private val getUserTabsUseCase by lazy { GetUserTabsUseCase(tabRepository) }
+    private val observeUserTabsUseCase by lazy { ObserveUserTabsUseCase(tabRepository) }
     private val addUserTabUseCase by lazy { AddUserTabUseCase(tabRepository) }
     private val markTabOpenedUseCase by lazy { MarkTabOpenedUseCase(tabRepository) }
     private val updateTabFolderUseCase by lazy { UpdateTabFolderUseCase(tabRepository) }
@@ -172,7 +193,9 @@ class AppContainer(val context: Context) {
             dependencies = ViewModelFactory.Dependencies(
                 context = context,
                 dataStore = context.dataStore,
+                appSettingsRepository = appSettingsRepository,
                 getTabsUseCase = getTabsUseCase,
+                observeTabsUseCase = observeTabsUseCase,
                 getLessonUseCase = getLessonUseCase,
                 getTabItemUseCase = getTabItemUseCase,
                 getTabFileBytesUseCase = getTabFileBytesUseCase,
@@ -190,6 +213,7 @@ class AppContainer(val context: Context) {
                 getCompletedLessonsCountUseCase = getCompletedLessonsCountUseCase,
                 getTotalLessonsCountUseCase = getTotalLessonsCountUseCase,
                 getUserTabsUseCase = getUserTabsUseCase,
+                observeUserTabsUseCase = observeUserTabsUseCase,
                 addUserTabUseCase = addUserTabUseCase,
                 markTabOpenedUseCase = markTabOpenedUseCase,
                 updateTabFolderUseCase = updateTabFolderUseCase,
@@ -206,7 +230,9 @@ class AppContainer(val context: Context) {
                 observeGoalsProgressUseCase = observeGoalsProgressUseCase,
                 observeTabPlaybackProgressUseCase = observeTabPlaybackProgressUseCase,
                 getTabPlaybackProgressUseCase = getTabPlaybackProgressUseCase,
-                updateTabPlaybackProgressUseCase = updateTabPlaybackProgressUseCase
+                updateTabPlaybackProgressUseCase = updateTabPlaybackProgressUseCase,
+                sessionRepository = sessionRepository,
+                syncRepository = syncRepository
             )
         )
     }
