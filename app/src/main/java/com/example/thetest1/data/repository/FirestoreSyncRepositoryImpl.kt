@@ -37,6 +37,19 @@ class FirestoreSyncRepositoryImpl(
     private val progressRepository: TabPlaybackProgressRepository,
     private val appSettingsRepository: AppSettingsRepository
 ) : SyncRepository {
+    private companion object {
+        const val MaxInlineUserTabBytes = 512 * 1024L
+    }
+
+    private data class CloudTabFilePayload(
+        val storagePath: String?,
+        val fileBase64: String?
+    )
+
+    private data class RemoteTabsImportResult(
+        val tabs: List<TabItem>,
+        val unresolvedRemoteIds: Set<String>
+    )
 
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
@@ -81,12 +94,8 @@ class FirestoreSyncRepositoryImpl(
             val remoteGoalsSnapshot = userRef.collection("goals").get().await()
             val remoteProgressSnapshot = userRef.collection("progress").get().await()
             val remoteStoragePathsByTabId = remoteTabsSnapshot.documents.associate { it.id to it.getString("storagePath") }
-
-            val remoteTabs = buildList {
-                for (document in remoteTabsSnapshot.documents) {
-                    document.toTabItem()?.let(::add)
-                }
-            }
+            val remoteTabsImport = importRemoteTabs(remoteTabsSnapshot.documents)
+            val remoteTabs = remoteTabsImport.tabs
             val remoteSessions = remoteSessionsSnapshot.documents.mapNotNull { it.toSession() }
             val remoteGoals = remoteGoalsSnapshot.documents.mapNotNull { it.toGoal() }
             val remoteProgress = remoteProgressSnapshot.documents.mapNotNull { it.toProgress() }
@@ -122,10 +131,24 @@ class FirestoreSyncRepositoryImpl(
             val finalLocalGoals = goalRepository.getGoalsSync()
             val finalLocalProgress = progressRepository.observeAll().first()
             val finalLocalSettings = appSettingsRepository.getSettings()
+            val remoteTabIds = remoteTabsSnapshot.documents.map { it.id }.toSet()
+            val remoteUserTabIds = remoteTabsSnapshot.documents
+                .filter { it.getBoolean("isUserTab") == true }
+                .map { it.getString("id") ?: it.id }
+                .toSet()
+            val finalLocalTabIds = finalLocalTabs.map { it.id }.toSet() + remoteTabsImport.unresolvedRemoteIds
+            val finalLocalUserTabIds = finalLocalTabs
+                .filter { it.isUserTab }
+                .map { it.id }
+                .toSet() + remoteTabsImport.unresolvedRemoteIds
             val uploadedStoragePaths = finalLocalTabs
                 .filter { it.isUserTab }
                 .associate { tab ->
-                    tab.id to (uploadUserTabFile(user.uid, tab) ?: remoteStoragePathsByTabId[tab.id])
+                    tab.id to prepareCloudTabFilePayload(
+                        userId = user.uid,
+                        tab = tab,
+                        existingStoragePath = remoteStoragePathsByTabId[tab.id]
+                    )
                 }
 
             val batch = firestore.batch()
@@ -141,12 +164,12 @@ class FirestoreSyncRepositoryImpl(
                     SetOptions.merge()
                 )
             }
-            deleteStaleUserTabFiles(user.uid, remoteTabsSnapshot.documents.map { it.id }.toSet(), finalLocalTabs.map { it.id }.toSet())
+            deleteStaleUserTabFiles(user.uid, remoteUserTabIds, finalLocalUserTabIds)
             deleteStaleDocuments(
                 batch = batch,
                 parent = userRef.collection("tabs"),
-                remoteIds = remoteTabsSnapshot.documents.map { it.id }.toSet(),
-                localIds = finalLocalTabs.map { it.id }.toSet()
+                remoteIds = remoteTabIds,
+                localIds = finalLocalTabIds
             )
 
             finalLocalSessions.forEach { session ->
@@ -362,7 +385,7 @@ class FirestoreSyncRepositoryImpl(
         )
     }
 
-    private fun TabItem.toFirestoreMap(storagePath: String?): Map<String, Any?> {
+    private fun TabItem.toFirestoreMap(filePayload: CloudTabFilePayload?): Map<String, Any?> {
         return mapOf(
             "id" to id,
             "name" to name,
@@ -372,8 +395,8 @@ class FirestoreSyncRepositoryImpl(
             "isCompleted" to isCompleted,
             "isUserTab" to isUserTab,
             "filePath" to filePath,
-            "storagePath" to storagePath,
-            "fileBase64" to null,
+            "storagePath" to filePayload?.storagePath,
+            "fileBase64" to filePayload?.fileBase64,
             "asciiTabs" to asciiTabs,
             "tagsCsv" to tagsCsv,
             "folder" to folder,
@@ -483,6 +506,10 @@ class FirestoreSyncRepositoryImpl(
                 originalPath
             }
 
+            if (isUserTab && localPath.isNullOrBlank()) {
+                return null
+            }
+
             TabItem(
                 id = getString("id") ?: id,
                 name = getString("name") ?: "",
@@ -553,6 +580,26 @@ class FirestoreSyncRepositoryImpl(
             .joinToString(",")
     }
 
+    private suspend fun importRemoteTabs(documents: List<DocumentSnapshot>): RemoteTabsImportResult {
+        val tabs = mutableListOf<TabItem>()
+        val unresolvedRemoteIds = mutableSetOf<String>()
+
+        documents.forEach { document ->
+            val remoteId = document.getString("id") ?: document.id
+            val importedTab = document.toTabItem()
+            if (importedTab != null) {
+                tabs += importedTab
+            } else if (document.getBoolean("isUserTab") == true) {
+                unresolvedRemoteIds += remoteId
+            }
+        }
+
+        return RemoteTabsImportResult(
+            tabs = tabs,
+            unresolvedRemoteIds = unresolvedRemoteIds
+        )
+    }
+
     private suspend fun restoreUserTabFile(
         tabId: String,
         tabName: String,
@@ -582,14 +629,14 @@ class FirestoreSyncRepositoryImpl(
             if (restoredFromStorage != null) return restoredFromStorage
         }
 
-        if (fileBase64.isNullOrBlank()) return originalPath
+        if (fileBase64.isNullOrBlank()) return null
 
         return runCatching {
             if (!targetFile.exists() || targetFile.length() == 0L) {
                 targetFile.writeBytes(Base64.decode(fileBase64, Base64.DEFAULT))
             }
             targetFile.absolutePath
-        }.getOrElse { originalPath }
+        }.getOrNull()
     }
 
     private suspend fun uploadUserTabFile(userId: String, tab: TabItem): String? {
@@ -605,6 +652,61 @@ class FirestoreSyncRepositoryImpl(
                 .await()
             storagePath
         }.getOrNull()
+    }
+
+    private suspend fun prepareCloudTabFilePayload(
+        userId: String,
+        tab: TabItem,
+        existingStoragePath: String?
+    ): CloudTabFilePayload {
+        if (!tab.isUserTab) return CloudTabFilePayload(storagePath = null, fileBase64 = null)
+
+        val uploadedStoragePath = uploadUserTabFile(userId, tab)
+        if (!uploadedStoragePath.isNullOrBlank()) {
+            return CloudTabFilePayload(
+                storagePath = uploadedStoragePath,
+                fileBase64 = null
+            )
+        }
+
+        val verifiedExistingStoragePath = existingStoragePath?.takeIf { path ->
+            path.isNotBlank() && isStorageObjectAvailable(path)
+        }
+        val inlineFileBase64 = exportUserTabFileBase64(tab)
+
+        if (!inlineFileBase64.isNullOrBlank()) {
+            return CloudTabFilePayload(
+                storagePath = verifiedExistingStoragePath,
+                fileBase64 = inlineFileBase64
+            )
+        }
+
+        if (!verifiedExistingStoragePath.isNullOrBlank()) {
+            return CloudTabFilePayload(
+                storagePath = verifiedExistingStoragePath,
+                fileBase64 = null
+            )
+        }
+
+        throw IllegalStateException("Не вдалося синхронізувати файл таба \"${tab.name}\"")
+    }
+
+    private fun exportUserTabFileBase64(tab: TabItem): String? {
+        if (!tab.isUserTab) return null
+        val path = tab.filePath ?: return null
+        val file = File(path)
+        if (!file.exists() || !file.isFile) return null
+        if (file.length() > MaxInlineUserTabBytes) return null
+        return runCatching {
+            Base64.encodeToString(file.readBytes(), Base64.NO_WRAP)
+        }.getOrNull()
+    }
+
+    private suspend fun isStorageObjectAvailable(storagePath: String): Boolean {
+        return runCatching {
+            storage.reference.child(storagePath).metadata.await()
+            true
+        }.getOrDefault(false)
     }
 
     private suspend fun deleteUserTabFile(userId: String, tabId: String) {

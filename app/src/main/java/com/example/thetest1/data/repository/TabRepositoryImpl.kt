@@ -84,7 +84,9 @@ class TabRepositoryImpl(
     override suspend fun getLesson(id: String): DomainLesson? {
         val tab = tabDao.getTabById(id)
         if (tab?.isUserTab == true) {
-            return tab.filePath?.let {
+            return tab.filePath
+                ?.takeIf { path -> File(path).exists() }
+                ?.let {
                 DomainLesson(
                     id = tab.id,
                     level = tab.difficulty.name.lowercase(),
