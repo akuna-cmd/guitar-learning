@@ -80,6 +80,8 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -90,6 +92,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -128,9 +131,12 @@ class TabJsBridge {
     var onAsciiTabCallback: (String) -> Unit = {}
     var onTabAnalysisCallback: (String) -> Unit = {}
     var onCompactTabsCallback: (String) -> Unit = {}
+    var onJsReadyHostCallback: () -> Unit = {}
     var onJsReadyCallback: () -> Unit = {}
+    var onScoreLoadedHostCallback: (Int) -> Unit = {}
     var onScoreLoadedCallback: (Int) -> Unit = {}
     var onDetectedTempoCallback: (Int) -> Unit = {}
+    var onAlphaTabStatusHostCallback: (String) -> Unit = {}
     var onAlphaTabStatusCallback: (String) -> Unit = {}
     var onTickPositionCallback: (Long, Boolean) -> Unit = { _, _ -> }
     var onPlaybackProgressCallback: (Long, Boolean, Int) -> Unit = { _, _, _ -> }
@@ -139,10 +145,22 @@ class TabJsBridge {
     @JavascriptInterface fun postAsciiTab(ascii: String) = onAsciiTabCallback(ascii)
     @JavascriptInterface fun postTabAnalysis(json: String) = onTabAnalysisCallback(json)
     @JavascriptInterface fun postCompactTabs(tabs: String) = onCompactTabsCallback(tabs)
-    @JavascriptInterface fun onJsReady() = onJsReadyCallback.invoke()
-    @JavascriptInterface fun onScoreLoaded(totalMeasures: Int) = onScoreLoadedCallback(totalMeasures)
+    @JavascriptInterface
+    fun onJsReady() {
+        onJsReadyHostCallback.invoke()
+        onJsReadyCallback.invoke()
+    }
+    @JavascriptInterface
+    fun onScoreLoaded(totalMeasures: Int) {
+        onScoreLoadedHostCallback(totalMeasures)
+        onScoreLoadedCallback(totalMeasures)
+    }
     @JavascriptInterface fun onDetectedTempo(bpm: Int) = onDetectedTempoCallback(bpm)
-    @JavascriptInterface fun onAlphaTabStatus(message: String) = onAlphaTabStatusCallback(message)
+    @JavascriptInterface
+    fun onAlphaTabStatus(message: String) {
+        onAlphaTabStatusHostCallback(message)
+        onAlphaTabStatusCallback(message)
+    }
     @JavascriptInterface fun onTickPosition(tick: Long, isPlaying: Boolean) = onTickPositionCallback(tick, isPlaying)
     @JavascriptInterface fun onPlaybackProgress(tick: Long, isPlaying: Boolean, barIndex: Int) =
         onPlaybackProgressCallback(tick, isPlaying, barIndex)
@@ -160,6 +178,82 @@ data class TabWebViewEntry(
     var lastKnownTick: Long = 0L,
     var lastKnownBarIndex: Int = 0
 )
+
+private fun createTabWebViewEntry(context: Context): TabWebViewEntry {
+    val assetLoader = WebViewAssetLoader.Builder()
+        .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context.applicationContext))
+        .build()
+
+    val webView = WebView(context).apply {
+        layoutParams = ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
+        setBackgroundColor(android.graphics.Color.parseColor("#1c1b1f"))
+
+        settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            allowFileAccess = true
+            allowContentAccess = true
+            allowFileAccessFromFileURLs = true
+            allowUniversalAccessFromFileURLs = true
+            mediaPlaybackRequiresUserGesture = false
+        }
+
+        webChromeClient = object : WebChromeClient() {
+            override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                val message = consoleMessage?.message().orEmpty()
+                if (
+                    BuildConfig.DEBUG &&
+                    ENABLE_TAB_PERF_TRACE &&
+                    (
+                        message.startsWith("AlphaTabStatus:init") ||
+                            message.startsWith("AlphaTabStatus:initError") ||
+                            message.startsWith("AlphaTabStatus:apiNotReady") ||
+                            message.startsWith("AlphaTabStatus:error") ||
+                            message.startsWith("AlphaTabStatus:restore:")
+                        )
+                ) {
+                    Log.d("WebViewConsole", message)
+                }
+                return true
+            }
+        }
+
+        webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(
+                view: WebView?,
+                request: android.webkit.WebResourceRequest?
+            ): android.webkit.WebResourceResponse? {
+                val url = request?.url ?: return null
+                return assetLoader.shouldInterceptRequest(url)
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {}
+        }
+    }
+
+    val bridge = TabJsBridge()
+    lateinit var entry: TabWebViewEntry
+    bridge.onJsReadyHostCallback = {
+        entry.jsReady = true
+    }
+    bridge.onScoreLoadedHostCallback = { totalMeasures ->
+        if (totalMeasures > 0) {
+            entry.loadedTotalMeasures = totalMeasures
+        }
+    }
+    bridge.onAlphaTabStatusHostCallback = { message ->
+        if (message.contains("soundFontLoaded")) {
+            entry.soundFontLoaded = true
+        }
+    }
+    webView.addJavascriptInterface(bridge, "Android")
+    webView.loadUrl("https://appassets.androidplatform.net/assets/tab_viewer.html")
+    entry = TabWebViewEntry(webView = webView, bridge = bridge)
+    return entry
+}
 
 private data class TabViewerModel(
     val fileName: String,
@@ -222,7 +316,25 @@ fun TabViewerScreen(
     val isPlayingState by viewModel.isPlaying.collectAsStateWithLifecycle()
 
     val themeUiState by themeViewModel.uiState.collectAsStateWithLifecycle()
-    
+    val lesson = uiState.lesson?.takeIf { it.id == lessonId }
+    val rawDisplayReady = lesson != null && uiState.isScoreLoaded
+    var isDisplayUnlocked by remember(lessonId) { mutableStateOf(false) }
+
+    LaunchedEffect(lessonId) {
+        isDisplayUnlocked = false
+    }
+
+    LaunchedEffect(rawDisplayReady, lessonId) {
+        if (!rawDisplayReady) {
+            isDisplayUnlocked = false
+            return@LaunchedEffect
+        }
+        delay(180)
+        if (rawDisplayReady) {
+            isDisplayUnlocked = true
+        }
+    }
+
     BackHandler {
         onBack()
     }
@@ -231,7 +343,7 @@ fun TabViewerScreen(
         viewModel.loadLesson(lessonId)
     }
 
-    uiState.lesson?.let {
+    lesson?.let {
         LaunchedEffect(it) {
             mainViewModel.setActiveTab(it.id, it.title)
         }
@@ -251,6 +363,8 @@ fun TabViewerScreen(
     val loopSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val tabScaleOverrides = remember { mutableStateMapOf<String, Float>() }
 
+    val contentAlpha = if (isDisplayUnlocked) 1f else 0f
+
     Scaffold(
         modifier = Modifier,
         topBar = {
@@ -267,84 +381,30 @@ fun TabViewerScreen(
             )
         }
     ) { padding ->
-        if (uiState.lesson == null) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    val modes = listOf("Звичайна гра", "Режим розбору")
-                    modes.forEachIndexed { index, label ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier
-                                .padding(horizontal = 4.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(
-                                    if (index == 0) {
-                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-                                    }
-                                )
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (index == 1) Icons.Filled.Tune else Icons.Filled.SportsEsports,
-                                contentDescription = null,
-                                tint = if (index == 0) {
-                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f)
-                                },
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = label,
-                                color = if (index == 0) {
-                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f)
-                                },
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-            ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            if (lesson != null) {
                 var isPracticeMode by remember { mutableStateOf(false) }
-                var currentSpeed by remember(isPracticeMode) { mutableStateOf(if (isPracticeMode) themeUiState.practiceSpeed else themeUiState.normalSpeed) }
-                val defaultScale = if (isPracticeMode) themeUiState.practiceTabScale else themeUiState.normalTabScale
-                var currentScale by remember(isPracticeMode, uiState.lesson?.id, defaultScale) {
-                    mutableStateOf(
-                        uiState.lesson?.id?.let { tabScaleOverrides[it] } ?: defaultScale
-                    )
+                var currentSpeed by remember(isPracticeMode) {
+                    mutableStateOf(if (isPracticeMode) themeUiState.practiceSpeed else themeUiState.normalSpeed)
                 }
-                Column(modifier = Modifier.fillMaxSize()) {
-                    // ─── Mode Toggle ───────────────────────────
+                val defaultScale = if (isPracticeMode) themeUiState.practiceTabScale else themeUiState.normalTabScale
+                var currentScale by remember(lesson.id, isPracticeMode, defaultScale) {
+                    mutableStateOf(tabScaleOverrides[lesson.id] ?: defaultScale)
+                }
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .alpha(contentAlpha)
+                ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
                         horizontalArrangement = Arrangement.Center
                     ) {
                         val modes = listOf(false to "Звичайна гра", true to "Режим розбору")
@@ -357,7 +417,10 @@ fun TabViewerScreen(
                                     .padding(horizontal = 4.dp)
                                     .clip(RoundedCornerShape(16.dp))
                                     .clickable { isPracticeMode = practice }
-                                    .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
+                                    .background(
+                                        if (selected) MaterialTheme.colorScheme.primaryContainer
+                                        else MaterialTheme.colorScheme.surfaceVariant
+                                    )
                                     .padding(horizontal = 16.dp, vertical = 8.dp)
                             ) {
                                 Icon(
@@ -368,18 +431,21 @@ fun TabViewerScreen(
                                     tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(16.dp)
                                 )
-                                Text(label, color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = label,
+                                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
 
-                    // ─── Tab Viewer ────────────────────────────
                     TabViewer(
                         model = TabViewerModel(
-                            fileName = uiState.lesson!!.tabsGpPath,
+                            fileName = lesson.tabsGpPath,
                             tabBytesReady = uiState.tabBytesReady,
                             soundFontReady = uiState.soundFontReady,
-                            tabTitle = uiState.lesson!!.title,
+                            tabTitle = lesson.title,
                             isPracticeMode = isPracticeMode,
                             currentSpeed = currentSpeed,
                             tabDisplayMode = themeUiState.tabDisplayMode,
@@ -404,24 +470,24 @@ fun TabViewerScreen(
                             onRestoreApplied = { tick, currentBar, requestedBar ->
                                 viewModel.onRestoreApplied(tick, currentBar, requestedBar)
                             },
-                            onTickPosition = { tick, playing -> viewModel.updatePlaybackState(tick, playing) },
-                            onPlaybackProgress = { tick, playing, barIndex, totalBars ->
-                                val lesson = uiState.lesson
-                                if (lesson != null) {
-                                    viewModel.updatePlaybackProgress(
-                                        lessonId = lesson.id,
-                                        lessonTitle = lesson.title,
-                                        tick = tick,
-                                        isPlaying = playing,
-                                        barIndex = barIndex,
-                                        totalBars = totalBars
-                                    )
-                                }
+                            onTickPosition = { tick, playing ->
                                 viewModel.updatePlaybackState(tick, playing)
+                            },
+                            onPlaybackProgress = { tick, playing, barIndex, bars ->
+                                viewModel.updatePlaybackState(tick, playing)
+                                viewModel.markScoreLoaded(bars)
+                                viewModel.updatePlaybackProgress(
+                                    lessonId = lesson.id,
+                                    lessonTitle = lesson.title,
+                                    tick = tick,
+                                    isPlaying = playing,
+                                    barIndex = barIndex,
+                                    totalBars = bars
+                                )
                             },
                             onScaleChange = { scale ->
                                 currentScale = scale
-                                uiState.lesson?.id?.let { tabScaleOverrides[it] = scale }
+                                tabScaleOverrides[lesson.id] = scale
                             },
                             onSilentModeChange = { silentMode = it },
                             onOpenAiAssistant = { showAiSheet = true },
@@ -433,6 +499,7 @@ fun TabViewerScreen(
                             onCompactTabsGenerated = { tabs -> viewModel.setCompactTabs(tabs) },
                             onTotalMeasuresLoaded = { measures ->
                                 totalMeasures = measures
+                                viewModel.markScoreLoaded(measures)
                                 if (loopEndMeasure == 1 && measures > 1) {
                                     loopEndMeasure = measures
                                 }
@@ -452,8 +519,7 @@ fun TabViewerScreen(
                             .padding(top = 16.dp, start = 8.dp, end = 8.dp)
                     )
 
-                    // ─── Analysis View (Practice Mode Only) ────
-                    androidx.compose.animation.AnimatedVisibility(visible = isPracticeMode) {
+                    androidx.compose.animation.AnimatedVisibility(visible = isPracticeMode && uiState.isScoreLoaded) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -484,7 +550,7 @@ fun TabViewerScreen(
                                 .background(MaterialTheme.colorScheme.surface)
                         ) {
                             AiAssistantScreen(
-                                lesson = uiState.lesson!!,
+                                lesson = lesson,
                                 viewModelFactory = viewModelFactory,
                                 asciiTab = uiState.asciiTab,
                                 compactTabs = uiState.compactTabs,
@@ -502,19 +568,19 @@ fun TabViewerScreen(
                     ) {
                         Box(modifier = Modifier.fillMaxHeight(0.95f).imePadding()) {
                             NotesScreen(
-                            audioNotes = uiState.audioNotes,
-                            textNotes = uiState.textNotes,
-                            isRecording = uiState.isRecording,
-                            playerState = uiState.playerState,
-                            onAddAudioNote = { uri -> viewModel.addAudioNoteFromFile(uiState.lesson!!.id, uri) },
-                            onRecordAudio = { viewModel.onRecordAudio(uiState.lesson!!.id) },
-                            onDeleteAudioNote = { id -> viewModel.deleteAudioNote(id) },
-                            onPlayAudio = { note -> viewModel.onPlayAudio(note) },
-                            onSeekAudio = { id, prog -> viewModel.onSeekAudio(id, prog) },
-                            onAddTextNote = { content -> viewModel.addTextNote(uiState.lesson!!.id, content) },
-                            onUpdateTextNote = { note -> viewModel.updateTextNote(note) },
-                            onDeleteTextNote = { note -> viewModel.deleteTextNote(note) }
-                        )
+                                audioNotes = uiState.audioNotes,
+                                textNotes = uiState.textNotes,
+                                isRecording = uiState.isRecording,
+                                playerState = uiState.playerState,
+                                onAddAudioNote = { uri -> viewModel.addAudioNoteFromFile(lesson.id, uri) },
+                                onRecordAudio = { viewModel.onRecordAudio(lesson.id) },
+                                onDeleteAudioNote = { id -> viewModel.deleteAudioNote(id) },
+                                onPlayAudio = { note -> viewModel.onPlayAudio(note) },
+                                onSeekAudio = { id, prog -> viewModel.onSeekAudio(id, prog) },
+                                onAddTextNote = { content -> viewModel.addTextNote(lesson.id, content) },
+                                onUpdateTextNote = { note -> viewModel.updateTextNote(note) },
+                                onDeleteTextNote = { note -> viewModel.deleteTextNote(note) }
+                            )
                         }
                     }
                 }
@@ -542,6 +608,29 @@ fun TabViewerScreen(
                     }
                 }
             }
+
+            if (lesson == null || !isDisplayUnlocked) {
+                TabViewerLoadingScreen(
+                    modifier = Modifier.matchParentSize()
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TabViewerLoadingScreen(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
         }
     }
 }
@@ -609,64 +698,14 @@ private fun TabViewer(
         com.example.thetest1.presentation.main.ThemeMode.LIGHT -> false
         com.example.thetest1.presentation.main.ThemeMode.SYSTEM -> isSystemDark
     }
-    val assetLoader = remember {
-        WebViewAssetLoader.Builder()
-            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
-            .build()
-    }
     val webEntry = remember(fileName) {
-        val webView = WebView(context).apply {
-            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-            setBackgroundColor(if (isDark) android.graphics.Color.parseColor("#1c1b1f") else android.graphics.Color.WHITE)
-
-            settings.apply {
-                javaScriptEnabled = true
-                domStorageEnabled = true
-                allowFileAccess = true
-                allowContentAccess = true
-                allowFileAccessFromFileURLs = true
-                allowUniversalAccessFromFileURLs = true
-                mediaPlaybackRequiresUserGesture = false
-            }
-
-            webChromeClient = object : WebChromeClient() {
-                override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
-                    val message = consoleMessage?.message().orEmpty()
-                    if (
-                        BuildConfig.DEBUG &&
-                        ENABLE_TAB_PERF_TRACE &&
-                        (
-                            message.startsWith("AlphaTabStatus:init") ||
-                                message.startsWith("AlphaTabStatus:initError") ||
-                                message.startsWith("AlphaTabStatus:apiNotReady") ||
-                                message.startsWith("AlphaTabStatus:error") ||
-                                message.startsWith("AlphaTabStatus:restore:")
-                            )
-                    ) {
-                        Log.d("WebViewConsole", message)
-                    }
-                    return true
-                }
-            }
-
-            webViewClient = object : WebViewClient() {
-                override fun shouldInterceptRequest(view: WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
-                    val url = request?.url ?: return null
-                    return assetLoader.shouldInterceptRequest(url)
-                }
-                override fun onPageFinished(view: WebView?, url: String?) {}
-            }
-        }
-        val bridge = TabJsBridge()
-        webView.addJavascriptInterface(bridge, "Android")
-        webView.loadUrl("https://appassets.androidplatform.net/assets/tab_viewer.html")
-        TabWebViewEntry(webView = webView, bridge = bridge)
+        createTabWebViewEntry(context)
     }
-    var isReady by remember(fileName) { mutableStateOf(false) }
+    var isReady by remember(fileName) { mutableStateOf(webEntry.jsReady) }
     var isScoreLoaded by remember(fileName) { mutableStateOf(false) }
     var showLoadingOverlay by remember(fileName) { mutableStateOf(true) }
     var totalBars by remember(fileName) { mutableStateOf(initialTotalBars) }
-    var loadedSourceForCurrentLesson by remember { mutableStateOf<String?>(null) }
+    var loadedSourceForCurrentLesson by remember(fileName) { mutableStateOf<String?>(null) }
     var loadRequestAtMs by remember { mutableStateOf(0L) }
     var jsReadyAtMs by remember { mutableStateOf(0L) }
     var showDisplaySheet by remember { mutableStateOf(false) }
@@ -684,6 +723,25 @@ private fun TabViewer(
     LaunchedEffect(webView) {
         runCatching {
             webView.onResume()
+        }
+    }
+
+    LaunchedEffect(fileName, webView) {
+        if (isReady) return@LaunchedEffect
+        repeat(20) {
+            if (isReady || webEntry.jsReady) {
+                isReady = true
+                return@LaunchedEffect
+            }
+            runCatching {
+                webView.evaluateJavascript("(function(){return window.__tabViewerReady===true;})()") { result ->
+                    if (result == "true") {
+                        webEntry.jsReady = true
+                        isReady = true
+                    }
+                }
+            }
+            delay(150)
         }
     }
 
@@ -715,7 +773,14 @@ private fun TabViewer(
         }
         bridge.onScoreLoadedCallback = { totalMeasuresInternal ->
             Handler(Looper.getMainLooper()).post {
+                if (totalMeasuresInternal <= 0) {
+                    if (ENABLE_TAB_PERF_TRACE) {
+                        Log.d(loadTag, "ignore non-final onScoreLoaded file=$fileName bars=$totalMeasuresInternal source=$loadedSourceForCurrentLesson")
+                    }
+                    return@post
+                }
                 isScoreLoaded = true
+                tabViewModel.markScoreLoaded(totalMeasuresInternal)
                 totalBars = totalMeasuresInternal
                 webEntry.loadedTotalMeasures = totalMeasuresInternal
                 webEntry.loadedFileName = fileName
@@ -796,15 +861,16 @@ private fun TabViewer(
             bridge.onTickPositionCallback = { _, _ -> }
             bridge.onPlaybackProgressCallback = { _, _, _ -> }
             bridge.onRestoreAppliedCallback = { _, _, _ -> }
-            webView.evaluateJavascript("window.stopAudio();", null)
-            runCatching {
-                webView.onPause()
-            }
+            runCatching { webView.evaluateJavascript("window.stopAudio();", null) }
+            runCatching { webView.stopLoading() }
+            runCatching { webView.loadUrl("about:blank") }
+            runCatching { (webView.parent as? ViewGroup)?.removeView(webView) }
             runCatching { webView.destroy() }
         }
     }
 
     LaunchedEffect(fileName) {
+        isReady = webEntry.jsReady
         val canReuseRendered =
             webEntry.jsReady &&
                 webEntry.loadedTotalMeasures > 0 &&
@@ -812,6 +878,7 @@ private fun TabViewer(
         if (canReuseRendered) {
             loadedSourceForCurrentLesson = "reused-webview"
             isScoreLoaded = true
+            tabViewModel.markScoreLoaded(webEntry.loadedTotalMeasures)
             isReady = true
             totalBars = webEntry.loadedTotalMeasures
             onTotalMeasuresLoaded(webEntry.loadedTotalMeasures)
@@ -821,6 +888,7 @@ private fun TabViewer(
         } else {
             loadedSourceForCurrentLesson = null
             isScoreLoaded = false
+            tabViewModel.markScoreLoading()
             if (ENABLE_TAB_PERF_TRACE) {
                 Log.d(
                     loadTag,
@@ -894,6 +962,7 @@ private fun TabViewer(
             webView.evaluateJavascript("window.initSettings($isDark, $isPracticeMode, $currentSpeed, $currentScale, '$modeStr');", null)
             if (loadedSourceForCurrentLesson == null) {
                 isScoreLoaded = false
+                tabViewModel.markScoreLoading()
                 // Read bytes directly from ViewModel volatile field — not via Compose state
                 if (soundFontReady && !webEntry.soundFontLoaded) {
                     val soundFont = tabViewModel.soundFontRef
@@ -1105,6 +1174,8 @@ private fun TabViewerViewport(
     onLoopGestureSelection: (Int, Int) -> Unit
 ) {
     Box(modifier = modifier) {
+        val shouldShowOverlay = showLoadingOverlay || (restorePending && !isReusedSession)
+
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -1116,6 +1187,8 @@ private fun TabViewerViewport(
                 AndroidView(
                     factory = {
                         (webView.parent as? ViewGroup)?.removeView(webView)
+                        webView.animate().cancel()
+                        webView.alpha = if (shouldShowOverlay) 0f else 1f
                         webView
                     },
                     modifier = Modifier
@@ -1125,6 +1198,16 @@ private fun TabViewerViewport(
                         },
                     update = { view ->
                         view.setBackgroundColor(if (isDark) android.graphics.Color.parseColor("#1c1b1f") else android.graphics.Color.WHITE)
+                        val targetVisible = !shouldShowOverlay
+                        if (targetVisible) {
+                            if (view.alpha != 1f) {
+                                view.animate().cancel()
+                                view.animate().alpha(1f).setDuration(140L).start()
+                            }
+                        } else {
+                            view.animate().cancel()
+                            view.alpha = 0f
+                        }
                     }
                 )
 
@@ -1169,17 +1252,6 @@ private fun TabViewerViewport(
                     }
                 }
 
-                val shouldShowOverlay = showLoadingOverlay || (restorePending && !isReusedSession)
-                if (shouldShowOverlay) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(if (isDark) Color(0xFF1C1B1F) else Color.White),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                    }
-                }
             }
 
             Box(
@@ -1187,45 +1259,47 @@ private fun TabViewerViewport(
                     .fillMaxWidth()
                     .height(56.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .onGloballyPositioned { coords ->
-                            onControlsYChanged(coords.boundsInRoot().top.toInt())
-                        }
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Start
-                ) {
-                    RoundControlButton(
-                        onClick = { if (controlsVisible) onPlayPause() },
-                        icon = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
-                        backgroundColor = MaterialTheme.colorScheme.primaryContainer,
-                        iconTint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-
+                if (controlsVisible) {
                     Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .padding(start = 12.dp),
+                            .fillMaxWidth()
+                            .onGloballyPositioned { coords ->
+                                onControlsYChanged(coords.boundsInRoot().top.toInt())
+                            }
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.Start
                     ) {
                         RoundControlButton(
-                            onClick = { if (controlsVisible) onOpenDisplaySheet() },
-                            icon = Icons.Filled.Visibility,
-                            contentDescription = stringResource(R.string.display_controls),
-                            backgroundColor = MaterialTheme.colorScheme.secondaryContainer,
-                            iconTint = MaterialTheme.colorScheme.onSecondaryContainer
+                            onClick = onPlayPause,
+                            icon = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                            contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
+                            backgroundColor = MaterialTheme.colorScheme.primaryContainer,
+                            iconTint = MaterialTheme.colorScheme.onPrimaryContainer
                         )
-                        RoundControlButton(
-                            onClick = { if (controlsVisible) onOpenLearningSheet() },
-                            icon = Icons.Filled.School,
-                            contentDescription = stringResource(R.string.learning_controls),
-                            backgroundColor = MaterialTheme.colorScheme.tertiaryContainer,
-                            iconTint = MaterialTheme.colorScheme.onTertiaryContainer
-                        )
+
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            RoundControlButton(
+                                onClick = onOpenDisplaySheet,
+                                icon = Icons.Filled.Visibility,
+                                contentDescription = stringResource(R.string.display_controls),
+                                backgroundColor = MaterialTheme.colorScheme.secondaryContainer,
+                                iconTint = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            RoundControlButton(
+                                onClick = onOpenLearningSheet,
+                                icon = Icons.Filled.School,
+                                contentDescription = stringResource(R.string.learning_controls),
+                                backgroundColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                iconTint = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
                     }
                 }
             }

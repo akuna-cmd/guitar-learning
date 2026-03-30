@@ -3,6 +3,7 @@ package com.example.thetest1.presentation.tab_list
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,6 +46,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -54,6 +56,7 @@ import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.domain.model.Difficulty
 import com.example.thetest1.domain.model.TabItem
 import com.example.thetest1.presentation.common.WebViewWarmup
+import com.example.thetest1.presentation.ui.theme.appBlockBorder
 import com.example.thetest1.presentation.util.formatDuration
 import kotlinx.coroutines.delay
 
@@ -181,7 +184,8 @@ fun TabListScreen(
                     value = newFolderFromFab,
                     onValueChange = { newFolderFromFab = it },
                     label = { Text("Назва папки") },
-                    singleLine = true
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp)
                 )
             },
             confirmButton = {
@@ -235,7 +239,8 @@ private fun UserTabsScreen(
                 OutlinedTextField(
                     value = newTabName,
                     onValueChange = { newTabName = it },
-                    label = { Text(stringResource(R.string.new_name)) }
+                    label = { Text(stringResource(R.string.new_name)) },
+                    shape = RoundedCornerShape(16.dp)
                 )
             },
             confirmButton = {
@@ -307,7 +312,8 @@ private fun UserTabsScreen(
                         value = newFolderName,
                         onValueChange = { newFolderName = it },
                         label = { Text("Нова папка") },
-                        singleLine = true
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp)
                     )
                 }
             },
@@ -394,7 +400,8 @@ private fun UserTabsScreen(
                     value = renameFolderValue,
                     onValueChange = { renameFolderValue = it },
                     label = { Text("Нова назва папки") },
-                    singleLine = true
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp)
                 )
             },
             confirmButton = {
@@ -477,6 +484,7 @@ private fun UserTabsScreen(
                         modifier = Modifier
                             .menuAnchor()
                             .fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
                         leadingIcon = { Icon(Icons.Default.Folder, contentDescription = null) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = folderMenuExpanded) }
                     )
@@ -525,11 +533,11 @@ private fun UserTabsScreen(
 
             items(uiState.filteredUserTabs, key = { it.id }) { tab ->
                 val progress = if (uiState.areMetricsLoading) null else (uiState.progressByTabId[tab.id] ?: 0)
-                val lastDuration = uiState.lastSessionDurationByTabId[tab.id]
                 ElevatedCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp)
+                        .border(appBlockBorder(), RoundedCornerShape(16.dp))
                         .clickable {
                             viewModel.markTabOpened(tab.id)
                             onTabClick(tab.id)
@@ -587,31 +595,39 @@ private fun UserTabsScreen(
                             }
                         }
                         Spacer(modifier = Modifier.height(6.dp))
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.secondaryContainer
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            Surface(
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(14.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Folder,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                                Text(
-                                    text = uiState.displayFolder(tab),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Folder,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Text(
+                                        text = uiState.displayFolder(tab),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
+                            TabProgressBadge(progressPercent = progress)
                         }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        TabMetricsRow(progressPercent = progress, lastSessionDuration = lastDuration)
                     }
                 }
             }
@@ -676,15 +692,15 @@ private fun LessonsScreen(
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(uiState.filteredTabs, key = { it.id }) { tab ->
                     val progress = if (uiState.areMetricsLoading) null else (uiState.progressByTabId[tab.id] ?: 0)
-                    val lastDuration = uiState.lastSessionDurationByTabId[tab.id]
                     ElevatedCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 4.dp)
+                            .border(appBlockBorder(), RoundedCornerShape(16.dp))
                             .clickable {
                                 viewModel.markTabOpened(tab.id)
                                 onTabClick(tab.id)
-                            },
+                            }
                     ) {
                         Row(
                             modifier = Modifier
@@ -705,10 +721,7 @@ private fun LessonsScreen(
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
-                                TabMetricsRow(
-                                    progressPercent = progress,
-                                    lastSessionDuration = lastDuration
-                                )
+                                TabProgressBadge(progressPercent = progress)
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 IconButton(onClick = { viewModel.toggleCompleted(tab.id) }) {
@@ -728,46 +741,31 @@ private fun LessonsScreen(
 }
 
 @Composable
-private fun TabMetricsRow(
+private fun TabProgressBadge(
     progressPercent: Int?,
-    lastSessionDuration: Long?
+    modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.tertiaryContainer
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Default.Timer,
-                contentDescription = stringResource(R.string.last_session_label),
-                modifier = Modifier.size(14.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = stringResource(
-                    R.string.last_session_value,
-                    stringResource(R.string.last_session_label),
-                    lastSessionDuration?.let { formatDuration(it) } ?: stringResource(R.string.no_data)
-                ),
-                style = MaterialTheme.typography.labelMedium
-            )
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
             Icon(
                 imageVector = Icons.Default.MusicNote,
                 contentDescription = stringResource(R.string.tab_progress_label),
-                modifier = Modifier.size(14.dp)
+                modifier = Modifier.size(14.dp),
+                tint = MaterialTheme.colorScheme.onTertiaryContainer
             )
-            Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = progressPercent?.let {
-                    stringResource(
-                        R.string.tab_progress_value,
-                        stringResource(R.string.tab_progress_label),
-                        it
-                    )
-                } ?: "${stringResource(R.string.tab_progress_label)}: --",
-                style = MaterialTheme.typography.labelMedium
+                text = progressPercent?.let { "$it%" } ?: "--",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onTertiaryContainer
             )
         }
     }
@@ -783,7 +781,9 @@ private fun EmptyTabsState(onAddFirstTab: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(appBlockBorder(), RoundedCornerShape(16.dp))
         ) {
             Column(
                 modifier = Modifier

@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.example.thetest1.R
 import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.domain.model.Session
+import com.example.thetest1.presentation.ui.theme.appBlockBorder
 import com.example.thetest1.presentation.util.formatDuration
 import kotlinx.coroutines.flow.StateFlow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -47,7 +48,6 @@ import androidx.compose.runtime.getValue
 import java.text.SimpleDateFormat
 import java.util.Locale
 import kotlin.math.roundToInt
-import androidx.compose.foundation.BorderStroke
 
 @Composable
 fun HomeScreen(
@@ -139,7 +139,7 @@ fun ContinueLearningCard(
         elevation = CardDefaults.elevatedCardElevation(),
         colors = CardDefaults.elevatedCardColors(),
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        border = appBlockBorder()
     ) {
         Column(
             modifier = Modifier
@@ -219,7 +219,7 @@ private fun StatTimeCard(totalSessionTime: Long, modifier: Modifier = Modifier) 
         elevation = CardDefaults.elevatedCardElevation(),
         colors = CardDefaults.elevatedCardColors(),
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        border = appBlockBorder()
     ) {
         Column(
             modifier = Modifier
@@ -255,7 +255,7 @@ private fun LessonsProgressCard(
         elevation = CardDefaults.elevatedCardElevation(),
         colors = CardDefaults.elevatedCardColors(),
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        border = appBlockBorder()
     ) {
         Column(
             modifier = Modifier
@@ -293,7 +293,7 @@ fun MyTabsSummaryCard(userTabsCount: Int) {
         elevation = CardDefaults.elevatedCardElevation(),
         colors = CardDefaults.elevatedCardColors(),
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        border = appBlockBorder()
     ) {
         Row(
             modifier = Modifier
@@ -329,7 +329,7 @@ fun SessionItem(session: Session) {
         elevation = CardDefaults.elevatedCardElevation(),
         colors = CardDefaults.elevatedCardColors(),
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        border = appBlockBorder()
     ) {
         Column(
             modifier = Modifier.padding(16.dp),

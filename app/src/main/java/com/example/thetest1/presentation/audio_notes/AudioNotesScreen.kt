@@ -36,6 +36,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.thetest1.R
 import com.example.thetest1.domain.model.AudioNote
+import com.example.thetest1.presentation.ui.theme.appBlockBorder
 import com.example.thetest1.presentation.util.formatDurationShort
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -148,6 +149,8 @@ private fun AudioNoteItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
+        ,
+        border = appBlockBorder()
     ) {
         Column(
             modifier = Modifier.padding(16.dp)

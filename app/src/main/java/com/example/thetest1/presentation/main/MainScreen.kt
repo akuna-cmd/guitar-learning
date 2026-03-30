@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.thetest1.R
 import com.example.thetest1.di.ViewModelFactory
+import com.example.thetest1.presentation.ui.theme.appBlockBorder
 import com.example.thetest1.presentation.util.formatDuration
 
 @Composable
@@ -59,7 +60,8 @@ fun ProfileStats(totalSessionTime: Long, lessonsCompleted: Int, totalLessons: In
 fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier,
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        border = appBlockBorder()
     ) {
         Column(
             modifier = Modifier
@@ -87,7 +89,8 @@ fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
 fun ActivityCard(viewModelFactory: ViewModelFactory, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        border = appBlockBorder()
     ) {
         Column(
             modifier = Modifier

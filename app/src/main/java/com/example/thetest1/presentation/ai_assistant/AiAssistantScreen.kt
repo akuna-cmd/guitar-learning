@@ -51,6 +51,7 @@ import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.domain.model.Lesson
 import com.example.thetest1.presentation.common.asString
 import com.example.thetest1.presentation.components.MarkdownView
+import com.example.thetest1.presentation.ui.theme.appBlockBorder
 
 private const val MeasurePrefix = "Measure "
 
@@ -150,6 +151,7 @@ fun AiAssistantScreen(
         Card(
             shape = RoundedCornerShape(24.dp),
             elevation = CardDefaults.cardElevation(4.dp),
+            border = appBlockBorder(),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 8.dp)

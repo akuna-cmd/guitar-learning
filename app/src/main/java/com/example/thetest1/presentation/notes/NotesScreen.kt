@@ -56,6 +56,7 @@ import com.example.thetest1.R
 import com.example.thetest1.domain.model.AudioNote
 import com.example.thetest1.domain.model.TextNote
 import com.example.thetest1.presentation.audio_notes.PlayerState
+import com.example.thetest1.presentation.ui.theme.appBlockBorder
 import com.example.thetest1.presentation.util.formatDurationShort
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -253,6 +254,8 @@ private fun AudioNoteItem(
 
     Card(
         modifier = Modifier.fillMaxWidth()
+        ,
+        border = appBlockBorder()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -335,6 +338,8 @@ private fun TextNoteItem(
 
     Card(
         modifier = Modifier.fillMaxWidth()
+        ,
+        border = appBlockBorder()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             if (isEditing) {

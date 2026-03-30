@@ -38,6 +38,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.security.MessageDigest
 import java.util.Date
@@ -175,14 +176,24 @@ class TabViewerViewModel(
         private set
 
     fun loadLesson(id: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            // Parallelize all 3 DB queries
-            val (lesson, tabItem, savedProgress) = coroutineScope {
-                val l = async { getLessonUseCase(id) }
-                val t = async { getTabItemUseCase(id) }
-                val p = async { getTabPlaybackProgressUseCase(id) }
-                Triple(l.await(), t.await(), p.await())
+        val soundFontAlreadyReady = _uiState.value.soundFontReady
+        _uiState.value = TabViewerUiState(soundFontReady = soundFontAlreadyReady)
+        _lastTickPosition.value = null
+        _lastBarIndex.value = null
+
+        viewModelScope.launch {
+            val payload = withContext(Dispatchers.IO) {
+                // Parallelize all 3 DB queries
+                val (lesson, tabItem, savedProgress) = coroutineScope {
+                    val l = async { getLessonUseCase(id) }
+                    val t = async { getTabItemUseCase(id) }
+                    val p = async { getTabPlaybackProgressUseCase(id) }
+                    Triple(l.await(), t.await(), p.await())
+                }
+                Triple(lesson, tabItem, savedProgress)
             }
+
+            val (lesson, tabItem, savedProgress) = payload
             val savedBar = savedProgress?.lastBarIndex ?: 0
             val savedTick = savedProgress?.lastTick ?: 0L
             val shouldRestore = savedBar > 1 || savedTick > 1L
@@ -244,6 +255,22 @@ class TabViewerViewModel(
                     }
                 }
             }
+        }
+    }
+
+    fun markScoreLoading() {
+        _uiState.update { state ->
+            if (!state.isScoreLoaded) state else state.copy(isScoreLoaded = false)
+        }
+    }
+
+    fun markScoreLoaded(totalBars: Int) {
+        if (totalBars <= 0) return
+        _uiState.update { state ->
+            state.copy(
+                isScoreLoaded = true,
+                totalBars = totalBars
+            )
         }
     }
 

@@ -1,5 +1,6 @@
 package com.example.thetest1.presentation.goals
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
@@ -52,6 +54,7 @@ import com.example.thetest1.R
 import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.domain.model.Goal
 import com.example.thetest1.domain.model.GoalType
+import com.example.thetest1.presentation.ui.theme.appBlockBorder
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -150,7 +153,11 @@ private fun EmptyGoalsState(
         modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
-        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        ElevatedCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(appBlockBorder(), RoundedCornerShape(16.dp))
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -186,7 +193,9 @@ fun GoalItem(goal: Goal, onDelete: () -> Unit, onToggle: () -> Unit, onEdit: () 
     var showMenu by remember { mutableStateOf(false) }
 
     ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(appBlockBorder(), RoundedCornerShape(16.dp))
     ) {
         Row(
             modifier = Modifier.padding(16.dp),

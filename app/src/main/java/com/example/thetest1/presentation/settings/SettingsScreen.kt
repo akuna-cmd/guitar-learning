@@ -44,6 +44,7 @@ import com.example.thetest1.presentation.main.ThemeMode
 import com.example.thetest1.presentation.main.ThemeViewModel
 import com.example.thetest1.presentation.main.TabDisplayMode
 import com.example.thetest1.presentation.main.FretboardDisplayMode
+import com.example.thetest1.presentation.ui.theme.appBlockBorder
 import java.text.DateFormat
 import java.util.Date
 
@@ -301,7 +302,8 @@ private fun ProfileCard(
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = appBlockBorder()
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(24.dp),
@@ -400,7 +402,8 @@ private fun AuthCard(
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        border = appBlockBorder()
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
 
@@ -506,10 +509,11 @@ private fun AuthCard(
 
                 // ── Error ─────────────────────────────────────────
                 if (error != null) {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+            shape = RoundedCornerShape(8.dp),
+            border = appBlockBorder()
+        ) {
                         Text(
                             text = error,
                             color = MaterialTheme.colorScheme.onErrorContainer,
@@ -598,7 +602,8 @@ fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) 
         )
         Card(
             shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+            border = appBlockBorder()
         ) {
             Column(content = content)
         }

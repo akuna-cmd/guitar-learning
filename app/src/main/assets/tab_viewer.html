@@ -655,7 +655,10 @@ let _metronomeEnabled=false, _metronomeBpm=90, _metronomeTimer=null, _metronomeC
 let _silentMode=false;
 let _restoreLock=false;
 
-function signalReady(){if(window.Android?.onJsReady)window.Android.onJsReady();else setTimeout(signalReady,100);}
+function signalReady(){
+    window.__tabViewerReady = true;
+    if(window.Android?.onJsReady)window.Android.onJsReady();else setTimeout(signalReady,100);
+}
 function stopMetronome(){
     if(_metronomeTimer!=null){
         clearInterval(_metronomeTimer);
@@ -1116,34 +1119,20 @@ window.loadTab=(path)=>{
     if(!ensureApi()){
         postStatus('apiNotReady');
         _pendingTabPath = path;
-        if(window.Android?.onScoreLoaded){ window.Android.onScoreLoaded(0); }
         return;
     }
     _scoreLoadedFired = false;
     api.load(path.startsWith('/')?'file://'+path:path);
-    setTimeout(()=>{
-        if(!_scoreLoadedFired && window.Android?.onScoreLoaded){
-            const totalMeasures = api?.score?.masterBars ? api.score.masterBars.length : 0;
-            window.Android.onScoreLoaded(totalMeasures);
-        }
-    }, 3000);
 };
 window.loadTabFromBase64=(base64)=>{
     if(!ensureApi()){
         postStatus('apiNotReady');
         _pendingTabBase64 = base64;
-        if(window.Android?.onScoreLoaded){ window.Android.onScoreLoaded(0); }
         return;
     }
     _scoreLoadedFired = false;
     const bytes = base64ToUint8Array(base64);
     api.load(bytes);
-    setTimeout(()=>{
-        if(!_scoreLoadedFired && window.Android?.onScoreLoaded){
-            const totalMeasures = api?.score?.masterBars ? api.score.masterBars.length : 0;
-            window.Android.onScoreLoaded(totalMeasures);
-        }
-    }, 3000);
 };
 function tryResumeAudio(){
     try{

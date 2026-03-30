@@ -41,7 +41,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.drawText
@@ -50,6 +52,7 @@ import androidx.compose.ui.input.pointer.consumePositionChange
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import com.example.thetest1.presentation.main.FretboardDisplayMode
 import kotlinx.coroutines.launch
 import kotlin.math.max
@@ -454,14 +457,20 @@ fun GuitarFretboard(
                             Box(
                                 modifier = Modifier
                                     .size(18.dp)
-                                    .background(scheme.primary.copy(alpha = 0.14f), RoundedCornerShape(9.dp)),
+                                    .background(scheme.primary.copy(alpha = 0.14f), CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = hiddenHintCount.toString(),
                                     color = scheme.primary,
                                     fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        platformStyle = PlatformTextStyle(includeFontPadding = false)
+                                    )
                                 )
                             }
                         }
