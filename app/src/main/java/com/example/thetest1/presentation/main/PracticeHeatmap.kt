@@ -11,9 +11,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.Icon
@@ -34,6 +34,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.thetest1.R
 import com.example.thetest1.di.ViewModelFactory
+import com.example.thetest1.presentation.ui.theme.appBlockBorder
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -60,15 +61,9 @@ fun Heatmap(activityData: Map<Date, Int>) {
         calendar.time.also { calendar.add(Calendar.DAY_OF_YEAR, 1) }
     }
     val todayStart = getStartOfDay(Date())
+    val dayShape = RoundedCornerShape(16.dp)
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = stringResource(id = R.string.activity_streaks_title),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-            modifier = Modifier.align(Alignment.Start)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceAround
@@ -102,16 +97,16 @@ fun Heatmap(activityData: Map<Date, Int>) {
                     modifier = Modifier
                         .weight(1f)
                         .aspectRatio(1f)
-                        .clip(CircleShape)
+                        .clip(dayShape)
                         .background(color)
                         .then(
                             if (isToday) {
                                 Modifier.border(
-                                    BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
-                                    CircleShape
+                                    BorderStroke(1.4.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)),
+                                    dayShape
                                 )
                             } else {
-                                Modifier
+                                Modifier.border(appBlockBorder(), dayShape)
                             }
                         ),
                     contentAlignment = Alignment.Center

@@ -76,7 +76,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -293,10 +292,7 @@ private data class TabViewerHandlers(
     val onAsciiTabGenerated: (String) -> Unit,
     val onTabAnalysis: (String) -> Unit,
     val onCompactTabsGenerated: (String) -> Unit,
-    val onTotalMeasuresLoaded: (Int) -> Unit,
-    val onLoopRangeChangedFromGesture: (Int, Int) -> Unit,
-    val isLoopGestureSelectionArmed: Boolean,
-    val onLoopGestureSelectionDone: () -> Unit
+    val onTotalMeasuresLoaded: (Int) -> Unit
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -355,7 +351,6 @@ fun TabViewerScreen(
     var loopStartMeasure by remember { mutableStateOf(1) }
     var loopEndMeasure by remember { mutableStateOf(1) }
     var isLoopEnabled by remember { mutableStateOf(false) }
-    var isLoopGestureSelectionArmed by remember { mutableStateOf(false) }
     var silentMode by remember { mutableStateOf(false) }
     val aiSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val notesSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -502,14 +497,7 @@ fun TabViewerScreen(
                                 if (loopEndMeasure == 1 && measures > 1) {
                                     loopEndMeasure = measures
                                 }
-                            },
-                            onLoopRangeChangedFromGesture = { start, end ->
-                                loopStartMeasure = start
-                                loopEndMeasure = end
-                                isLoopEnabled = true
-                            },
-                            isLoopGestureSelectionArmed = isLoopGestureSelectionArmed,
-                            onLoopGestureSelectionDone = { isLoopGestureSelectionArmed = false }
+                            }
                         ),
                         tabViewModel = viewModel,
                         modifier = Modifier
@@ -597,11 +585,7 @@ fun TabViewerScreen(
                                 isLoopEnabled = isLoopEnabled,
                                 onStartChange = { loopStartMeasure = it },
                                 onEndChange = { loopEndMeasure = it },
-                                onToggleLoop = { isLoopEnabled = it },
-                                onPickRangeOnScore = {
-                                    isLoopGestureSelectionArmed = true
-                                    showLoopSheet = false
-                                }
+                                onToggleLoop = { isLoopEnabled = it }
                             )
                         }
                     }
@@ -680,9 +664,6 @@ private fun TabViewer(
     val onTabAnalysis = handlers.onTabAnalysis
     val onCompactTabsGenerated = handlers.onCompactTabsGenerated
     val onTotalMeasuresLoaded = handlers.onTotalMeasuresLoaded
-    val onLoopRangeChangedFromGesture = handlers.onLoopRangeChangedFromGesture
-    val isLoopGestureSelectionArmed = handlers.isLoopGestureSelectionArmed
-    val onLoopGestureSelectionDone = handlers.onLoopGestureSelectionDone
 
     val restoreTag = "TabRestoreFlow"
     val loadTag = "TabLoadPerf"
@@ -1116,12 +1097,7 @@ private fun TabViewer(
             }
             lastControlsY = currentY
         },
-        totalBars = totalBars.coerceAtLeast(1),
-        isLoopGestureSelectionArmed = isLoopGestureSelectionArmed,
-        onLoopGestureSelection = { start, end ->
-            onLoopRangeChangedFromGesture(start, end)
-            onLoopGestureSelectionDone()
-        }
+        totalBars = totalBars.coerceAtLeast(1)
     )
 
     TabViewerSheets(
@@ -1168,9 +1144,7 @@ private fun TabViewerViewport(
     onOpenLearningSheet: () -> Unit,
     onWebYChanged: (Int) -> Unit,
     onControlsYChanged: (Int) -> Unit,
-    totalBars: Int,
-    isLoopGestureSelectionArmed: Boolean,
-    onLoopGestureSelection: (Int, Int) -> Unit
+    totalBars: Int
 ) {
     Box(modifier = modifier) {
         val shouldShowOverlay = showLoadingOverlay || (restorePending && !isReusedSession)
@@ -1209,47 +1183,6 @@ private fun TabViewerViewport(
                         }
                     }
                 )
-
-                if (isLoopGestureSelectionArmed) {
-                    var firstPointMeasure by remember { mutableStateOf<Int?>(null) }
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
-                            .pointerInput(totalBars) {
-                                detectTapGestures { offset ->
-                                    if (size.width <= 0f) return@detectTapGestures
-                                    val tappedMeasure = (((offset.x / size.width) * totalBars).toInt() + 1)
-                                        .coerceIn(1, totalBars)
-                                    val first = firstPointMeasure
-                                    if (first == null) {
-                                        firstPointMeasure = tappedMeasure
-                                    } else {
-                                        onLoopGestureSelection(
-                                            minOf(first, tappedMeasure),
-                                            maxOf(first, tappedMeasure)
-                                        )
-                                        firstPointMeasure = null
-                                    }
-                                }
-                            },
-                        contentAlignment = Alignment.TopCenter
-                    ) {
-                        Text(
-                            text = if (firstPointMeasure == null) {
-                                "Точка 1: тапни перший такт"
-                            } else {
-                                "Точка 2: тапни останній такт (від ${firstPointMeasure})"
-                            },
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier
-                                .padding(top = 10.dp)
-                                .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(10.dp))
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        )
-                    }
-                }
 
             }
 
@@ -1705,8 +1638,7 @@ private fun LoopConfigurator(
     isLoopEnabled: Boolean,
     onStartChange: (Int) -> Unit,
     onEndChange: (Int) -> Unit,
-    onToggleLoop: (Boolean) -> Unit,
-    onPickRangeOnScore: () -> Unit
+    onToggleLoop: (Boolean) -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
@@ -1726,12 +1658,6 @@ private fun LoopConfigurator(
             )
         }
         Spacer(Modifier.height(16.dp))
-        AssistChip(
-            onClick = onPickRangeOnScore,
-            label = { Text("Виділити пальцем на табах") },
-            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
-        )
-        Spacer(Modifier.height(12.dp))
         Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             androidx.compose.material3.Text("Початковий такт: $startMeasure", fontWeight = FontWeight.Bold)
             androidx.compose.material3.Slider(
