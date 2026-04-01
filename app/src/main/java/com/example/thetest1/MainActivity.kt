@@ -174,12 +174,29 @@ fun MainScreen(
                                 modifier = Modifier.weight(1f),
                                 onClick = {
                                     if (!isSelected) {
-                                        navController.navigate(screen.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) {
-                                                saveState = true
+                                        if (screen.route == BottomNavItem.Main.route) {
+                                            mainViewModel.consumeContinueLesson()
+                                            val poppedToMain = navController.popBackStack(
+                                                BottomNavItem.Main.route,
+                                                inclusive = false
+                                            )
+                                            if (!poppedToMain) {
+                                                navController.navigate(screen.route) {
+                                                    popUpTo(navController.graph.findStartDestination().id) {
+                                                        saveState = true
+                                                    }
+                                                    restoreState = true
+                                                    launchSingleTop = true
+                                                }
                                             }
-                                            restoreState = true
-                                            launchSingleTop = true
+                                        } else {
+                                            navController.navigate(screen.route) {
+                                                popUpTo(navController.graph.findStartDestination().id) {
+                                                    saveState = true
+                                                }
+                                                restoreState = true
+                                                launchSingleTop = true
+                                            }
                                         }
                                     }
                                 }
