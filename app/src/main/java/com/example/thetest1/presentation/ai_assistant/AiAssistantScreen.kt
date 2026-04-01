@@ -49,8 +49,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.thetest1.R
 import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.domain.model.Lesson
-import com.example.thetest1.presentation.common.asString
-import com.example.thetest1.presentation.components.MarkdownView
+import com.example.thetest1.presentation.ui.MarkdownView
+import com.example.thetest1.presentation.ui.asString
 import com.example.thetest1.presentation.ui.theme.appBlockBorder
 
 private const val MeasurePrefix = "Measure "

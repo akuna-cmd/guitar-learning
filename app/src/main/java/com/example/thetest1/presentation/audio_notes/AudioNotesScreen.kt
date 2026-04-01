@@ -37,7 +37,7 @@ import androidx.compose.ui.unit.dp
 import com.example.thetest1.R
 import com.example.thetest1.domain.model.AudioNote
 import com.example.thetest1.presentation.ui.theme.appBlockBorder
-import com.example.thetest1.presentation.util.formatDurationShort
+import com.example.thetest1.presentation.ui.formatDurationShort
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState

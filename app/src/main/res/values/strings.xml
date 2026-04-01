@@ -82,6 +82,8 @@
     <string name="user_tab_default_name">Таб користувача %1$s</string>
     <string name="user_tab_description">Користувацька табулатура</string>
     <string name="user_tab_ascii_placeholder">ASCII таби для %1$s</string>
+    <string name="user_tab_invalid_format">Непідтримуваний формат файлу. Доступні лише Guitar Pro файли: %1$s</string>
+    <string name="user_tab_open_failed">Не вдалося прочитати вибраний файл. Спробуйте інший Guitar Pro файл.</string>
     <string name="settings">Налаштування</string>
     <string name="settings_theme_title">Тема застосунку</string>
     <string name="settings_theme_system">Системна</string>
@@ -151,6 +153,7 @@
     <string name="metronome_bpm">%1$d BPM</string>
     <string name="metronome_increase">Збільшити BPM</string>
     <string name="metronome_decrease">Зменшити BPM</string>
+    <string name="ok">OK</string>
     <string-array name="week_days">
         <item>Нд</item>
         <item>Пн</item>

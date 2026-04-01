@@ -1,4 +1,4 @@
-package com.example.thetest1.presentation.components
+package com.example.thetest1.presentation.ui
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text

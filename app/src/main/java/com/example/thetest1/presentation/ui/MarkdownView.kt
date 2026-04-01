@@ -1,4 +1,4 @@
-package com.example.thetest1.presentation.components
+package com.example.thetest1.presentation.ui
 
 import android.util.TypedValue
 import android.widget.TextView

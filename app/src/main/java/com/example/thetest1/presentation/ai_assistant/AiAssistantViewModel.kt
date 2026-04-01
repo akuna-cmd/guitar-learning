@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.thetest1.R
 import com.example.thetest1.domain.model.AiAssistantRequest
 import com.example.thetest1.domain.usecase.AskAiAssistantUseCase
-import com.example.thetest1.presentation.common.UiText
+import com.example.thetest1.presentation.ui.UiText
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

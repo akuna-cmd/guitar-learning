@@ -49,8 +49,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.thetest1.di.ViewModelFactory
-import com.example.thetest1.presentation.common.AppBar
-import com.example.thetest1.presentation.common.WebViewWarmup
 import com.example.thetest1.presentation.goals.GoalsScreen
 import com.example.thetest1.presentation.main.HomeScreen
 import com.example.thetest1.presentation.main.MainViewModel
@@ -58,6 +56,8 @@ import com.example.thetest1.presentation.main.ThemeViewModel
 import com.example.thetest1.presentation.navigation.BottomNavItem
 import com.example.thetest1.presentation.navigation.lessonsNavGraph
 import com.example.thetest1.presentation.settings.SettingsScreen
+import com.example.thetest1.presentation.ui.AppBar
+import com.example.thetest1.presentation.ui.WebViewWarmup
 import com.example.thetest1.presentation.ui.theme.TheTest1Theme
 import kotlinx.coroutines.delay
 

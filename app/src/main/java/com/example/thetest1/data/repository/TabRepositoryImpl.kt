@@ -28,7 +28,8 @@ class TabRepositoryImpl(
 ) : TabRepository {
 
     private companion object {
-        const val UserTabFileExtension = "gp"
+        const val DefaultUserTabFileExtension = "gp"
+        val SupportedUserTabExtensions = setOf("gp", "gp3", "gp4", "gp5", "gpx")
     }
 
     private val lessonsFromJson: List<Lesson> by lazy {
@@ -121,14 +122,31 @@ class TabRepositoryImpl(
 
     override suspend fun addUserTab(uriString: String) {
         val uri = Uri.parse(uriString)
+        val displayName = getDisplayName(uri)
+        val extension = displayName
+            ?.substringAfterLast('.', "")
+            ?.lowercase()
+            ?.takeIf { it.isNotBlank() }
+            ?: DefaultUserTabFileExtension
+
+        require(extension in SupportedUserTabExtensions) {
+            context.getString(
+                R.string.user_tab_invalid_format,
+                SupportedUserTabExtensions.joinToString(", ") { ".$it" }
+            )
+        }
+
         val fileName = getFileName(uri) ?: context.getString(
             R.string.user_tab_default_name,
             UUID.randomUUID().toString()
         )
-        val file = File(context.filesDir, "${UUID.randomUUID()}.$UserTabFileExtension")
-        context.contentResolver.openInputStream(uri)?.use { inputStream ->
+        val file = File(context.filesDir, "${UUID.randomUUID()}.$extension")
+        val inputStream = context.contentResolver.openInputStream(uri)
+            ?: throw IllegalArgumentException(context.getString(R.string.user_tab_open_failed))
+
+        inputStream.use { stream ->
             FileOutputStream(file).use { outputStream ->
-                inputStream.copyTo(outputStream)
+                stream.copyTo(outputStream)
             }
         }
 
@@ -223,7 +241,7 @@ class TabRepositoryImpl(
         tabDao.deleteAllTabs()
     }
 
-    private fun getFileName(uri: Uri): String? {
+    private fun getDisplayName(uri: Uri): String? {
         var result: String? = null
         if (uri.scheme == "content") {
             val cursor = context.contentResolver.query(uri, null, null, null, null)
@@ -247,6 +265,10 @@ class TabRepositoryImpl(
                 }
             }
         }
-        return result?.substringBeforeLast('.')
+        return result
+    }
+
+    private fun getFileName(uri: Uri): String? {
+        return getDisplayName(uri)?.substringBeforeLast('.')
     }
 }

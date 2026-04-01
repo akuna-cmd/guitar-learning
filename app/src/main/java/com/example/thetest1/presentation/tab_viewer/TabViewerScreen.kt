@@ -114,7 +114,6 @@ import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.presentation.ai_assistant.AiAssistantScreen
 import com.example.thetest1.presentation.main.MainViewModel
 import com.example.thetest1.presentation.notes.NotesScreen
-import com.example.thetest1.presentation.theory.TheoryScreen
 import com.example.thetest1.presentation.main.ThemeViewModel
 import com.example.thetest1.presentation.main.TabDisplayMode
 import com.example.thetest1.presentation.main.ThemeUiState

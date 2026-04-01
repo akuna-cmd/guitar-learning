@@ -1,4 +1,4 @@
-package com.example.thetest1.presentation.common
+package com.example.thetest1.presentation.ui
 
 import android.content.Context
 import android.webkit.WebView

@@ -1,4 +1,4 @@
-package com.example.thetest1.presentation.theory
+package com.example.thetest1.presentation.tab_viewer
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -7,7 +7,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.thetest1.presentation.components.MarkdownView
+import com.example.thetest1.presentation.ui.MarkdownView
 
 @Composable
 fun TheoryScreen(text: String) {

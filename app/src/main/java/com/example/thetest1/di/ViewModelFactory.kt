@@ -46,11 +46,11 @@ import com.example.thetest1.domain.usecase.UpdateTabUseCase
 import com.example.thetest1.domain.usecase.UpdateTextNoteUseCase
 import com.example.thetest1.domain.usecase.UpdateTabPlaybackProgressUseCase
 import com.example.thetest1.presentation.ai_assistant.AiAssistantViewModel
-import com.example.thetest1.presentation.auth.AuthViewModel
 import com.example.thetest1.presentation.goals.GoalsViewModel
 import com.example.thetest1.presentation.main.MainViewModel
 import com.example.thetest1.presentation.main.PracticeHeatmapViewModel
 import com.example.thetest1.presentation.main.ThemeViewModel
+import com.example.thetest1.presentation.settings.AuthViewModel
 import com.example.thetest1.presentation.settings.SettingsViewModel
 import com.example.thetest1.presentation.tab_list.TabListViewModel
 import com.example.thetest1.presentation.tab_viewer.TabViewerViewModel

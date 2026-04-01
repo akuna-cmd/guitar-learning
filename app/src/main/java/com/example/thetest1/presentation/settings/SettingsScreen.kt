@@ -39,7 +39,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.thetest1.R
 import com.example.thetest1.di.ViewModelFactory
-import com.example.thetest1.presentation.auth.AuthViewModel
 import com.example.thetest1.presentation.main.ThemeMode
 import com.example.thetest1.presentation.main.ThemeViewModel
 import com.example.thetest1.presentation.main.TabDisplayMode

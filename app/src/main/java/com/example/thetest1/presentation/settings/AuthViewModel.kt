@@ -1,4 +1,4 @@
-package com.example.thetest1.presentation.auth
+package com.example.thetest1.presentation.settings
 
 import android.content.Context
 import android.util.Log

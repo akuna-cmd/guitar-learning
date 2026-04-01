@@ -55,9 +55,9 @@ import com.example.thetest1.R
 import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.domain.model.Difficulty
 import com.example.thetest1.domain.model.TabItem
-import com.example.thetest1.presentation.common.WebViewWarmup
+import com.example.thetest1.presentation.ui.WebViewWarmup
 import com.example.thetest1.presentation.ui.theme.appBlockBorder
-import com.example.thetest1.presentation.util.formatDuration
+import com.example.thetest1.presentation.ui.formatDuration
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -112,6 +112,39 @@ fun TabListScreen(
                     text = { Text(stringResource(R.string.lessons_tab)) },
                     icon = { Icon(Icons.Default.School, contentDescription = null) }
                 )
+            }
+            uiState.message?.let { message ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
+                    border = appBlockBorder(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = message,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        TextButton(onClick = viewModel::clearMessage) {
+                            Text(
+                                text = stringResource(R.string.ok),
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
             }
             when (uiState.selectedTabIndex) {
                 0 -> UserTabsScreen(

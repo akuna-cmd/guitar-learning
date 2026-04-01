@@ -1,4 +1,4 @@
-package com.example.thetest1.presentation.util
+package com.example.thetest1.presentation.ui
 
 import java.util.concurrent.TimeUnit
 

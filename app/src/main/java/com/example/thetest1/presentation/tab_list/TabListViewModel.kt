@@ -42,6 +42,7 @@ data class TabListUiState(
     val selectedTabIndex: Int = 0,
     val progressByTabId: Map<String, Int> = emptyMap(),
     val lastSessionDurationByTabId: Map<String, Long> = emptyMap(),
+    val message: String? = null,
     val selectedFolder: String? = null,
     val customFolders: List<String> = emptyList(),
     val isDownloadingOfflinePackage: Boolean = false
@@ -236,9 +237,23 @@ class TabListViewModel(
 
     fun addUserTab(uri: Uri) {
         viewModelScope.launch {
-            addUserTabUseCase(uri.toString())
-            loadUserTabs()
+            _uiState.update { it.copy(message = null) }
+            runCatching {
+                addUserTabUseCase(uri.toString())
+            }.onSuccess {
+                loadUserTabs()
+            }.onFailure { error ->
+                _uiState.update {
+                    it.copy(
+                        message = error.message ?: "Не вдалося додати табулатуру"
+                    )
+                }
+            }
         }
+    }
+
+    fun clearMessage() {
+        _uiState.update { it.copy(message = null) }
     }
 
     fun deleteUserTab(tab: TabItem) {

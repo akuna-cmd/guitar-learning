@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.example.thetest1.R
 import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.presentation.ui.theme.appBlockBorder
-import com.example.thetest1.presentation.util.formatDuration
+import com.example.thetest1.presentation.ui.formatDuration
 
 @Composable
 fun MainScreen(viewModelFactory: ViewModelFactory) {

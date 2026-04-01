@@ -41,7 +41,7 @@ import com.example.thetest1.R
 import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.domain.model.Session
 import com.example.thetest1.presentation.ui.theme.appBlockBorder
-import com.example.thetest1.presentation.util.formatDuration
+import com.example.thetest1.presentation.ui.formatDuration
 import kotlinx.coroutines.flow.StateFlow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue

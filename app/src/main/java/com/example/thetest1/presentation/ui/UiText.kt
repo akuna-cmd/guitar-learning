@@ -1,4 +1,4 @@
-package com.example.thetest1.presentation.common
+package com.example.thetest1.presentation.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
