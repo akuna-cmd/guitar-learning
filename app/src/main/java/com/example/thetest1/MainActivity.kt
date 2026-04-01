@@ -40,7 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -48,7 +48,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.presentation.goals.GoalsScreen
 import com.example.thetest1.presentation.main.HomeScreen
 import com.example.thetest1.presentation.main.MainViewModel
@@ -59,18 +58,17 @@ import com.example.thetest1.presentation.settings.SettingsScreen
 import com.example.thetest1.presentation.ui.AppBar
 import com.example.thetest1.presentation.ui.WebViewWarmup
 import com.example.thetest1.presentation.ui.theme.TheTest1Theme
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    private lateinit var viewModelFactory: ViewModelFactory
-
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
-        viewModelFactory = (application as MainApplication).appContainer.viewModelFactory
 
         setContent {
-            val themeViewModel: ThemeViewModel = viewModel(factory = viewModelFactory)
+            val themeViewModel: ThemeViewModel = hiltViewModel()
             val themeUiState by themeViewModel.uiState.collectAsStateWithLifecycle()
 
             splashScreen.setKeepOnScreenCondition { false }
@@ -83,11 +81,7 @@ class MainActivity : ComponentActivity() {
             }
 
             TheTest1Theme(darkTheme = isDarkTheme) {
-                MainScreen(
-                    viewModelFactory = viewModelFactory,
-                    themeViewModel = themeViewModel,
-                    isDarkTheme = isDarkTheme
-                )
+                MainScreen()
             }
         }
     }
@@ -95,13 +89,9 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(
-    viewModelFactory: ViewModelFactory,
-    themeViewModel: ThemeViewModel,
-    isDarkTheme: Boolean
-) {
+fun MainScreen() {
     val context = LocalContext.current
-    val mainViewModel: MainViewModel = viewModel(factory = viewModelFactory)
+    val mainViewModel: MainViewModel = hiltViewModel()
     val shellUiState by mainViewModel.shellUiState.collectAsStateWithLifecycle()
 
     val navController = rememberNavController()
@@ -229,25 +219,18 @@ fun MainScreen(
                     lessonsCompleted = mainUiState.lessonsCompleted,
                     totalLessons = mainUiState.totalLessons,
                     userTabsCount = mainUiState.userTabsCount,
-                    viewModelFactory = viewModelFactory,
                     lastPlaybackProgressFlow = mainViewModel.lastPlaybackProgress
                 )
             }
             lessonsNavGraph(
                 navController = navController,
-                viewModelFactory = viewModelFactory,
-                mainViewModel = mainViewModel,
-                themeViewModel = themeViewModel,
                 route = BottomNavItem.GuitarTabs.route
             )
             composable(BottomNavItem.Goals.route) {
-                GoalsScreen(viewModelFactory = viewModelFactory)
+                GoalsScreen()
             }
             composable(BottomNavItem.Settings.route) {
-                SettingsScreen(
-                    viewModelFactory = viewModelFactory,
-                    themeViewModel = themeViewModel
-                )
+                SettingsScreen()
             }
         }
     }

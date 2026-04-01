@@ -30,10 +30,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.thetest1.R
-import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.presentation.ui.theme.appBlockBorder
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -41,10 +40,8 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun PracticeHeatmap(
-    viewModelFactory: ViewModelFactory
-) {
-    val viewModel: PracticeHeatmapViewModel = viewModel(factory = viewModelFactory)
+fun PracticeHeatmap() {
+    val viewModel: PracticeHeatmapViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Heatmap(activityData = uiState.activityData)

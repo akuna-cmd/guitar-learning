@@ -22,20 +22,27 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.storage.FirebaseStorage
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
 import java.io.File
 import java.security.MessageDigest
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class FirestoreSyncRepositoryImpl(
-    private val context: Context,
+@Singleton
+class FirestoreSyncRepositoryImpl @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val tabRepository: TabRepository,
     private val sessionRepository: SessionRepository,
     private val goalRepository: GoalRepository,
     private val progressRepository: TabPlaybackProgressRepository,
-    private val appSettingsRepository: AppSettingsRepository
+    private val appSettingsRepository: AppSettingsRepository,
+    private val auth: FirebaseAuth,
+    private val firestore: FirebaseFirestore,
+    private val storage: FirebaseStorage
 ) : SyncRepository {
     private companion object {
         const val MaxInlineUserTabBytes = 512 * 1024L
@@ -51,9 +58,6 @@ class FirestoreSyncRepositoryImpl(
         val unresolvedRemoteIds: Set<String>
     )
 
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
-    private val storage: FirebaseStorage = FirebaseStorage.getInstance()
     private val syncingState = MutableStateFlow(false)
 
     override fun isSyncing(): Flow<Boolean> = syncingState

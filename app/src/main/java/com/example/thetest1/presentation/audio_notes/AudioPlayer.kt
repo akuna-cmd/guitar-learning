@@ -3,8 +3,8 @@ package com.example.thetest1.presentation.audio_notes
 import android.content.Context
 import android.media.MediaPlayer
 import android.net.Uri
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,14 +26,17 @@ data class PlayerState(
     val trackStates: Map<String, TrackState> = emptyMap()
 )
 
-class AudioPlayer(private val context: Context) {
+class AudioPlayer(
+    private val context: Context,
+    mainDispatcher: CoroutineDispatcher
+) {
     private var mediaPlayer: MediaPlayer? = null
     private var progressJob: Job? = null
 
     private val _playerState = MutableStateFlow(PlayerState())
     val playerState = _playerState.asStateFlow()
 
-    private val scope = CoroutineScope(Dispatchers.Main)
+    private val scope = CoroutineScope(mainDispatcher)
 
     fun onPlay(id: String, filePath: String) {
         val currentState = _playerState.value

@@ -2,17 +2,17 @@ package com.example.thetest1.presentation.goals
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.thetest1.domain.repository.GoalRepository
 import com.example.thetest1.domain.model.Goal
-import com.example.thetest1.domain.usecase.AddGoalUseCase
-import com.example.thetest1.domain.usecase.DeleteGoalUseCase
 import com.example.thetest1.domain.usecase.ObserveGoalsProgressUseCase
-import com.example.thetest1.domain.usecase.UpdateGoalUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class GoalsUiState(
     val goals: List<Goal> = emptyList(),
@@ -20,10 +20,9 @@ data class GoalsUiState(
     val goalToEdit: Goal? = null
 )
 
-class GoalsViewModel(
-    private val addGoalUseCase: AddGoalUseCase,
-    private val updateGoalUseCase: UpdateGoalUseCase,
-    private val deleteGoalUseCase: DeleteGoalUseCase,
+@HiltViewModel
+class GoalsViewModel @Inject constructor(
+    private val goalRepository: GoalRepository,
     private val observeGoalsProgressUseCase: ObserveGoalsProgressUseCase
 ) : ViewModel() {
 
@@ -52,25 +51,25 @@ class GoalsViewModel(
 
     fun addGoal(goal: Goal) {
         viewModelScope.launch {
-            addGoalUseCase(goal)
+            goalRepository.addGoal(goal)
         }
     }
 
     fun updateGoal(goal: Goal) {
         viewModelScope.launch {
-            updateGoalUseCase(goal)
+            goalRepository.updateGoal(goal)
         }
     }
 
     fun deleteGoal(goal: Goal) {
         viewModelScope.launch {
-            deleteGoalUseCase(goal)
+            goalRepository.deleteGoal(goal)
         }
     }
 
     fun toggleCustomGoal(goal: Goal) {
         viewModelScope.launch {
-            updateGoalUseCase(goal.copy(isCompleted = !goal.isCompleted))
+            goalRepository.updateGoal(goal.copy(isCompleted = !goal.isCompleted))
         }
     }
 }

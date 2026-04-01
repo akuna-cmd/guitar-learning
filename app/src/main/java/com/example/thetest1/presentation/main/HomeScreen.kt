@@ -38,7 +38,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.thetest1.R
-import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.domain.model.Session
 import com.example.thetest1.presentation.ui.theme.appBlockBorder
 import com.example.thetest1.presentation.ui.formatDuration
@@ -59,7 +58,6 @@ fun HomeScreen(
     lessonsCompleted: Int,
     totalLessons: Int,
     userTabsCount: Int,
-    viewModelFactory: ViewModelFactory,
     lastPlaybackProgressFlow: StateFlow<com.example.thetest1.domain.model.TabPlaybackProgress?>
 ) {
     val lastPlaybackProgress by lastPlaybackProgressFlow.collectAsStateWithLifecycle()
@@ -98,7 +96,7 @@ fun HomeScreen(
             )
         }
         item {
-            PracticeHeatmap(viewModelFactory = viewModelFactory)
+            PracticeHeatmap()
         }
         item {
             StatsRow(

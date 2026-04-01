@@ -9,6 +9,7 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import javax.inject.Inject
 
 data class AuthUiState(
     val user: FirebaseUser? = null,
@@ -26,9 +28,10 @@ data class AuthUiState(
     val error: String? = null
 )
 
-class AuthViewModel : ViewModel() {
-
-    private val auth = FirebaseAuth.getInstance()
+@HiltViewModel
+class AuthViewModel @Inject constructor(
+    private val auth: FirebaseAuth
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState(user = auth.currentUser))
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()

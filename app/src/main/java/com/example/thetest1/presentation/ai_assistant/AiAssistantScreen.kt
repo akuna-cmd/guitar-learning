@@ -45,9 +45,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.thetest1.R
-import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.domain.model.Lesson
 import com.example.thetest1.presentation.ui.MarkdownView
 import com.example.thetest1.presentation.ui.asString
@@ -58,13 +57,12 @@ private const val MeasurePrefix = "Measure "
 @Composable
 fun AiAssistantScreen(
     lesson: Lesson,
-    viewModelFactory: ViewModelFactory,
     asciiTab: String?,
     compactTabs: String?,
     totalMeasures: Int,
     initialMeasureRange: IntRange? = null
 ) {
-    val viewModel: AiAssistantViewModel = viewModel(factory = viewModelFactory)
+    val viewModel: AiAssistantViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
     var question by remember { mutableStateOf("") }
     

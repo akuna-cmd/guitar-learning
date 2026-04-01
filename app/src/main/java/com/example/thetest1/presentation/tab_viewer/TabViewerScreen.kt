@@ -1,17 +1,12 @@
 package com.example.thetest1.presentation.tab_viewer
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.ViewGroup
-import android.webkit.ConsoleMessage
-import android.webkit.JavascriptInterface
-import android.webkit.WebChromeClient
 import android.webkit.WebView
-import android.webkit.WebViewClient
-import androidx.webkit.WebViewAssetLoader
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -29,23 +24,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SportsEsports
-import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ZoomIn
@@ -58,29 +45,20 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -88,224 +66,46 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.thetest1.R
 import com.example.thetest1.BuildConfig
-import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.presentation.ai_assistant.AiAssistantScreen
 import com.example.thetest1.presentation.main.MainViewModel
 import com.example.thetest1.presentation.notes.NotesScreen
 import com.example.thetest1.presentation.main.ThemeViewModel
 import com.example.thetest1.presentation.main.TabDisplayMode
-import com.example.thetest1.presentation.main.ThemeUiState
 import com.example.thetest1.presentation.main.FretboardDisplayMode
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
-private const val ENABLE_TAB_PERF_TRACE = false
-
-class TabJsBridge {
-    var onAsciiTabCallback: (String) -> Unit = {}
-    var onTabAnalysisCallback: (String) -> Unit = {}
-    var onCompactTabsCallback: (String) -> Unit = {}
-    var onJsReadyHostCallback: () -> Unit = {}
-    var onJsReadyCallback: () -> Unit = {}
-    var onScoreLoadedHostCallback: (Int) -> Unit = {}
-    var onScoreLoadedCallback: (Int) -> Unit = {}
-    var onDetectedTempoCallback: (Int) -> Unit = {}
-    var onAlphaTabStatusHostCallback: (String) -> Unit = {}
-    var onAlphaTabStatusCallback: (String) -> Unit = {}
-    var onTickPositionCallback: (Long, Boolean) -> Unit = { _, _ -> }
-    var onPlaybackProgressCallback: (Long, Boolean, Int) -> Unit = { _, _, _ -> }
-    var onRestoreAppliedCallback: (Long, Int, Int) -> Unit = { _, _, _ -> }
-
-    @JavascriptInterface fun postAsciiTab(ascii: String) = onAsciiTabCallback(ascii)
-    @JavascriptInterface fun postTabAnalysis(json: String) = onTabAnalysisCallback(json)
-    @JavascriptInterface fun postCompactTabs(tabs: String) = onCompactTabsCallback(tabs)
-    @JavascriptInterface
-    fun onJsReady() {
-        onJsReadyHostCallback.invoke()
-        onJsReadyCallback.invoke()
-    }
-    @JavascriptInterface
-    fun onScoreLoaded(totalMeasures: Int) {
-        onScoreLoadedHostCallback(totalMeasures)
-        onScoreLoadedCallback(totalMeasures)
-    }
-    @JavascriptInterface fun onDetectedTempo(bpm: Int) = onDetectedTempoCallback(bpm)
-    @JavascriptInterface
-    fun onAlphaTabStatus(message: String) {
-        onAlphaTabStatusHostCallback(message)
-        onAlphaTabStatusCallback(message)
-    }
-    @JavascriptInterface fun onTickPosition(tick: Long, isPlaying: Boolean) = onTickPositionCallback(tick, isPlaying)
-    @JavascriptInterface fun onPlaybackProgress(tick: Long, isPlaying: Boolean, barIndex: Int) =
-        onPlaybackProgressCallback(tick, isPlaying, barIndex)
-    @JavascriptInterface fun onRestoreApplied(tick: Long, currentBarIndex: Int, requestedBarIndex: Int) =
-        onRestoreAppliedCallback(tick, currentBarIndex, requestedBarIndex)
-}
-
-data class TabWebViewEntry(
-    val webView: WebView,
-    val bridge: TabJsBridge,
-    var jsReady: Boolean = false,
-    var loadedTotalMeasures: Int = 0,
-    var soundFontLoaded: Boolean = false,
-    var loadedFileName: String? = null,
-    var lastKnownTick: Long = 0L,
-    var lastKnownBarIndex: Int = 0
-)
-
-private fun createTabWebViewEntry(context: Context): TabWebViewEntry {
-    val assetLoader = WebViewAssetLoader.Builder()
-        .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context.applicationContext))
-        .build()
-
-    val webView = WebView(context).apply {
-        layoutParams = ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        )
-        setBackgroundColor(android.graphics.Color.parseColor("#1c1b1f"))
-
-        settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            allowFileAccess = true
-            allowContentAccess = true
-            allowFileAccessFromFileURLs = true
-            allowUniversalAccessFromFileURLs = true
-            mediaPlaybackRequiresUserGesture = false
-        }
-
-        webChromeClient = object : WebChromeClient() {
-            override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
-                val message = consoleMessage?.message().orEmpty()
-                if (
-                    BuildConfig.DEBUG &&
-                    ENABLE_TAB_PERF_TRACE &&
-                    (
-                        message.startsWith("AlphaTabStatus:init") ||
-                            message.startsWith("AlphaTabStatus:initError") ||
-                            message.startsWith("AlphaTabStatus:apiNotReady") ||
-                            message.startsWith("AlphaTabStatus:error") ||
-                            message.startsWith("AlphaTabStatus:restore:")
-                        )
-                ) {
-                    Log.d("WebViewConsole", message)
-                }
-                return true
-            }
-        }
-
-        webViewClient = object : WebViewClient() {
-            override fun shouldInterceptRequest(
-                view: WebView?,
-                request: android.webkit.WebResourceRequest?
-            ): android.webkit.WebResourceResponse? {
-                val url = request?.url ?: return null
-                return assetLoader.shouldInterceptRequest(url)
-            }
-
-            override fun onPageFinished(view: WebView?, url: String?) {}
-        }
-    }
-
-    val bridge = TabJsBridge()
-    lateinit var entry: TabWebViewEntry
-    bridge.onJsReadyHostCallback = {
-        entry.jsReady = true
-    }
-    bridge.onScoreLoadedHostCallback = { totalMeasures ->
-        if (totalMeasures > 0) {
-            entry.loadedTotalMeasures = totalMeasures
-        }
-    }
-    bridge.onAlphaTabStatusHostCallback = { message ->
-        if (message.contains("soundFontLoaded")) {
-            entry.soundFontLoaded = true
-        }
-    }
-    webView.addJavascriptInterface(bridge, "Android")
-    webView.loadUrl("https://appassets.androidplatform.net/assets/tab_viewer.html")
-    entry = TabWebViewEntry(webView = webView, bridge = bridge)
-    return entry
-}
-
-private data class TabViewerModel(
-    val fileName: String,
-    val tabBytesReady: Boolean,
-    val soundFontReady: Boolean,
-    val tabTitle: String,
-    val isPracticeMode: Boolean,
-    val currentSpeed: Float,
-    val tabDisplayMode: TabDisplayMode,
-    val lastTickPosition: Long?,
-    val lastBarIndex: Int?,
-    val restoreTickPosition: Long?,
-    val restoreBarIndex: Int?,
-    val totalBars: Int?,
-    val restorePending: Boolean,
-    val wasPlaying: Boolean,
-    val currentScale: Float,
-    val silentMode: Boolean,
-    val themeUiState: ThemeUiState,
-    val isPlaying: Boolean,
-    val loopStartMeasure: Int,
-    val loopEndMeasure: Int,
-    val isLoopEnabled: Boolean
-)
-
-private data class TabViewerHandlers(
-    val onSpeedChange: (Float) -> Unit,
-    val onTabDisplayModeChange: (TabDisplayMode) -> Unit,
-    val onRestoreApplied: (Long, Int, Int) -> Unit,
-    val onTickPosition: (Long, Boolean) -> Unit,
-    val onPlaybackProgress: (Long, Boolean, Int, Int) -> Unit,
-    val onScaleChange: (Float) -> Unit,
-    val onSilentModeChange: (Boolean) -> Unit,
-    val onOpenAiAssistant: () -> Unit,
-    val onOpenNotes: () -> Unit,
-    val onOpenLoop: () -> Unit,
-    val onPlayStateChange: (Boolean) -> Unit,
-    val onAsciiTabGenerated: (String) -> Unit,
-    val onTabAnalysis: (String) -> Unit,
-    val onCompactTabsGenerated: (String) -> Unit,
-    val onTotalMeasuresLoaded: (Int) -> Unit
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TabViewerScreen(
     lessonId: String,
-    viewModelFactory: ViewModelFactory,
-    mainViewModel: MainViewModel,
-    themeViewModel: ThemeViewModel,
     onBack: () -> Unit
 ) {
-    val viewModel: TabViewerViewModel = viewModel(factory = viewModelFactory)
+    val activity = LocalContext.current as ComponentActivity
+    val viewModel: TabViewerViewModel = hiltViewModel()
+    val notesViewModel: TabNotesViewModel = hiltViewModel()
+    val mainViewModel: MainViewModel = hiltViewModel(activity)
+    val themeViewModel: ThemeViewModel = hiltViewModel(activity)
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val notesUiState by notesViewModel.uiState.collectAsStateWithLifecycle()
     val lastTickPosition by viewModel.lastTickPosition.collectAsStateWithLifecycle()
     val lastBarIndex by viewModel.lastBarIndex.collectAsStateWithLifecycle()
     val isPlayingState by viewModel.isPlaying.collectAsStateWithLifecycle()
@@ -336,6 +136,7 @@ fun TabViewerScreen(
 
     LaunchedEffect(lessonId) {
         viewModel.loadLesson(lessonId)
+        notesViewModel.bindLesson(lessonId)
     }
 
     lesson?.let {
@@ -538,7 +339,6 @@ fun TabViewerScreen(
                         ) {
                             AiAssistantScreen(
                                 lesson = lesson,
-                                viewModelFactory = viewModelFactory,
                                 asciiTab = uiState.asciiTab,
                                 compactTabs = uiState.compactTabs,
                                 totalMeasures = totalMeasures,
@@ -555,18 +355,18 @@ fun TabViewerScreen(
                     ) {
                         Box(modifier = Modifier.fillMaxHeight(0.95f).imePadding()) {
                             NotesScreen(
-                                audioNotes = uiState.audioNotes,
-                                textNotes = uiState.textNotes,
-                                isRecording = uiState.isRecording,
-                                playerState = uiState.playerState,
-                                onAddAudioNote = { uri -> viewModel.addAudioNoteFromFile(lesson.id, uri) },
-                                onRecordAudio = { viewModel.onRecordAudio(lesson.id) },
-                                onDeleteAudioNote = { id -> viewModel.deleteAudioNote(id) },
-                                onPlayAudio = { note -> viewModel.onPlayAudio(note) },
-                                onSeekAudio = { id, prog -> viewModel.onSeekAudio(id, prog) },
-                                onAddTextNote = { content -> viewModel.addTextNote(lesson.id, content) },
-                                onUpdateTextNote = { note -> viewModel.updateTextNote(note) },
-                                onDeleteTextNote = { note -> viewModel.deleteTextNote(note) }
+                                audioNotes = notesUiState.audioNotes,
+                                textNotes = notesUiState.textNotes,
+                                isRecording = notesUiState.isRecording,
+                                playerState = notesUiState.playerState,
+                                onAddAudioNote = { uri -> notesViewModel.addAudioNoteFromFile(lesson.id, uri) },
+                                onRecordAudio = { notesViewModel.onRecordAudio(lesson.id) },
+                                onDeleteAudioNote = { id -> notesViewModel.deleteAudioNote(id) },
+                                onPlayAudio = { note -> notesViewModel.onPlayAudio(note) },
+                                onSeekAudio = { id, prog -> notesViewModel.onSeekAudio(id, prog) },
+                                onAddTextNote = { content -> notesViewModel.addTextNote(lesson.id, content) },
+                                onUpdateTextNote = { note -> notesViewModel.updateTextNote(note) },
+                                onDeleteTextNote = { note -> notesViewModel.deleteTextNote(note) }
                             )
                         }
                     }
@@ -1236,447 +1036,5 @@ private fun TabViewerViewport(
                 }
             }
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun TabViewerSheets(
-    showDisplaySheet: Boolean,
-    onDismissDisplaySheet: () -> Unit,
-    displaySheetState: androidx.compose.material3.SheetState,
-    currentSpeed: Float,
-    currentScale: Float,
-    tabDisplayMode: TabDisplayMode,
-    onSpeedChange: (Float) -> Unit,
-    onScaleChange: (Float) -> Unit,
-    onTabDisplayModeChange: (TabDisplayMode) -> Unit,
-    silentMode: Boolean,
-    onSilentModeChange: (Boolean) -> Unit,
-    showLearningSheet: Boolean,
-    onDismissLearningSheet: () -> Unit,
-    learningSheetState: androidx.compose.material3.SheetState,
-    onOpenAiAssistant: () -> Unit,
-    onOpenNotes: () -> Unit,
-    onOpenLoop: () -> Unit,
-    metronomeEnabled: Boolean,
-    metronomeBpm: Int,
-    onMetronomeEnabledChange: (Boolean) -> Unit,
-    onMetronomeBpmChange: (Int) -> Unit
-) {
-    if (showDisplaySheet) {
-        ModalBottomSheet(
-            onDismissRequest = onDismissDisplaySheet,
-            sheetState = displaySheetState
-        ) {
-            DisplayControlsSheet(
-                currentSpeed = currentSpeed,
-                currentScale = currentScale,
-                tabDisplayMode = tabDisplayMode,
-                onSpeedChange = onSpeedChange,
-                onScaleChange = onScaleChange,
-                onTabDisplayModeChange = onTabDisplayModeChange,
-                silentMode = silentMode,
-                onSilentModeChange = onSilentModeChange
-            )
-        }
-    }
-
-    if (showLearningSheet) {
-        ModalBottomSheet(
-            onDismissRequest = onDismissLearningSheet,
-            sheetState = learningSheetState
-        ) {
-            LearningControlsSheet(
-                onOpenAiAssistant = {
-                    onDismissLearningSheet()
-                    onOpenAiAssistant()
-                },
-                onOpenNotes = {
-                    onDismissLearningSheet()
-                    onOpenNotes()
-                },
-                onOpenLoop = {
-                    onDismissLearningSheet()
-                    onOpenLoop()
-                },
-                metronomeEnabled = metronomeEnabled,
-                metronomeBpm = metronomeBpm,
-                onMetronomeEnabledChange = onMetronomeEnabledChange,
-                onMetronomeBpmChange = onMetronomeBpmChange
-            )
-        }
-    }
-}
-
-@Composable
-private fun RoundControlButton(
-    onClick: () -> Unit,
-    icon: ImageVector,
-    contentDescription: String,
-    backgroundColor: Color,
-    iconTint: Color
-) {
-    Box(
-        modifier = Modifier
-            .size(40.dp)
-            .clip(CircleShape)
-            .background(backgroundColor)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = iconTint,
-            modifier = Modifier.size(22.dp)
-        )
-    }
-}
-
-private fun speedString(speed: Float): String {
-    return String.format("%.1f", speed).replace(',', '.')
-}
-
-private fun stepSpeed(value: Float, delta: Float): Float {
-    val stepped = ((value + delta) * 10f).toInt() / 10f
-    return stepped.coerceIn(0.1f, 2.5f)
-}
-
-private fun scaleString(scale: Float): String {
-    return String.format("%.1f", scale).replace(',', '.')
-}
-
-private fun stepBpm(value: Int, delta: Int): Int {
-    return (value + delta).coerceIn(40, 240)
-}
-
-@Composable
-private fun DisplayControlsSheet(
-    currentSpeed: Float,
-    currentScale: Float,
-    tabDisplayMode: TabDisplayMode,
-    onSpeedChange: (Float) -> Unit,
-    onScaleChange: (Float) -> Unit,
-    onTabDisplayModeChange: (TabDisplayMode) -> Unit,
-    silentMode: Boolean,
-    onSilentModeChange: (Boolean) -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(text = stringResource(R.string.display_controls), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(Icons.Default.Speed, contentDescription = null)
-            Text(text = stringResource(R.string.speed_value_format, speedString(currentSpeed)), modifier = Modifier.weight(1f))
-            HoldableIconButton(onClick = { onSpeedChange(stepSpeed(currentSpeed, -0.1f)) }, contentDescription = stringResource(R.string.speed_decrease), icon = Icons.Default.Remove)
-            HoldableIconButton(onClick = { onSpeedChange(stepSpeed(currentSpeed, 0.1f)) }, contentDescription = stringResource(R.string.speed_increase), icon = Icons.Default.Add)
-        }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(Icons.Default.ZoomIn, contentDescription = null)
-            Text(text = stringResource(R.string.scale_value_format, scaleString(currentScale)), modifier = Modifier.weight(1f))
-            HoldableIconButton(onClick = { onScaleChange(stepScale(currentScale, -0.1f)) }, contentDescription = stringResource(R.string.scale_decrease), icon = Icons.Default.Remove)
-            HoldableIconButton(onClick = { onScaleChange(stepScale(currentScale, 0.1f)) }, contentDescription = stringResource(R.string.scale_increase), icon = Icons.Default.Add)
-        }
-        Text(text = stringResource(R.string.display_mode), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            AssistChip(
-                onClick = { onTabDisplayModeChange(TabDisplayMode.TAB_AND_NOTES) },
-                label = { Text(stringResource(R.string.tab_display_mode_tab_and_notes)) },
-                leadingIcon = { Icon(Icons.Default.LibraryMusic, contentDescription = null) }
-            )
-            AssistChip(
-                onClick = { onTabDisplayModeChange(TabDisplayMode.NOTES_ONLY) },
-                label = { Text(stringResource(R.string.tab_display_mode_notes_only)) },
-                leadingIcon = { Icon(Icons.Default.MusicNote, contentDescription = null) }
-            )
-            AssistChip(
-                onClick = { onTabDisplayModeChange(TabDisplayMode.TAB_ONLY) },
-                label = { Text(stringResource(R.string.tab_display_mode_tab_only)) },
-                leadingIcon = { Icon(Icons.Default.QueueMusic, contentDescription = null) }
-            )
-        }
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.silent_mode)) },
-            supportingContent = { Text(stringResource(R.string.silent_mode_desc)) },
-            trailingContent = {
-                Switch(
-                    checked = silentMode,
-                    onCheckedChange = onSilentModeChange
-                )
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-    }
-}
-
-@Composable
-private fun LearningControlsSheet(
-    onOpenAiAssistant: () -> Unit,
-    onOpenNotes: () -> Unit,
-    onOpenLoop: () -> Unit,
-    metronomeEnabled: Boolean,
-    metronomeBpm: Int,
-    onMetronomeEnabledChange: (Boolean) -> Unit,
-    onMetronomeBpmChange: (Int) -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(text = stringResource(R.string.learning_controls), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.notes)) },
-            leadingContent = { Icon(Icons.Filled.NoteAdd, contentDescription = null) },
-            modifier = Modifier.clickable { onOpenNotes() }
-        )
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.loop_section)) },
-            leadingContent = { Icon(Icons.Filled.Repeat, contentDescription = null) },
-            modifier = Modifier.clickable { onOpenLoop() }
-        )
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.metronome)) },
-            supportingContent = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(text = stringResource(R.string.metronome_bpm, metronomeBpm), modifier = Modifier.weight(1f))
-                    HoldableIconButton(
-                        onClick = { onMetronomeBpmChange(stepBpm(metronomeBpm, -5)) },
-                        contentDescription = stringResource(R.string.metronome_decrease),
-                        icon = Icons.Default.Remove
-                    )
-                    HoldableIconButton(
-                        onClick = { onMetronomeBpmChange(stepBpm(metronomeBpm, 5)) },
-                        contentDescription = stringResource(R.string.metronome_increase),
-                        icon = Icons.Default.Add
-                    )
-                }
-            },
-            leadingContent = { Icon(Icons.Filled.MusicNote, contentDescription = null) },
-            trailingContent = {
-                Switch(
-                    checked = metronomeEnabled,
-                    onCheckedChange = onMetronomeEnabledChange
-                )
-            }
-        )
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.ai_assistant)) },
-            leadingContent = { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
-            modifier = Modifier.clickable { onOpenAiAssistant() }
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-    }
-}
-
-private fun stepScale(value: Float, delta: Float): Float {
-    val stepped = ((value + delta) * 10f).toInt() / 10f
-    return stepped.coerceIn(0.5f, 2.0f)
-}
-
-@Composable
-private fun TabDisplayModeMenu(
-    currentMode: TabDisplayMode,
-    onModeChange: (TabDisplayMode) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier
-                .clip(RoundedCornerShape(16.dp))
-                .clickable { expanded = true }
-                .padding(horizontal = 8.dp, vertical = 6.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.QueueMusic,
-                contentDescription = stringResource(R.string.tab_display_mode_toggle),
-                modifier = Modifier.size(18.dp)
-            )
-            Text(
-                text = when (currentMode) {
-                    TabDisplayMode.TAB_AND_NOTES -> stringResource(R.string.tab_display_mode_tab_and_notes)
-                    TabDisplayMode.NOTES_ONLY -> stringResource(R.string.tab_display_mode_notes_only)
-                    TabDisplayMode.TAB_ONLY -> stringResource(R.string.tab_display_mode_tab_only)
-                },
-                style = MaterialTheme.typography.labelLarge
-            )
-        }
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.tab_display_mode_tab_and_notes)) },
-                onClick = {
-                    expanded = false
-                    onModeChange(TabDisplayMode.TAB_AND_NOTES)
-                }
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.tab_display_mode_notes_only)) },
-                onClick = {
-                    expanded = false
-                    onModeChange(TabDisplayMode.NOTES_ONLY)
-                }
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.tab_display_mode_tab_only)) },
-                onClick = {
-                    expanded = false
-                    onModeChange(TabDisplayMode.TAB_ONLY)
-                }
-            )
-        }
-    }
-}
-
-@Composable
-private fun SpeedScaleMenu(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    valueText: String,
-    onDecrement: () -> Unit,
-    onIncrement: () -> Unit,
-    decrementContentDescription: String,
-    incrementContentDescription: String
-) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier
-                .clip(RoundedCornerShape(10.dp))
-                .clickable { expanded = true }
-                .padding(horizontal = 6.dp, vertical = 4.dp)
-        ) {
-            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(16.dp))
-            Text(text = valueText, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-        }
-        androidx.compose.material3.DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                HoldableIconButton(
-                    onClick = onDecrement,
-                    contentDescription = decrementContentDescription,
-                    icon = Icons.Default.Remove
-                )
-                Text(text = valueText, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                HoldableIconButton(
-                    onClick = onIncrement,
-                    contentDescription = incrementContentDescription,
-                    icon = Icons.Default.Add
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun HoldableIconButton(
-    onClick: () -> Unit,
-    contentDescription: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector
-) {
-    val scope = rememberCoroutineScope()
-    var job by remember { mutableStateOf<Job?>(null) }
-    IconButton(
-        onClick = onClick,
-        modifier = Modifier
-            .size(32.dp)
-            .pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val down = awaitFirstDown()
-                        job?.cancel()
-                        job = scope.launch {
-                            delay(250)
-                            while (down.pressed) {
-                                onClick()
-                                delay(80)
-                            }
-                        }
-                        waitForUpOrCancellation()
-                        job?.cancel()
-                    }
-                }
-            }
-    ) {
-        Icon(imageVector = icon, contentDescription = contentDescription, modifier = Modifier.size(18.dp))
-    }
-}
-
-@Composable
-private fun LoopConfigurator(
-    totalMeasures: Int,
-    startMeasure: Int,
-    endMeasure: Int,
-    isLoopEnabled: Boolean,
-    onStartChange: (Int) -> Unit,
-    onEndChange: (Int) -> Unit,
-    onToggleLoop: (Boolean) -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        androidx.compose.material3.Text("Зациклити відрізок", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(16.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth().clickable { onToggleLoop(!isLoopEnabled) }.padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            androidx.compose.material3.Text("Увімкнути зациклення", style = MaterialTheme.typography.bodyLarge)
-            androidx.compose.material3.Switch(
-                checked = isLoopEnabled,
-                onCheckedChange = { onToggleLoop(it) }
-            )
-        }
-        Spacer(Modifier.height(16.dp))
-        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            androidx.compose.material3.Text("Початковий такт: $startMeasure", fontWeight = FontWeight.Bold)
-            androidx.compose.material3.Slider(
-                value = startMeasure.toFloat(),
-                onValueChange = { onStartChange(it.toInt().coerceAtMost(endMeasure)) },
-                valueRange = 1f..totalMeasures.toFloat().coerceAtLeast(1f),
-                steps = if (totalMeasures > 2) totalMeasures - 2 else 0
-            )
-        }
-        Spacer(Modifier.height(8.dp))
-        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            androidx.compose.material3.Text("Кінцевий такт: $endMeasure", fontWeight = FontWeight.Bold)
-            androidx.compose.material3.Slider(
-                value = endMeasure.toFloat(),
-                onValueChange = { onEndChange(it.toInt().coerceAtLeast(startMeasure)) },
-                valueRange = 1f..totalMeasures.toFloat().coerceAtLeast(1f),
-                steps = if (totalMeasures > 2) totalMeasures - 2 else 0
-            )
-        }
-        Spacer(Modifier.height(32.dp))
     }
 }

@@ -69,6 +69,23 @@
     <string name="user_icon_description">Іконка користувача</string>
     <string name="ai_icon_description">Іконка AI</string>
     <string name="ai_error_generic">Сталася помилка. Спробуйте ще раз.</string>
+    <string name="ai_prompt_role_instruction"><![CDATA[Ти - високопрофесійний викладач з гітари, інтегрований в Android застосунок для навчання гри на гітарі.]]></string>
+    <string name="ai_prompt_output_instruction"><![CDATA[На основі поданої теорії або табів дай відповідь на запитання учня. Коротко, професійно, нейтрально, без вступних слів, українською мовою.]]></string>
+    <string name="ai_prompt_measure_range_template"><![CDATA[УВАГА: Користувач питає тільки про такти з %1$d по %2$d. Аналізуй лише цей діапазон і ігноруй усі інші такти. Відповідай так, ніби поза цим діапазоном музики не існує.]]></string>
+    <string name="ai_prompt_template"><![CDATA[%1$s
+
+%2$s
+
+%3$s
+
+Теорія:
+%4$s
+
+Таби:
+%5$s
+
+Питання:
+%6$s]]></string>
     <string name="profile_picture_description">Profile picture</string>
     <string name="add_tab">Додати табулатуру</string>
     <string name="my_tabs_tab">Мої табулатури</string>

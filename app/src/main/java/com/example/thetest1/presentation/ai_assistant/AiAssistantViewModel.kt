@@ -4,13 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.thetest1.R
 import com.example.thetest1.domain.model.AiAssistantRequest
-import com.example.thetest1.domain.usecase.AskAiAssistantUseCase
+import com.example.thetest1.domain.repository.AiAssistantRepository
 import com.example.thetest1.presentation.ui.UiText
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 enum class Author {
     USER, AI
@@ -27,8 +29,9 @@ data class AiAssistantUiState(
     val isLoading: Boolean = false
 )
 
-class AiAssistantViewModel(
-    private val askAiAssistantUseCase: AskAiAssistantUseCase
+@HiltViewModel
+class AiAssistantViewModel @Inject constructor(
+    private val aiAssistantRepository: AiAssistantRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AiAssistantUiState())
@@ -42,14 +45,16 @@ class AiAssistantViewModel(
                     messages = it.messages + ChatMessage(text = UiText.Plain(question), author = Author.USER)
                 )
             }
-            val result = askAiAssistantUseCase(
-                AiAssistantRequest(
-                    question = question,
-                    theory = theory,
-                    tabs = tabs,
-                    measureRange = measureRange
+            val result = runCatching {
+                aiAssistantRepository.generateAnswer(
+                    AiAssistantRequest(
+                        question = question,
+                        theory = theory,
+                        tabs = tabs,
+                        measureRange = measureRange
+                    )
                 )
-            )
+            }
 
             _uiState.update { current ->
                 val message = result.fold(

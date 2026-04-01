@@ -2,23 +2,30 @@ package com.example.thetest1.presentation.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.thetest1.domain.usecase.GetSessionsForLastMonthUseCase
+import com.example.thetest1.domain.repository.SessionRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.util.Calendar
 import java.util.Date
+import javax.inject.Inject
 
 data class PracticeHeatmapUiState(
     val activityData: Map<Date, Int> = emptyMap()
 )
 
-class PracticeHeatmapViewModel(
-    getSessionsForLastMonthUseCase: GetSessionsForLastMonthUseCase
+@HiltViewModel
+class PracticeHeatmapViewModel @Inject constructor(
+    sessionRepository: SessionRepository
 ) : ViewModel() {
 
-    val uiState: StateFlow<PracticeHeatmapUiState> = getSessionsForLastMonthUseCase()
+    private val since: Date = Calendar.getInstance().apply {
+        add(Calendar.MONTH, -1)
+    }.time
+
+    val uiState: StateFlow<PracticeHeatmapUiState> = sessionRepository.getSessionsSince(since)
         .map { sessions ->
             val activityData = sessions
                 .groupBy { getStartOfDay(it.startTime) }

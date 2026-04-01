@@ -1,5 +1,6 @@
 package com.example.thetest1.data.remote
 
 object AiAssistantConfig {
-    const val ModelName = "gemini-2.5-flash-lite"
+    const val DefaultModelName = "gemini-2.5-flash-lite"
+    const val RemoteModelKey = "ai_model_name"
 }

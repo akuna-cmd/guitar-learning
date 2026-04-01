@@ -5,8 +5,13 @@ import com.example.thetest1.domain.model.Goal
 import com.example.thetest1.domain.repository.GoalRepository
 import kotlinx.coroutines.flow.Flow
 import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class GoalRepositoryImpl(private val goalDao: GoalDao) : GoalRepository {
+@Singleton
+class GoalRepositoryImpl @Inject constructor(
+    private val goalDao: GoalDao
+) : GoalRepository {
     override fun getGoals(): Flow<List<Goal>> = goalDao.getGoals()
 
     override suspend fun getGoalsSync(): List<Goal> = goalDao.getGoalsSync()

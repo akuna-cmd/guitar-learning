@@ -4,8 +4,11 @@ import com.example.thetest1.data.local.AudioNoteDao
 import com.example.thetest1.domain.model.AudioNote
 import com.example.thetest1.domain.repository.AudioNoteRepository
 import kotlinx.coroutines.flow.Flow
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class AudioNoteRepositoryImpl(
+@Singleton
+class AudioNoteRepositoryImpl @Inject constructor(
     private val audioNoteDao: AudioNoteDao
 ) : AudioNoteRepository {
 

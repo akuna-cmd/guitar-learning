@@ -21,9 +21,13 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStreamReader
 import java.util.UUID
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class TabRepositoryImpl(
-    private val context: Context,
+@Singleton
+class TabRepositoryImpl @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val tabDao: TabDao
 ) : TabRepository {
 

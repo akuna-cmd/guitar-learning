@@ -2,14 +2,17 @@ package com.example.thetest1.domain.usecase
 
 import com.example.thetest1.domain.model.Goal
 import com.example.thetest1.domain.model.GoalType
+import com.example.thetest1.domain.repository.GoalRepository
+import com.example.thetest1.domain.repository.SessionRepository
+import com.example.thetest1.domain.repository.TabRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import java.util.Calendar
 
 class ObserveGoalsProgressUseCase(
-    private val getGoalsUseCase: GetGoalsUseCase,
-    private val getCompletedLessonsCountUseCase: GetCompletedLessonsCountUseCase,
-    private val getAllSessionsUseCase: GetAllSessionsUseCase
+    private val goalRepository: GoalRepository,
+    private val tabRepository: TabRepository,
+    private val sessionRepository: SessionRepository
 ) {
     private companion object {
         const val MillisInMinute = 60_000L
@@ -17,9 +20,9 @@ class ObserveGoalsProgressUseCase(
 
     operator fun invoke(): Flow<List<Goal>> {
         return combine(
-            getGoalsUseCase(),
-            getCompletedLessonsCountUseCase(),
-            getAllSessionsUseCase()
+            goalRepository.getGoals(),
+            tabRepository.getCompletedLessonsCount(),
+            sessionRepository.getAllSessions()
         ) { goals, completedLessons, sessions ->
             goals.map { goal ->
                 val progress = when (goal.type) {

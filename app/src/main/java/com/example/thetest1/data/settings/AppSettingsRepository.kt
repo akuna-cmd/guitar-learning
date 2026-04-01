@@ -13,6 +13,8 @@ import com.example.thetest1.presentation.main.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import javax.inject.Inject
+import javax.inject.Singleton
 
 data class AppSettingsSnapshot(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -25,7 +27,8 @@ data class AppSettingsSnapshot(
     val updatedAt: Long = 0L
 )
 
-class AppSettingsRepository(
+@Singleton
+class AppSettingsRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>
 ) {
     private object Keys {

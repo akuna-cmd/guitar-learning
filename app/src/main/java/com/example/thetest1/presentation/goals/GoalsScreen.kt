@@ -49,9 +49,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.thetest1.R
-import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.domain.model.Goal
 import com.example.thetest1.domain.model.GoalType
 import com.example.thetest1.presentation.ui.theme.appBlockBorder
@@ -59,10 +58,8 @@ import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GoalsScreen(
-    viewModelFactory: ViewModelFactory
-) {
-    val viewModel: GoalsViewModel = viewModel(factory = viewModelFactory)
+fun GoalsScreen() {
+    val viewModel: GoalsViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
     var goalToDelete by remember { mutableStateOf<Goal?>(null) }
 

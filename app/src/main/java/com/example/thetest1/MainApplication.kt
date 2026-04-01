@@ -1,22 +1,28 @@
 package com.example.thetest1
 
 import android.app.Application
-import com.example.thetest1.di.AppContainer
+import com.example.thetest1.di.AppDispatchers
+import com.example.thetest1.di.AppWarmup
+import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
+@HiltAndroidApp
 class MainApplication : Application() {
-    lateinit var appContainer: AppContainer
-    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    @Inject
+    lateinit var appWarmup: AppWarmup
+
+    @Inject
+    lateinit var appDispatchers: AppDispatchers
 
     override fun onCreate() {
         super.onCreate()
-        appContainer = AppContainer(this)
+        val applicationScope = CoroutineScope(SupervisorJob() + appDispatchers.default)
 
         applicationScope.launch {
-            appContainer.warmUp()
+            appWarmup.warm()
         }
     }
 }

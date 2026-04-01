@@ -4,8 +4,11 @@ import com.example.thetest1.data.local.TextNoteDao
 import com.example.thetest1.domain.model.TextNote
 import com.example.thetest1.domain.repository.TextNoteRepository
 import kotlinx.coroutines.flow.Flow
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class TextNoteRepositoryImpl(
+@Singleton
+class TextNoteRepositoryImpl @Inject constructor(
     private val textNoteDao: TextNoteDao
 ) : TextNoteRepository {
 

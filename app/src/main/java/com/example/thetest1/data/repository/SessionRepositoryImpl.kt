@@ -11,8 +11,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.util.Date
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class SessionRepositoryImpl(
+@Singleton
+class SessionRepositoryImpl @Inject constructor(
     private val sessionDao: SessionDao
 ) : SessionRepository {
 

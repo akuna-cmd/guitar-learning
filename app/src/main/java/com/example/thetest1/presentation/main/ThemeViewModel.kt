@@ -3,11 +3,13 @@ package com.example.thetest1.presentation.main
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.thetest1.data.settings.AppSettingsRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 enum class TabDisplayMode { TAB_ONLY, TAB_AND_NOTES, NOTES_ONLY }
@@ -24,7 +26,8 @@ data class ThemeUiState(
     val isLoading: Boolean = true
 )
 
-class ThemeViewModel(
+@HiltViewModel
+class ThemeViewModel @Inject constructor(
     private val appSettingsRepository: AppSettingsRepository
 ) : ViewModel() {
 

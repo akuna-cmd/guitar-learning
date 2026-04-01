@@ -3,10 +3,14 @@ package com.example.thetest1.data.repository
 import android.content.Context
 import android.net.Uri
 import com.example.thetest1.domain.repository.TabFileRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class TabFileRepositoryImpl(
-    private val context: Context
+@Singleton
+class TabFileRepositoryImpl @Inject constructor(
+    @ApplicationContext private val context: Context
 ) : TabFileRepository {
 
     override suspend fun readTabBytes(path: String): ByteArray {

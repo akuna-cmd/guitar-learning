@@ -3,25 +3,16 @@ package com.example.thetest1.presentation.tab_list
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.thetest1.di.AppDispatchers
 import com.example.thetest1.domain.model.Difficulty
 import com.example.thetest1.domain.model.TabItem
-import com.example.thetest1.domain.usecase.AddUserTabUseCase
-import com.example.thetest1.domain.usecase.DeleteUserTabUseCase
-import com.example.thetest1.domain.usecase.GetSoundFontBytesUseCase
-import com.example.thetest1.domain.usecase.GetTabFileBytesUseCase
-import com.example.thetest1.domain.usecase.GetTabsUseCase
-import com.example.thetest1.domain.usecase.GetUserTabsUseCase
-import com.example.thetest1.domain.usecase.MarkTabOfflineReadyUseCase
-import com.example.thetest1.domain.usecase.MarkTabOpenedUseCase
-import com.example.thetest1.domain.usecase.RenameUserTabUseCase
-import com.example.thetest1.domain.usecase.UpdateTabUseCase
-import com.example.thetest1.domain.usecase.UpdateTabFolderUseCase
-import com.example.thetest1.domain.usecase.UpdateTabTagsUseCase
-import com.example.thetest1.domain.usecase.GetAllSessionsUseCase
-import com.example.thetest1.domain.usecase.ObserveTabPlaybackProgressUseCase
-import com.example.thetest1.domain.usecase.ObserveTabsUseCase
-import com.example.thetest1.domain.usecase.ObserveUserTabsUseCase
 import com.example.thetest1.domain.model.TabPlaybackProgress
+import com.example.thetest1.domain.repository.SessionRepository
+import com.example.thetest1.domain.repository.SoundFontRepository
+import com.example.thetest1.domain.repository.TabFileRepository
+import com.example.thetest1.domain.repository.TabPlaybackProgressRepository
+import com.example.thetest1.domain.repository.TabRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,7 +21,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
+import javax.inject.Inject
 
 data class TabListUiState(
     val tabs: List<TabItem> = emptyList(),
@@ -98,23 +89,14 @@ data class TabListUiState(
     }
 }
 
-class TabListViewModel(
-    private val getTabsUseCase: GetTabsUseCase,
-    private val observeTabsUseCase: ObserveTabsUseCase,
-    private val updateTabUseCase: UpdateTabUseCase,
-    private val getUserTabsUseCase: GetUserTabsUseCase,
-    private val observeUserTabsUseCase: ObserveUserTabsUseCase,
-    private val addUserTabUseCase: AddUserTabUseCase,
-    private val markTabOpenedUseCase: MarkTabOpenedUseCase,
-    private val updateTabFolderUseCase: UpdateTabFolderUseCase,
-    private val updateTabTagsUseCase: UpdateTabTagsUseCase,
-    private val markTabOfflineReadyUseCase: MarkTabOfflineReadyUseCase,
-    private val deleteUserTabUseCase: DeleteUserTabUseCase,
-    private val renameUserTabUseCase: RenameUserTabUseCase,
-    private val getAllSessionsUseCase: GetAllSessionsUseCase,
-    private val observeTabPlaybackProgressUseCase: ObserveTabPlaybackProgressUseCase,
-    private val getTabFileBytesUseCase: GetTabFileBytesUseCase,
-    private val getSoundFontBytesUseCase: GetSoundFontBytesUseCase
+@HiltViewModel
+class TabListViewModel @Inject constructor(
+    private val tabRepository: TabRepository,
+    private val sessionRepository: SessionRepository,
+    private val progressRepository: TabPlaybackProgressRepository,
+    private val tabFileRepository: TabFileRepository,
+    private val soundFontRepository: SoundFontRepository,
+    private val dispatchers: AppDispatchers
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TabListUiState())
@@ -150,28 +132,24 @@ class TabListViewModel(
     }
 
     fun markTabOpened(tabId: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            markTabOpenedUseCase(tabId)
-            loadTabs()
-            loadUserTabs()
+        viewModelScope.launch(dispatchers.io) {
+            tabRepository.markTabOpened(tabId)
         }
     }
 
     fun moveToFolder(tab: TabItem, folder: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            updateTabFolderUseCase(tab.id, folder)
-            loadTabs()
-            loadUserTabs()
+        viewModelScope.launch(dispatchers.io) {
+            tabRepository.updateTabFolder(tab.id, folder)
         }
     }
 
     fun renameFolder(oldName: String, newName: String) {
         val target = newName.trim().ifEmpty { return }
         if (oldName == "Без папки" || target == "Без папки") return
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(dispatchers.io) {
             val tabsToMove = _uiState.value.userTabs.filter { it.folder == oldName }
             tabsToMove.forEach { tab ->
-                updateTabFolderUseCase(tab.id, target)
+                tabRepository.updateTabFolder(tab.id, target)
             }
             _uiState.update { current ->
                 current.copy(
@@ -179,16 +157,15 @@ class TabListViewModel(
                     customFolders = current.customFolders.map { if (it == oldName) target else it }.distinct().sorted()
                 )
             }
-            loadUserTabs()
         }
     }
 
     fun deleteFolder(folderName: String) {
         if (folderName == "Без папки") return
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(dispatchers.io) {
             val tabsToMove = _uiState.value.userTabs.filter { it.folder == folderName }
             tabsToMove.forEach { tab ->
-                updateTabFolderUseCase(tab.id, "Без папки")
+                tabRepository.updateTabFolder(tab.id, "Без папки")
             }
             _uiState.update { current ->
                 current.copy(
@@ -196,25 +173,22 @@ class TabListViewModel(
                     customFolders = current.customFolders.filterNot { it == folderName }
                 )
             }
-            loadUserTabs()
         }
     }
 
     fun markOfflinePackage(tab: TabItem) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(dispatchers.io) {
             _uiState.update { it.copy(isDownloadingOfflinePackage = true) }
             runCatching {
                 tab.filePath?.takeIf { it.isNotBlank() }?.let { path ->
-                    getTabFileBytesUseCase(path)
+                    tabFileRepository.readTabBytes(path)
                 }
-                getSoundFontBytesUseCase()
-                markTabOfflineReadyUseCase(tab.id, true)
+                soundFontRepository.readSoundFontBytes()
+                tabRepository.markOfflineReady(tab.id, true)
                 val existingTags = tab.tagsCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                updateTabTagsUseCase(tab.id, (existingTags + "offline").distinct())
+                tabRepository.updateTabTags(tab.id, (existingTags + "offline").distinct())
             }
             _uiState.update { it.copy(isDownloadingOfflinePackage = false) }
-            loadTabs()
-            loadUserTabs()
         }
     }
 
@@ -224,7 +198,7 @@ class TabListViewModel(
                 val newTabs = currentState.tabs.map {
                     if (it.id == tabId) {
                         val updatedTab = it.copy(isCompleted = !it.isCompleted)
-                        launch { updateTabUseCase(updatedTab) }
+                        launch(dispatchers.io) { tabRepository.updateTab(updatedTab) }
                         updatedTab
                     } else {
                         it
@@ -239,9 +213,7 @@ class TabListViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(message = null) }
             runCatching {
-                addUserTabUseCase(uri.toString())
-            }.onSuccess {
-                loadUserTabs()
+                tabRepository.addUserTab(uri.toString())
             }.onFailure { error ->
                 _uiState.update {
                     it.copy(
@@ -258,34 +230,18 @@ class TabListViewModel(
 
     fun deleteUserTab(tab: TabItem) {
         viewModelScope.launch {
-            deleteUserTabUseCase(tab)
-            loadUserTabs()
+            tabRepository.deleteUserTab(tab)
         }
     }
 
     fun renameUserTab(tab: TabItem, newName: String) {
         viewModelScope.launch {
-            renameUserTabUseCase(tab, newName)
-            loadUserTabs()
-        }
-    }
-
-    private fun loadTabs() {
-        viewModelScope.launch(Dispatchers.IO) {
-            getTabsUseCase().let { tabs ->
-                _uiState.update { it.copy(tabs = tabs, isTabsLoading = false) }
-            }
-        }
-    }
-
-    private fun loadUserTabs() {
-        viewModelScope.launch(Dispatchers.IO) {
-            _uiState.update { it.copy(userTabs = getUserTabsUseCase(), isUserTabsLoading = false) }
+            tabRepository.renameUserTab(tab, newName)
         }
     }
 
     private fun observeTabs() {
-        observeTabsUseCase()
+        tabRepository.getTabs()
             .onEach { tabs ->
                 _uiState.update { it.copy(tabs = tabs, isTabsLoading = false) }
             }
@@ -293,7 +249,7 @@ class TabListViewModel(
     }
 
     private fun observeUserTabs() {
-        observeUserTabsUseCase()
+        tabRepository.observeUserTabs()
             .onEach { userTabs ->
                 _uiState.update { it.copy(userTabs = userTabs, isUserTabsLoading = false) }
             }
@@ -303,8 +259,8 @@ class TabListViewModel(
     private fun observeTabMetrics() {
         viewModelScope.launch {
             combine(
-                getAllSessionsUseCase(),
-                observeTabPlaybackProgressUseCase()
+                sessionRepository.getAllSessions(),
+                progressRepository.observeAll()
             ) { sessions, progressList ->
                 val progressMap = progressList.associate { progress ->
                     progress.tabId to calculateProgressPercent(progress)

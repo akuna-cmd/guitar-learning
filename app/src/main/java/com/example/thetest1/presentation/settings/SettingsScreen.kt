@@ -35,28 +35,32 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.activity.ComponentActivity
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.thetest1.R
-import com.example.thetest1.di.ViewModelFactory
 import com.example.thetest1.presentation.main.ThemeMode
 import com.example.thetest1.presentation.main.ThemeViewModel
 import com.example.thetest1.presentation.main.TabDisplayMode
 import com.example.thetest1.presentation.main.FretboardDisplayMode
+import com.example.thetest1.presentation.ui.HoldableIconButton
+import com.example.thetest1.presentation.ui.formatScale
+import com.example.thetest1.presentation.ui.formatSpeed
+import com.example.thetest1.presentation.ui.stepScale
+import com.example.thetest1.presentation.ui.stepSpeed
 import com.example.thetest1.presentation.ui.theme.appBlockBorder
 import java.text.DateFormat
 import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(
-    viewModelFactory: ViewModelFactory,
-    themeViewModel: ThemeViewModel
-) {
+fun SettingsScreen() {
+    val activity = LocalContext.current as ComponentActivity
+    val themeViewModel: ThemeViewModel = hiltViewModel(activity)
     val uiState by themeViewModel.uiState.collectAsStateWithLifecycle()
-    val settingsViewModel: SettingsViewModel = viewModel(factory = viewModelFactory)
+    val settingsViewModel: SettingsViewModel = hiltViewModel()
     val settingsUiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
-    val authViewModel: AuthViewModel = viewModel(factory = viewModelFactory)
+    val authViewModel: AuthViewModel = hiltViewModel()
     val authState by authViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
@@ -183,24 +187,6 @@ fun SettingsScreen(
     }
 }
 
-private fun speedString(speed: Float): String {
-    return String.format("%.1f", speed).replace(',', '.')
-}
-
-private fun stepSpeed(value: Float, delta: Float): Float {
-    val stepped = ((value + delta) * 10f).toInt() / 10f
-    return stepped.coerceIn(0.1f, 2.5f)
-}
-
-private fun scaleString(scale: Float): String {
-    return String.format("%.1f", scale).replace(',', '.')
-}
-
-private fun stepScale(value: Float, delta: Float): Float {
-    val stepped = ((value + delta) * 10f).toInt() / 10f
-    return stepped.coerceIn(0.5f, 2.0f)
-}
-
 @Composable
 private fun CompactSpeedScale(
     speed: Float,
@@ -221,18 +207,22 @@ private fun CompactSpeedScale(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
-                Text(text = stringResource(R.string.speed_value_format, speedString(speed)))
+                Text(text = stringResource(R.string.speed_value_format, formatSpeed(speed)))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 HoldableIconButton(
                     onClick = { onSpeedChange(stepSpeed(speed, -0.1f)) },
                     contentDescription = stringResource(R.string.speed_decrease),
-                    icon = Icons.Default.Remove
+                    icon = Icons.Default.Remove,
+                    buttonSize = 36.dp,
+                    iconSize = 20.dp
                 )
                 HoldableIconButton(
                     onClick = { onSpeedChange(stepSpeed(speed, 0.1f)) },
                     contentDescription = stringResource(R.string.speed_increase),
-                    icon = Icons.Default.Add
+                    icon = Icons.Default.Add,
+                    buttonSize = 36.dp,
+                    iconSize = 20.dp
                 )
             }
         }
@@ -248,35 +238,25 @@ private fun CompactSpeedScale(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
-                Text(text = stringResource(R.string.scale_value_format, scaleString(scale)))
+                Text(text = stringResource(R.string.scale_value_format, formatScale(scale)))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 HoldableIconButton(
                     onClick = { onScaleChange(stepScale(scale, -0.1f)) },
                     contentDescription = stringResource(R.string.scale_decrease),
-                    icon = Icons.Default.Remove
+                    icon = Icons.Default.Remove,
+                    buttonSize = 36.dp,
+                    iconSize = 20.dp
                 )
                 HoldableIconButton(
                     onClick = { onScaleChange(stepScale(scale, 0.1f)) },
                     contentDescription = stringResource(R.string.scale_increase),
-                    icon = Icons.Default.Add
+                    icon = Icons.Default.Add,
+                    buttonSize = 36.dp,
+                    iconSize = 20.dp
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun HoldableIconButton(
-    onClick: () -> Unit,
-    contentDescription: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector
-) {
-    IconButton(
-        onClick = onClick,
-        modifier = Modifier.size(36.dp)
-    ) {
-        Icon(imageVector = icon, contentDescription = contentDescription)
     }
 }
 

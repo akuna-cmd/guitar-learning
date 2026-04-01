@@ -2,9 +2,13 @@ package com.example.thetest1.data.repository
 
 import android.content.Context
 import com.example.thetest1.domain.repository.SoundFontRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class SoundFontRepositoryImpl(
-    private val context: Context
+@Singleton
+class SoundFontRepositoryImpl @Inject constructor(
+    @ApplicationContext private val context: Context
 ) : SoundFontRepository {
 
     override suspend fun readSoundFontBytes(): ByteArray {

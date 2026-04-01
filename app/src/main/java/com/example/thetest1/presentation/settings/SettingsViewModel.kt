@@ -8,6 +8,7 @@ import com.example.thetest1.domain.model.PracticedTab
 import com.example.thetest1.domain.model.Session
 import com.example.thetest1.domain.repository.SessionRepository
 import com.example.thetest1.domain.repository.SyncRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +20,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.InputStreamReader
 import java.util.Date
+import javax.inject.Inject
 
 data class SettingsUiState(
     val isExporting: Boolean = false,
@@ -28,7 +30,8 @@ data class SettingsUiState(
     val message: String? = null
 )
 
-class SettingsViewModel(
+@HiltViewModel
+class SettingsViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val syncRepository: SyncRepository
 ) : ViewModel() {
