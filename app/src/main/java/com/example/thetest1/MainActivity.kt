@@ -92,7 +92,7 @@ class MainActivity : ComponentActivity() {
 fun MainScreen() {
     val context = LocalContext.current
     val mainViewModel: MainViewModel = hiltViewModel()
-    val shellUiState by mainViewModel.shellUiState.collectAsStateWithLifecycle()
+    val uiState by mainViewModel.uiState.collectAsStateWithLifecycle()
 
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -109,8 +109,8 @@ fun MainScreen() {
         ?.hierarchy
         ?.any { destination -> destination.route in bottomRoutes } == true &&
         currentDestination?.route != "lesson/{lessonId}"
-    LaunchedEffect(shellUiState.continueLessonId) {
-        val lessonId = shellUiState.continueLessonId
+    LaunchedEffect(uiState.continueLessonId) {
+        val lessonId = uiState.continueLessonId
         if (!lessonId.isNullOrBlank()) {
             val encodedId = java.net.URLEncoder.encode(lessonId, "UTF-8")
             navController.navigate("lesson/$encodedId") {
@@ -127,9 +127,9 @@ fun MainScreen() {
 
     Scaffold(
         topBar = {
-            if (shellUiState.isSessionActive) {
+            if (uiState.isSessionActive) {
                 AppBar(
-                    sessionDuration = shellUiState.sessionDuration,
+                    sessionDuration = uiState.sessionDuration,
                     onStopSession = mainViewModel::stopSession
                 )
             }

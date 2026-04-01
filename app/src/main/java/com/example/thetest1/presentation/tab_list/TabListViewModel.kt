@@ -7,7 +7,6 @@ import com.example.thetest1.di.AppDispatchers
 import com.example.thetest1.domain.model.Difficulty
 import com.example.thetest1.domain.model.TabItem
 import com.example.thetest1.domain.model.TabPlaybackProgress
-import com.example.thetest1.domain.repository.SessionRepository
 import com.example.thetest1.domain.repository.SoundFontRepository
 import com.example.thetest1.domain.repository.TabFileRepository
 import com.example.thetest1.domain.repository.TabPlaybackProgressRepository
@@ -32,15 +31,11 @@ data class TabListUiState(
     val selectedDifficulty: Difficulty = Difficulty.BEGINNER,
     val selectedTabIndex: Int = 0,
     val progressByTabId: Map<String, Int> = emptyMap(),
-    val lastSessionDurationByTabId: Map<String, Long> = emptyMap(),
     val message: String? = null,
     val selectedFolder: String? = null,
     val customFolders: List<String> = emptyList(),
     val isDownloadingOfflinePackage: Boolean = false
 ) {
-    private fun tags(tab: TabItem): Set<String> =
-        tab.tagsCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
-
     fun displayFolder(tab: TabItem): String {
         return tab.folder.trim().ifEmpty { "Без папки" }
     }
@@ -82,17 +77,11 @@ data class TabListUiState(
         }
         return filtered
     }
-
-    fun isOfflineAvailable(tab: TabItem): Boolean {
-        if (!tab.isUserTab) return true
-        return tab.offlineReady || tags(tab).contains("offline")
-    }
 }
 
 @HiltViewModel
 class TabListViewModel @Inject constructor(
     private val tabRepository: TabRepository,
-    private val sessionRepository: SessionRepository,
     private val progressRepository: TabPlaybackProgressRepository,
     private val tabFileRepository: TabFileRepository,
     private val soundFontRepository: SoundFontRepository,
@@ -258,16 +247,10 @@ class TabListViewModel @Inject constructor(
 
     private fun observeTabMetrics() {
         viewModelScope.launch {
-            combine(
-                sessionRepository.getAllSessions(),
-                progressRepository.observeAll()
-            ) { sessions, progressList ->
+            progressRepository.observeAll().collect { progressList ->
                 val progressMap = progressList.associate { progress ->
                     progress.tabId to calculateProgressPercent(progress)
                 }
-                val lastSessionDurationMap = buildLastSessionDurationMap(sessions)
-                progressMap to lastSessionDurationMap
-            }.collect { (progressMap, lastSessionDurationMap) ->
                 _uiState.update { current ->
                     val mergedProgress = if (
                         progressMap.isEmpty() &&
@@ -280,7 +263,6 @@ class TabListViewModel @Inject constructor(
                     }
                     current.copy(
                         progressByTabId = mergedProgress,
-                        lastSessionDurationByTabId = lastSessionDurationMap,
                         areMetricsLoading = false
                     )
                 }
@@ -292,18 +274,5 @@ class TabListViewModel @Inject constructor(
         if (progress.totalBars <= 0) return 0
         return ((progress.lastBarIndex.toFloat() / progress.totalBars.toFloat()) * 100f).toInt()
             .coerceIn(0, 100)
-    }
-
-    private fun buildLastSessionDurationMap(sessions: List<com.example.thetest1.domain.model.Session>): Map<String, Long> {
-        val sorted = sessions.sortedByDescending { it.startTime.time }
-        val map = mutableMapOf<String, Long>()
-        sorted.forEach { session ->
-            session.practicedTabs.forEach { tab ->
-                if (!map.containsKey(tab.tabId)) {
-                    map[tab.tabId] = tab.duration
-                }
-            }
-        }
-        return map
     }
 }

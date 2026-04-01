@@ -1,6 +1,5 @@
 package com.example.thetest1.presentation.tab_viewer
 
-import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,11 +8,9 @@ import com.example.thetest1.domain.model.AudioNote
 import com.example.thetest1.domain.model.TextNote
 import com.example.thetest1.domain.repository.AudioNoteRepository
 import com.example.thetest1.domain.repository.TextNoteRepository
-import com.example.thetest1.presentation.audio_notes.AudioPlayer
-import com.example.thetest1.presentation.audio_notes.AudioRecorder
+import com.example.thetest1.presentation.audio_notes.AudioNoteMediaController
 import com.example.thetest1.presentation.audio_notes.PlayerState
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,17 +32,15 @@ data class TabNotesUiState(
 
 @HiltViewModel
 class TabNotesViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
     private val audioNoteRepository: AudioNoteRepository,
     private val textNoteRepository: TextNoteRepository,
+    private val mediaController: AudioNoteMediaController,
     private val dispatchers: AppDispatchers
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TabNotesUiState())
     val uiState: StateFlow<TabNotesUiState> = _uiState.asStateFlow()
 
-    private val audioRecorder by lazy { AudioRecorder(context) }
-    private val audioPlayer by lazy { AudioPlayer(context, dispatchers.main) }
     private var audioFile: File? = null
     private var audioNotesJob: Job? = null
     private var textNotesJob: Job? = null
@@ -53,7 +48,7 @@ class TabNotesViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            audioPlayer.playerState.collect { playerState ->
+            mediaController.playerState.collect { playerState ->
                 _uiState.update { it.copy(playerState = playerState) }
             }
         }
@@ -85,13 +80,7 @@ class TabNotesViewModel @Inject constructor(
 
     fun addAudioNoteFromFile(lessonId: String, uri: Uri) {
         viewModelScope.launch(dispatchers.io) {
-            val fileName = "audio_${System.currentTimeMillis()}.mp4"
-            val newFile = File(context.filesDir, fileName)
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                newFile.outputStream().use { outputStream ->
-                    inputStream.copyTo(outputStream)
-                }
-            }
+            val newFile = mediaController.importAudio(uri) ?: return@launch
             audioNoteRepository.addAudioNote(
                 AudioNote(
                     lessonId = lessonId,
@@ -104,8 +93,7 @@ class TabNotesViewModel @Inject constructor(
 
     fun onRecordAudio(lessonId: String) {
         if (_uiState.value.isRecording) {
-            audioRecorder.stop()
-            audioFile?.let { recordedFile ->
+            mediaController.stopRecording()?.let { recordedFile ->
                 viewModelScope.launch(dispatchers.io) {
                     audioNoteRepository.addAudioNote(
                         AudioNote(
@@ -116,12 +104,10 @@ class TabNotesViewModel @Inject constructor(
                     )
                 }
             }
+            audioFile = null
             _uiState.update { it.copy(isRecording = false) }
         } else {
-            val fileName = "audio_${System.currentTimeMillis()}.mp4"
-            val newFile = File(context.filesDir, fileName)
-            audioRecorder.start(newFile)
-            audioFile = newFile
+            audioFile = mediaController.startRecording()
             _uiState.update { it.copy(isRecording = true) }
         }
     }
@@ -133,11 +119,11 @@ class TabNotesViewModel @Inject constructor(
     }
 
     fun onPlayAudio(audioNote: AudioNote) {
-        audioPlayer.onPlay(audioNote.id.toString(), audioNote.filePath)
+        mediaController.play(audioNote.id.toString(), audioNote.filePath)
     }
 
     fun onSeekAudio(trackId: String, progress: Float) {
-        audioPlayer.seek(trackId, progress)
+        mediaController.seek(trackId, progress)
     }
 
     fun addTextNote(lessonId: String, content: String) {
@@ -166,6 +152,6 @@ class TabNotesViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
-        audioPlayer.release()
+        mediaController.release()
     }
 }

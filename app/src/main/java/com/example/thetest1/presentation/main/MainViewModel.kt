@@ -13,6 +13,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -21,7 +22,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.SharingStarted
 import java.util.Date
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -42,12 +42,6 @@ data class MainUiState(
     val continueLessonId: String? = null
 )
 
-data class MainShellUiState(
-    val isSessionActive: Boolean = false,
-    val sessionDuration: Long = 0L,
-    val continueLessonId: String? = null
-)
-
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
@@ -58,21 +52,6 @@ class MainViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
-    
-    val shellUiState: StateFlow<MainShellUiState> = uiState
-        .map {
-            MainShellUiState(
-                isSessionActive = it.isSessionActive,
-                sessionDuration = it.sessionDuration,
-                continueLessonId = it.continueLessonId
-            )
-        }
-        .distinctUntilChanged()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = MainShellUiState()
-        )
 
     val lastPlaybackProgress: StateFlow<TabPlaybackProgress?> = progressRepository.observeAll()
         .map { list -> list.maxByOrNull { it.updatedAt } }
