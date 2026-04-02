@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">The Test1</string>
+    <string name="app_name">Guitar Learning</string>
     <string name="back_arrow"><![CDATA[<-]]></string>
     <string name="theory">Теорія</string>
     <string name="tabs">Таби</string>

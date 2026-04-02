@@ -17,7 +17,7 @@ if (localPropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.example.thetest1"
+    namespace = "com.guitarlearning"
     compileSdk = 36
 
     defaultConfig {

@@ -3,8 +3,8 @@
     <style name="Theme.App.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@android:color/white</item>
         <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
-        <item name="postSplashScreenTheme">@style/Theme.TheTest1</item>
+        <item name="postSplashScreenTheme">@style/Theme.GuitarLearning</item>
     </style>
 
-    <style name="Theme.TheTest1" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.GuitarLearning" parent="android:Theme.Material.Light.NoActionBar" />
 </resources>
