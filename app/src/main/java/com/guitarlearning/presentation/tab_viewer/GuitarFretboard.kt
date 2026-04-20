@@ -53,6 +53,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.res.stringResource
+import com.guitarlearning.R
 import com.guitarlearning.presentation.main.FretboardDisplayMode
 import kotlinx.coroutines.launch
 import kotlin.math.max
@@ -144,8 +146,8 @@ fun GuitarFretboard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            AssistChip(onClick = {}, enabled = false, label = { Text("Палець = цифра в колі") })
-            AssistChip(onClick = {}, enabled = false, label = { Text("L = лад, 0 = відкрита") })
+            AssistChip(onClick = {}, enabled = false, label = { Text(stringResource(R.string.fretboard_hint_finger)) })
+            AssistChip(onClick = {}, enabled = false, label = { Text(stringResource(R.string.fretboard_hint_fret)) })
         }
 
         Box(

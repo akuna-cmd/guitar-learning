@@ -1,8 +1,9 @@
 package com.guitarlearning
 
+import android.content.Context
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -51,25 +52,30 @@ import androidx.navigation.compose.rememberNavController
 import com.guitarlearning.presentation.goals.GoalsScreen
 import com.guitarlearning.presentation.main.HomeScreen
 import com.guitarlearning.presentation.main.MainViewModel
-import com.guitarlearning.presentation.main.ThemeViewModel
 import com.guitarlearning.presentation.navigation.BottomNavItem
 import com.guitarlearning.presentation.navigation.lessonsNavGraph
 import com.guitarlearning.presentation.settings.SettingsScreen
 import com.guitarlearning.presentation.ui.AppBar
 import com.guitarlearning.presentation.ui.WebViewWarmup
 import com.guitarlearning.presentation.ui.theme.GuitarLearningTheme
+import com.guitarlearning.core.AppLocaleManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocaleManager.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
 
         setContent {
-            val themeViewModel: ThemeViewModel = hiltViewModel()
-            val themeUiState by themeViewModel.uiState.collectAsStateWithLifecycle()
+            val themeUiState by hiltViewModel<com.guitarlearning.presentation.main.ThemeViewModel>()
+                .uiState
+                .collectAsStateWithLifecycle()
 
             splashScreen.setKeepOnScreenCondition { false }
 

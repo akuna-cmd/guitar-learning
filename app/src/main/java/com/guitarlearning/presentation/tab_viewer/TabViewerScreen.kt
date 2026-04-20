@@ -35,11 +35,9 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.School
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -145,6 +143,12 @@ fun TabViewerScreen(
         }
     }
 
+    LaunchedEffect(isDisplayUnlocked, lessonId) {
+        if (isDisplayUnlocked) {
+            TabLoadMetricsTracker.markFullyVisible(lessonId)
+        }
+    }
+
     var showAiSheet by remember { mutableStateOf(false) }
     var showNotesSheet by remember { mutableStateOf(false) }
     var showLoopSheet by remember { mutableStateOf(false) }
@@ -202,7 +206,10 @@ fun TabViewerScreen(
                             .padding(8.dp),
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        val modes = listOf(false to "Звичайна гра", true to "Режим розбору")
+                        val modes = listOf(
+                            false to stringResource(R.string.settings_mode_normal),
+                            true to stringResource(R.string.settings_mode_practice)
+                        )
                         modes.forEach { (practice, label) ->
                             val selected = isPracticeMode == practice
                             Row(
@@ -237,6 +244,7 @@ fun TabViewerScreen(
 
                     TabViewer(
                         model = TabViewerModel(
+                            tabId = lesson.id,
                             fileName = lesson.tabsGpPath,
                             tabBytesReady = uiState.tabBytesReady,
                             soundFontReady = uiState.soundFontReady,
@@ -323,6 +331,7 @@ fun TabViewerScreen(
                             )
                         }
                     }
+
                 }
 
                 if (showAiSheet) {
@@ -427,6 +436,7 @@ private fun TabViewer(
     tabViewModel: TabViewerViewModel,
     modifier: Modifier = Modifier
 ) {
+    val tabId = model.tabId
     val fileName = model.fileName
     val tabBytesReady = model.tabBytesReady
     val soundFontReady = model.soundFontReady
@@ -564,6 +574,7 @@ private fun TabViewer(
                 totalBars = totalMeasuresInternal
                 webEntry.loadedTotalMeasures = totalMeasuresInternal
                 webEntry.loadedFileName = fileName
+                TabLoadMetricsTracker.markScoreLoaded(tabId, loadedSourceForCurrentLesson)
                 val now = System.currentTimeMillis()
                 val fromRequest = if (loadRequestAtMs > 0L) now - loadRequestAtMs else -1L
                 val fromJsReady = if (jsReadyAtMs > 0L) now - jsReadyAtMs else -1L
@@ -661,6 +672,7 @@ private fun TabViewer(
             tabViewModel.markScoreLoaded(webEntry.loadedTotalMeasures)
             isReady = true
             totalBars = webEntry.loadedTotalMeasures
+            TabLoadMetricsTracker.markScoreLoaded(tabId, "reused-webview")
             onTotalMeasuresLoaded(webEntry.loadedTotalMeasures)
             if (ENABLE_TAB_PERF_TRACE) {
                 Log.d(loadTag, "file change -> REUSE rendered score file=$fileName bars=${webEntry.loadedTotalMeasures}")
@@ -759,6 +771,7 @@ private fun TabViewer(
                     val assetUrl = "https://appassets.androidplatform.net/assets/$fileName"
                     loadedSourceForCurrentLesson = "asset-url"
                     loadRequestAtMs = System.currentTimeMillis()
+                    TabLoadMetricsTracker.markLoadRequested(tabId, "asset-url")
                     if (ENABLE_TAB_PERF_TRACE) {
                         Log.d(restoreTag, "loading score from asset url")
                         Log.d(loadTag, "request load assetUrl=$assetUrl")
@@ -769,6 +782,7 @@ private fun TabViewer(
                     if (base64 != null) {
                         loadedSourceForCurrentLesson = "base64"
                         loadRequestAtMs = System.currentTimeMillis()
+                        TabLoadMetricsTracker.markLoadRequested(tabId, "base64")
                         if (ENABLE_TAB_PERF_TRACE) {
                             Log.d(restoreTag, "loading score from base64")
                             Log.d(loadTag, "request load base64 file=$fileName len=${base64.length}")
@@ -779,6 +793,7 @@ private fun TabViewer(
                     // Fallback only. In WebView appassets context local file:// may be blocked on some devices.
                     loadedSourceForCurrentLesson = "file-fallback"
                     loadRequestAtMs = System.currentTimeMillis()
+                    TabLoadMetricsTracker.markLoadRequested(tabId, "file-fallback")
                     if (ENABLE_TAB_PERF_TRACE) {
                         Log.d(restoreTag, "loading score from file fallback")
                         Log.d(loadTag, "request load file fallback path=$fileName")

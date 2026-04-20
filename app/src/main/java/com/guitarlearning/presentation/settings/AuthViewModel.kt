@@ -2,6 +2,7 @@ package com.guitarlearning.presentation.settings
 
 import android.content.Context
 import android.util.Log
+import com.guitarlearning.R
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -9,6 +10,7 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
@@ -30,6 +32,7 @@ data class AuthUiState(
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val auth: FirebaseAuth
 ) : ViewModel() {
 
@@ -75,7 +78,7 @@ class AuthViewModel @Inject constructor(
                     Log.e("AuthViewModel", "CM: unexpected credential type: ${credential.type}")
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = "Неочікуваний тип облікових даних"
+                        error = appContext.getString(R.string.auth_error_unexpected_credential)
                     )
                 }
             } catch (e: GetCredentialCancellationException) {
@@ -85,13 +88,13 @@ class AuthViewModel @Inject constructor(
                 Log.e("AuthViewModel", "CM: GetCredentialException: ${e.type} - ${e.message}")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "Google Sign-In: ${e.message}"
+                    error = appContext.getString(R.string.auth_error_google_sign_in, e.message ?: "")
                 )
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "CM: unexpected error", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "Помилка: ${e.message}"
+                    error = appContext.getString(R.string.auth_error_generic, e.message ?: "")
                 )
             }
         }
@@ -148,12 +151,12 @@ class AuthViewModel @Inject constructor(
     }
 
     private fun mapFirebaseError(msg: String?): String = when {
-        msg == null -> "Невідома помилка"
-        "no user record" in msg || "password is invalid" in msg -> "Невірний email або пароль"
-        "email address is already in use" in msg -> "Цей email вже зареєстрований"
-        "badly formatted" in msg -> "Невірний формат email"
-        "weak password" in msg -> "Пароль занадто слабкий (мінімум 6 символів)"
-        "network" in msg.lowercase() -> "Немає з'єднання з мережею"
+        msg == null -> appContext.getString(R.string.auth_error_unknown)
+        "no user record" in msg || "password is invalid" in msg -> appContext.getString(R.string.auth_error_invalid_credentials)
+        "email address is already in use" in msg -> appContext.getString(R.string.auth_error_email_in_use)
+        "badly formatted" in msg -> appContext.getString(R.string.auth_error_invalid_email)
+        "weak password" in msg -> appContext.getString(R.string.auth_error_weak_password)
+        "network" in msg.lowercase() -> appContext.getString(R.string.auth_error_network)
         else -> msg
     }
 }

@@ -66,8 +66,8 @@ fun GoalsScreen() {
     if (goalToDelete != null) {
         AlertDialog(
             onDismissRequest = { goalToDelete = null },
-            title = { Text("Видалити ціль?") },
-            text = { Text("Ви впевнені, що хочете видалити цю ціль?") },
+            title = { Text(stringResource(R.string.goal_delete_title)) },
+            text = { Text(stringResource(R.string.goal_delete_message)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -76,12 +76,12 @@ fun GoalsScreen() {
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Видалити")
+                    Text(stringResource(R.string.delete))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { goalToDelete = null }) {
-                    Text("Скасувати")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )

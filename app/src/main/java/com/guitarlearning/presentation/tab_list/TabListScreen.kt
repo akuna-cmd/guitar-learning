@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.*
@@ -55,6 +56,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.guitarlearning.R
 import com.guitarlearning.domain.model.Difficulty
 import com.guitarlearning.domain.model.TabItem
+import com.guitarlearning.domain.model.displayTabFolder
+import com.guitarlearning.domain.model.isDefaultTabFolder
+import com.guitarlearning.presentation.tab_viewer.TabLoadMetricsTracker
 import com.guitarlearning.presentation.ui.WebViewWarmup
 import com.guitarlearning.presentation.ui.theme.appBlockBorder
 import com.guitarlearning.presentation.ui.formatDuration
@@ -162,7 +166,7 @@ fun TabListScreen(
     if (showAddMenuDialog) {
         AlertDialog(
             onDismissRequest = { showAddMenuDialog = false },
-            title = { Text("Обери дію") },
+            title = { Text(stringResource(R.string.tab_list_choose_action)) },
             text = {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -180,7 +184,7 @@ fun TabListScreen(
                     ) {
                         Icon(Icons.Default.Folder, contentDescription = null)
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("Нова папка", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.tab_list_new_folder), style = MaterialTheme.typography.titleMedium)
                     }
                     FilledTonalButton(
                         onClick = {
@@ -194,7 +198,7 @@ fun TabListScreen(
                     ) {
                         Icon(Icons.Default.LibraryMusic, contentDescription = null)
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("Табулатура", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.tab_list_tab_item), style = MaterialTheme.typography.titleMedium)
                     }
                 }
             },
@@ -210,12 +214,12 @@ fun TabListScreen(
     if (showCreateFolderDialog) {
         AlertDialog(
             onDismissRequest = { showCreateFolderDialog = false },
-            title = { Text("Створити папку") },
+            title = { Text(stringResource(R.string.tab_list_create_folder_title)) },
             text = {
                 OutlinedTextField(
                     value = newFolderFromFab,
                     onValueChange = { newFolderFromFab = it },
-                    label = { Text("Назва папки") },
+                    label = { Text(stringResource(R.string.tab_list_folder_name)) },
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp)
                 )
@@ -227,7 +231,7 @@ fun TabListScreen(
                         newFolderFromFab = ""
                         showCreateFolderDialog = false
                     }
-                ) { Text("Створити") }
+                ) { Text(stringResource(R.string.tab_list_create)) }
             },
             dismissButton = {
                 TextButton(onClick = {
@@ -251,6 +255,9 @@ private fun UserTabsScreen(
     onRenameTab: (TabItem, String) -> Unit,
     onAddFirstTab: () -> Unit
 ) {
+    val context = LocalContext.current
+    val allFoldersLabel = stringResource(R.string.tab_list_all_folders)
+    val noFolderLabel = stringResource(R.string.tab_folder_default)
     var showMenu by remember { mutableStateOf<String?>(null) }
     var showRenameDialog by remember { mutableStateOf<TabItem?>(null) }
     var tabToDelete by remember { mutableStateOf<TabItem?>(null) }
@@ -316,12 +323,12 @@ private fun UserTabsScreen(
     tabToMove?.let { tab ->
         AlertDialog(
             onDismissRequest = { tabToMove = null },
-            title = { Text("Перемістити у") },
+            title = { Text(stringResource(R.string.tab_list_move_to)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (uiState.availableFolders.isEmpty()) {
                         Text(
-                            text = "Ще немає папок. Створи першу папку нижче.",
+                            text = stringResource(R.string.tab_list_no_folders_yet),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -333,7 +340,7 @@ private fun UserTabsScreen(
                                     viewModel.moveToFolder(tab, folder)
                                     tabToMove = null
                                 },
-                                label = { Text(folder) },
+                                label = { Text(displayTabFolder(context, folder)) },
                                 leadingIcon = { Icon(Icons.Default.Folder, contentDescription = null) }
                             )
                             Spacer(modifier = Modifier.height(6.dp))
@@ -343,7 +350,7 @@ private fun UserTabsScreen(
                     OutlinedTextField(
                         value = newFolderName,
                         onValueChange = { newFolderName = it },
-                        label = { Text("Нова папка") },
+                        label = { Text(stringResource(R.string.tab_list_new_folder)) },
                         singleLine = true,
                         shape = RoundedCornerShape(16.dp)
                     )
@@ -360,7 +367,7 @@ private fun UserTabsScreen(
                         }
                     }
                 ) {
-                    Text("Створити і перемістити")
+                    Text(stringResource(R.string.tab_list_create_and_move))
                 }
             },
             dismissButton = {
@@ -375,7 +382,7 @@ private fun UserTabsScreen(
     folderActionsFor?.let { folder ->
         AlertDialog(
             onDismissRequest = { folderActionsFor = null },
-            title = { Text("Папка: $folder") },
+            title = { Text(stringResource(R.string.tab_list_folder_title, displayTabFolder(context, folder))) },
             text = {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -394,7 +401,7 @@ private fun UserTabsScreen(
                     ) {
                         Icon(Icons.Default.Edit, contentDescription = null)
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("Перейменувати", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.rename), style = MaterialTheme.typography.titleMedium)
                     }
                     FilledTonalButton(
                         onClick = {
@@ -412,7 +419,7 @@ private fun UserTabsScreen(
                     ) {
                         Icon(Icons.Default.Delete, contentDescription = null)
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("Видалити", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.delete), style = MaterialTheme.typography.titleMedium)
                     }
                 }
             },
@@ -426,12 +433,12 @@ private fun UserTabsScreen(
     folderToRename?.let { folder ->
         AlertDialog(
             onDismissRequest = { folderToRename = null },
-            title = { Text("Перейменувати папку") },
+            title = { Text(stringResource(R.string.tab_list_rename_folder_title)) },
             text = {
                 OutlinedTextField(
                     value = renameFolderValue,
                     onValueChange = { renameFolderValue = it },
-                    label = { Text("Нова назва папки") },
+                    label = { Text(stringResource(R.string.tab_list_new_folder_name)) },
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp)
                 )
@@ -455,8 +462,8 @@ private fun UserTabsScreen(
     folderToDelete?.let { folder ->
         AlertDialog(
             onDismissRequest = { folderToDelete = null },
-            title = { Text("Видалити папку") },
-            text = { Text("Таби з цієї папки будуть переміщені в \"Без папки\".") },
+            title = { Text(stringResource(R.string.tab_list_delete_folder_title)) },
+            text = { Text(stringResource(R.string.tab_list_delete_folder_message, noFolderLabel)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -510,7 +517,7 @@ private fun UserTabsScreen(
                     onExpandedChange = { folderMenuExpanded = !folderMenuExpanded }
                 ) {
                     OutlinedTextField(
-                        value = uiState.selectedFolder ?: "Усі папки",
+                        value = uiState.selectedFolder?.let { displayTabFolder(context, it) } ?: allFoldersLabel,
                         onValueChange = {},
                         readOnly = true,
                         modifier = Modifier
@@ -525,7 +532,7 @@ private fun UserTabsScreen(
                         onDismissRequest = { folderMenuExpanded = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Усі папки") },
+                            text = { Text(allFoldersLabel) },
                             onClick = {
                                 viewModel.selectFolder(null)
                                 folderMenuExpanded = false
@@ -539,8 +546,8 @@ private fun UserTabsScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text(folder)
-                                        if (folder != "Без папки") {
+                                        Text(displayTabFolder(context, folder))
+                                        if (!isDefaultTabFolder(folder)) {
                                             Text(
                                                 text = "⋮",
                                                 style = MaterialTheme.typography.headlineSmall,
@@ -571,6 +578,7 @@ private fun UserTabsScreen(
                         .padding(vertical = 4.dp)
                         .border(appBlockBorder(), RoundedCornerShape(16.dp))
                         .clickable {
+                            TabLoadMetricsTracker.start(tab.id, tab.name)
                             viewModel.markTabOpened(tab.id)
                             onTabClick(tab.id)
                         }
@@ -598,8 +606,8 @@ private fun UserTabsScreen(
                                     expanded = showMenu == tab.id,
                                     onDismissRequest = { showMenu = null }
                                 ) {
-                                    DropdownMenuItem(
-                                        text = { Text("Перемістити у") },
+                                DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.tab_list_move_to)) },
                                         leadingIcon = { Icon(Icons.Default.Folder, contentDescription = null) },
                                         onClick = {
                                             tabToMove = tab
@@ -653,7 +661,7 @@ private fun UserTabsScreen(
                                             tint = MaterialTheme.colorScheme.onSecondaryContainer
                                         )
                                         Text(
-                                            text = uiState.displayFolder(tab),
+                                            text = displayTabFolder(context, uiState.displayFolder(tab)),
                                             style = MaterialTheme.typography.labelMedium,
                                             color = MaterialTheme.colorScheme.onSecondaryContainer,
                                             fontWeight = FontWeight.SemiBold,
@@ -686,12 +694,13 @@ private fun LessonsScreen(
                     selected = uiState.selectedDifficulty == difficulty,
                     onClick = { viewModel.selectDifficulty(difficulty) },
                     text = {
-                        val text = when (difficulty) {
-                            Difficulty.BEGINNER -> stringResource(id = R.string.beginner)
-                            Difficulty.INTERMEDIATE -> stringResource(id = R.string.intermediate)
-                            Difficulty.ADVANCED -> stringResource(id = R.string.advanced)
-                        }
-                        Text(text)
+                        DifficultyStars(
+                            count = when (difficulty) {
+                                Difficulty.BEGINNER -> 1
+                                Difficulty.INTERMEDIATE -> 2
+                                Difficulty.ADVANCED -> 3
+                            }
+                        )
                     }
                 )
             }
@@ -735,6 +744,7 @@ private fun LessonsScreen(
                             .padding(vertical = 4.dp)
                             .border(appBlockBorder(), RoundedCornerShape(16.dp))
                             .clickable {
+                                TabLoadMetricsTracker.start(tab.id, tab.name)
                                 viewModel.markTabOpened(tab.id)
                                 onTabClick(tab.id)
                             }
@@ -773,6 +783,22 @@ private fun LessonsScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun DifficultyStars(count: Int) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        repeat(count) {
+            Icon(
+                imageVector = Icons.Filled.Star,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
         }
     }
 }

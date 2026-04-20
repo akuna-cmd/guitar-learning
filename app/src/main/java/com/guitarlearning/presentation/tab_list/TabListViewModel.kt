@@ -4,14 +4,19 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.guitarlearning.di.AppDispatchers
+import com.guitarlearning.domain.model.DEFAULT_TAB_FOLDER_KEY
 import com.guitarlearning.domain.model.Difficulty
 import com.guitarlearning.domain.model.TabItem
 import com.guitarlearning.domain.model.TabPlaybackProgress
+import com.guitarlearning.domain.model.isDefaultTabFolder
+import com.guitarlearning.domain.model.normalizeTabFolder
 import com.guitarlearning.domain.repository.SoundFontRepository
 import com.guitarlearning.domain.repository.TabFileRepository
 import com.guitarlearning.domain.repository.TabPlaybackProgressRepository
 import com.guitarlearning.domain.repository.TabRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
+import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,12 +42,12 @@ data class TabListUiState(
     val isDownloadingOfflinePackage: Boolean = false
 ) {
     fun displayFolder(tab: TabItem): String {
-        return tab.folder.trim().ifEmpty { "Без папки" }
+        return normalizeTabFolder(tab.folder)
     }
 
     val availableFolders: List<String>
-        get() = listOf("Без папки") + (customFolders + userTabs.map { displayFolder(it) })
-            .filter { it != "Без папки" }
+        get() = listOf(DEFAULT_TAB_FOLDER_KEY) + (customFolders + userTabs.map { displayFolder(it) })
+            .filterNot { isDefaultTabFolder(it) }
             .distinct()
             .sorted()
 
@@ -81,6 +86,7 @@ data class TabListUiState(
 
 @HiltViewModel
 class TabListViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val tabRepository: TabRepository,
     private val progressRepository: TabPlaybackProgressRepository,
     private val tabFileRepository: TabFileRepository,
@@ -110,8 +116,8 @@ class TabListViewModel @Inject constructor(
     }
 
     fun createFolder(folderName: String) {
-        val normalized = folderName.trim()
-        if (normalized.isEmpty() || normalized == "Без папки") return
+        val normalized = normalizeTabFolder(folderName)
+        if (normalized.isEmpty() || isDefaultTabFolder(normalized)) return
         _uiState.update { current ->
             current.copy(
                 customFolders = (current.customFolders + normalized).distinct().sorted(),
@@ -133,10 +139,10 @@ class TabListViewModel @Inject constructor(
     }
 
     fun renameFolder(oldName: String, newName: String) {
-        val target = newName.trim().ifEmpty { return }
-        if (oldName == "Без папки" || target == "Без папки") return
+        val target = normalizeTabFolder(newName).ifEmpty { return }
+        if (isDefaultTabFolder(oldName) || isDefaultTabFolder(target)) return
         viewModelScope.launch(dispatchers.io) {
-            val tabsToMove = _uiState.value.userTabs.filter { it.folder == oldName }
+            val tabsToMove = _uiState.value.userTabs.filter { normalizeTabFolder(it.folder) == normalizeTabFolder(oldName) }
             tabsToMove.forEach { tab ->
                 tabRepository.updateTabFolder(tab.id, target)
             }
@@ -150,11 +156,11 @@ class TabListViewModel @Inject constructor(
     }
 
     fun deleteFolder(folderName: String) {
-        if (folderName == "Без папки") return
+        if (isDefaultTabFolder(folderName)) return
         viewModelScope.launch(dispatchers.io) {
-            val tabsToMove = _uiState.value.userTabs.filter { it.folder == folderName }
+            val tabsToMove = _uiState.value.userTabs.filter { normalizeTabFolder(it.folder) == normalizeTabFolder(folderName) }
             tabsToMove.forEach { tab ->
-                tabRepository.updateTabFolder(tab.id, "Без папки")
+                tabRepository.updateTabFolder(tab.id, DEFAULT_TAB_FOLDER_KEY)
             }
             _uiState.update { current ->
                 current.copy(
@@ -206,7 +212,7 @@ class TabListViewModel @Inject constructor(
             }.onFailure { error ->
                 _uiState.update {
                     it.copy(
-                        message = error.message ?: "Не вдалося додати табулатуру"
+                        message = error.message ?: context.getString(com.guitarlearning.R.string.user_tab_add_failed)
                     )
                 }
             }

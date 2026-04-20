@@ -39,10 +39,11 @@ import androidx.activity.ComponentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.guitarlearning.R
+import com.guitarlearning.core.AppLocaleManager
+import com.guitarlearning.presentation.main.AppLanguage
 import com.guitarlearning.presentation.main.ThemeMode
 import com.guitarlearning.presentation.main.ThemeViewModel
 import com.guitarlearning.presentation.main.TabDisplayMode
-import com.guitarlearning.presentation.main.FretboardDisplayMode
 import com.guitarlearning.presentation.ui.HoldableIconButton
 import com.guitarlearning.presentation.ui.formatScale
 import com.guitarlearning.presentation.ui.formatSpeed
@@ -120,6 +121,23 @@ fun SettingsScreen() {
         }
 
         item {
+            SettingsSection(title = stringResource(R.string.settings_language_title)) {
+                listOf(
+                    AppLanguage.UKRAINIAN to stringResource(R.string.settings_language_ukrainian),
+                    AppLanguage.ENGLISH to stringResource(R.string.settings_language_english)
+                ).forEach { (language, label) ->
+                    SettingsOptionsRow(label, uiState.appLanguage == language) {
+                        AppLocaleManager.persistLanguage(context, language.languageTag)
+                        themeViewModel.setAppLanguage(language)
+                        activity.overridePendingTransition(0, 0)
+                        activity.recreate()
+                        activity.overridePendingTransition(0, 0)
+                    }
+                }
+            }
+        }
+
+        item {
             SettingsSection(title = stringResource(R.string.settings_mode_normal)) {
                 CompactSpeedScale(
                     speed = uiState.normalSpeed,
@@ -166,24 +184,6 @@ fun SettingsScreen() {
             }
         }
 
-        item {
-            SettingsSection(title = "Відображення грифа") {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SettingsIconOptionRow(
-                        label = "Просте",
-                        selected = uiState.fretboardDisplayMode == FretboardDisplayMode.SIMPLE,
-                        icon = Icons.Default.Visibility,
-                        onClick = { themeViewModel.setFretboardDisplayMode(FretboardDisplayMode.SIMPLE) }
-                    )
-                    SettingsIconOptionRow(
-                        label = "Детальне",
-                        selected = uiState.fretboardDisplayMode == FretboardDisplayMode.DETAILED,
-                        icon = Icons.Default.Tune,
-                        onClick = { themeViewModel.setFretboardDisplayMode(FretboardDisplayMode.DETAILED) }
-                    )
-                }
-            }
-        }
     }
 }
 
@@ -272,11 +272,15 @@ private fun ProfileCard(
     onSync: () -> Unit,
     onSignOut: () -> Unit
 ) {
+    val context = LocalContext.current
     val initials = (displayName ?: email ?: "?")
         .split(" ").mapNotNull { it.firstOrNull()?.uppercaseChar() }.take(2).joinToString("")
     val syncText = lastSyncedTime?.let {
-        "Остання синхронізація: ${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(it))}"
-    } ?: "Синхронізація ще не виконувалась"
+        context.getString(
+            R.string.settings_last_sync_format,
+            DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(it))
+        )
+    } ?: context.getString(R.string.settings_last_sync_never)
 
     Card(
         shape = RoundedCornerShape(20.dp),
@@ -304,7 +308,7 @@ private fun ProfileCard(
                 )
             }
             Text(
-                text = displayName ?: email ?: "Користувач",
+                text = displayName ?: email ?: stringResource(R.string.settings_profile_user),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold
             )
@@ -342,7 +346,7 @@ private fun ProfileCard(
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                 } else {
-                    Text("Синхронізувати зараз")
+                    Text(stringResource(R.string.settings_sync_now))
                 }
             }
             OutlinedButton(
@@ -350,7 +354,7 @@ private fun ProfileCard(
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Вийти з профілю")
+                Text(stringResource(R.string.settings_sign_out))
             }
         }
     }
@@ -396,12 +400,12 @@ private fun AuthCard(
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0; authViewModel.clearError() },
-                    text = { Text("Вхід", fontWeight = FontWeight.SemiBold) }
+                    text = { Text(stringResource(R.string.settings_auth_sign_in), fontWeight = FontWeight.SemiBold) }
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1; authViewModel.clearError() },
-                    text = { Text("Реєстрація", fontWeight = FontWeight.SemiBold) }
+                    text = { Text(stringResource(R.string.settings_auth_sign_up), fontWeight = FontWeight.SemiBold) }
                 )
             }
 
@@ -416,7 +420,7 @@ private fun AuthCard(
                     OutlinedTextField(
                         value = displayName,
                         onValueChange = { displayName = it },
-                        label = { Text("Ім'я") },
+                        label = { Text(stringResource(R.string.settings_auth_name)) },
                         leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
@@ -442,7 +446,7 @@ private fun AuthCard(
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text("Пароль") },
+                    label = { Text(stringResource(R.string.settings_auth_password)) },
                     leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                     trailingIcon = {
                         IconButton(onClick = { showPassword = !showPassword }) {
@@ -465,7 +469,7 @@ private fun AuthCard(
                     OutlinedTextField(
                         value = confirmPassword,
                         onValueChange = { confirmPassword = it },
-                        label = { Text("Повторіть пароль") },
+                        label = { Text(stringResource(R.string.settings_auth_repeat_password)) },
                         leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                         trailingIcon = {
                             IconButton(onClick = { showConfirm = !showConfirm }) {
@@ -478,7 +482,9 @@ private fun AuthCard(
                         },
                         singleLine = true,
                         isError = passwordMismatch,
-                        supportingText = if (passwordMismatch) {{ Text("Паролі не збігаються") }} else null,
+                        supportingText = if (passwordMismatch) {{
+                            Text(stringResource(R.string.settings_auth_password_mismatch))
+                        }} else null,
                         visualTransformation = if (showConfirm) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         shape = RoundedCornerShape(12.dp),
@@ -529,7 +535,11 @@ private fun AuthCard(
                         )
                     } else {
                         Text(
-                            text = if (selectedTab == 0) "Увійти" else "Створити акаунт",
+                            text = if (selectedTab == 0) {
+                                stringResource(R.string.settings_auth_sign_in_action)
+                            } else {
+                                stringResource(R.string.settings_auth_create_account)
+                            },
                             style = MaterialTheme.typography.labelLarge
                         )
                     }
@@ -542,7 +552,7 @@ private fun AuthCard(
                 ) {
                     HorizontalDivider(modifier = Modifier.weight(1f))
                     Text(
-                        "  або  ",
+                        stringResource(R.string.settings_auth_or),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -560,7 +570,10 @@ private fun AuthCard(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(Icons.Default.AccountCircle, contentDescription = null)
-                        Text("Продовжити з Google", style = MaterialTheme.typography.labelLarge)
+                        Text(
+                            stringResource(R.string.settings_auth_continue_with_google),
+                            style = MaterialTheme.typography.labelLarge
+                        )
                     }
                 }
             }

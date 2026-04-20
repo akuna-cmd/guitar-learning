@@ -2,12 +2,14 @@ package com.guitarlearning.presentation.settings
 
 import android.content.Context
 import android.net.Uri
+import com.guitarlearning.R
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.guitarlearning.domain.model.PracticedTab
 import com.guitarlearning.domain.model.Session
 import com.guitarlearning.domain.repository.SessionRepository
 import com.guitarlearning.domain.repository.SyncRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -32,6 +34,7 @@ data class SettingsUiState(
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val sessionRepository: SessionRepository,
     private val syncRepository: SyncRepository
 ) : ViewModel() {
@@ -74,9 +77,11 @@ class SettingsViewModel @Inject constructor(
                 context.contentResolver.openOutputStream(uri)?.use { outputStream ->
                     outputStream.write(jsonArray.toString(2).toByteArray())
                 }
-                _uiState.value = _uiState.value.copy(message = "Історію успішно експортовано")
+                _uiState.value = _uiState.value.copy(message = appContext.getString(R.string.settings_message_export_success))
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(message = "Помилка експорту: ${e.localizedMessage}")
+                _uiState.value = _uiState.value.copy(
+                    message = appContext.getString(R.string.settings_message_export_error, e.localizedMessage ?: "")
+                )
             } finally {
                 _uiState.value = _uiState.value.copy(isExporting = false)
             }
@@ -123,9 +128,11 @@ class SettingsViewModel @Inject constructor(
                 }
                 
                 sessionRepository.importHistory(sessions)
-                _uiState.value = _uiState.value.copy(message = "Історію успішно імпортовано")
+                _uiState.value = _uiState.value.copy(message = appContext.getString(R.string.settings_message_import_success))
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(message = "Помилка імпорту: ${e.localizedMessage}")
+                _uiState.value = _uiState.value.copy(
+                    message = appContext.getString(R.string.settings_message_import_error, e.localizedMessage ?: "")
+                )
             } finally {
                 _uiState.value = _uiState.value.copy(isImporting = false)
             }
@@ -136,9 +143,14 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val result = syncRepository.syncData()
             if (result.isSuccess) {
-                _uiState.value = _uiState.value.copy(message = "Синхронізація успішна")
+                _uiState.value = _uiState.value.copy(message = appContext.getString(R.string.settings_message_sync_success))
             } else {
-                _uiState.value = _uiState.value.copy(message = "Помилка синхронізації: ${result.exceptionOrNull()?.localizedMessage}")
+                _uiState.value = _uiState.value.copy(
+                    message = appContext.getString(
+                        R.string.settings_message_sync_error,
+                        result.exceptionOrNull()?.localizedMessage ?: ""
+                    )
+                )
             }
         }
     }
@@ -146,7 +158,7 @@ class SettingsViewModel @Inject constructor(
     fun resetHistory() {
         viewModelScope.launch {
             sessionRepository.clearHistory()
-            _uiState.value = _uiState.value.copy(message = "Історію успішно очищено")
+            _uiState.value = _uiState.value.copy(message = appContext.getString(R.string.settings_message_history_cleared))
         }
     }
 

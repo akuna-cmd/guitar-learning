@@ -8,6 +8,7 @@ import com.guitarlearning.data.local.TabDao
 import com.guitarlearning.data.model.Lesson
 import com.guitarlearning.data.model.toDomain
 import com.guitarlearning.domain.model.Difficulty
+import com.guitarlearning.domain.model.DEFAULT_TAB_FOLDER_KEY
 import com.guitarlearning.domain.model.Lesson as DomainLesson
 import com.guitarlearning.domain.model.TabItem
 import com.guitarlearning.domain.repository.TabRepository
@@ -68,7 +69,7 @@ class TabRepositoryImpl @Inject constructor(
                         append(lesson.level)
                         append(",lesson")
                     },
-                    folder = "Без папки",
+                    folder = DEFAULT_TAB_FOLDER_KEY,
                     updatedAt = 0L,
                     offlineReady = true
                 )
@@ -167,7 +168,7 @@ class TabRepositoryImpl @Inject constructor(
             filePath = file.absolutePath,
             asciiTabs = asciiTabs,
             tagsCsv = "custom,user",
-            folder = "Без папки",
+            folder = DEFAULT_TAB_FOLDER_KEY,
             updatedAt = System.currentTimeMillis()
         )
         tabDao.insertTab(tabItem)

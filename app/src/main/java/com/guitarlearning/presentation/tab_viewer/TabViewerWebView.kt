@@ -153,6 +153,7 @@ internal fun createTabWebViewEntry(context: Context): TabWebViewEntry {
 }
 
 internal data class TabViewerModel(
+    val tabId: String,
     val fileName: String,
     val tabBytesReady: Boolean,
     val soundFontReady: Boolean,

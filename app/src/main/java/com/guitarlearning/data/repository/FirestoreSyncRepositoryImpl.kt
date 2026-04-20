@@ -10,8 +10,10 @@ import com.guitarlearning.domain.model.Goal
 import com.guitarlearning.domain.model.GoalType
 import com.guitarlearning.domain.model.PracticedTab
 import com.guitarlearning.domain.model.Session
+import com.guitarlearning.domain.model.DEFAULT_TAB_FOLDER_KEY
 import com.guitarlearning.domain.model.TabItem
 import com.guitarlearning.domain.model.TabPlaybackProgress
+import com.guitarlearning.domain.model.normalizeTabFolder
 import com.guitarlearning.domain.repository.GoalRepository
 import com.guitarlearning.domain.repository.SessionRepository
 import com.guitarlearning.domain.repository.SyncRepository
@@ -79,7 +81,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncData(): Result<Unit> {
-        val user = auth.currentUser ?: return Result.failure(Exception("Користувач не авторизований"))
+        val user = auth.currentUser ?: return Result.failure(Exception(context.getString(com.guitarlearning.R.string.sync_error_not_authorized)))
 
         syncingState.value = true
         return runCatching {
@@ -224,7 +226,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
     }
 
     override suspend fun clearRemoteData(): Result<Unit> {
-        val user = auth.currentUser ?: return Result.failure(Exception("Користувач не авторизований"))
+        val user = auth.currentUser ?: return Result.failure(Exception(context.getString(com.guitarlearning.R.string.sync_error_not_authorized)))
         syncingState.value = true
         return runCatching {
             val userRef = firestore.collection("users").document(user.uid)
@@ -379,6 +381,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
     private fun AppSettingsSnapshot.toFirestoreMap(): Map<String, Any> {
         return mapOf(
             "themeMode" to themeMode.name,
+            "appLanguage" to appLanguage.name,
             "normalSpeed" to normalSpeed,
             "practiceSpeed" to practiceSpeed,
             "normalTabScale" to normalTabScale,
@@ -403,7 +406,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             "fileBase64" to filePayload?.fileBase64,
             "asciiTabs" to asciiTabs,
             "tagsCsv" to tagsCsv,
-            "folder" to folder,
+            "folder" to normalizeTabFolder(folder),
             "openCount" to openCount,
             "lastOpenedAt" to lastOpenedAt,
             "updatedAt" to updatedAt,
@@ -458,6 +461,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
         if (!exists()) return null
         return AppSettingsSnapshot(
             themeMode = enumValueOrDefault(getString("themeMode"), AppSettingsSnapshot().themeMode),
+            appLanguage = enumValueOrDefault(getString("appLanguage"), AppSettingsSnapshot().appLanguage),
             normalSpeed = getDouble("normalSpeed")?.toFloat() ?: 1.0f,
             practiceSpeed = getDouble("practiceSpeed")?.toFloat() ?: 0.25f,
             normalTabScale = getDouble("normalTabScale")?.toFloat() ?: 1.0f,
@@ -525,7 +529,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
                 filePath = localPath,
                 asciiTabs = getString("asciiTabs"),
                 tagsCsv = getString("tagsCsv") ?: "",
-                folder = getString("folder") ?: "Без папки",
+                folder = normalizeTabFolder(getString("folder") ?: DEFAULT_TAB_FOLDER_KEY),
                 openCount = getLong("openCount")?.toInt() ?: 0,
                 lastOpenedAt = getLong("lastOpenedAt") ?: 0L,
                 updatedAt = getLong("updatedAt") ?: 0L,
@@ -692,7 +696,9 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             )
         }
 
-        throw IllegalStateException("Не вдалося синхронізувати файл таба \"${tab.name}\"")
+        throw IllegalStateException(
+            context.getString(com.guitarlearning.R.string.sync_error_tab_file_failed, tab.name)
+        )
     }
 
     private fun exportUserTabFileBase64(tab: TabItem): String? {

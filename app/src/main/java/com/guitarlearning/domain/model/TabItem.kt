@@ -18,7 +18,7 @@ data class TabItem(
     val filePath: String? = null,
     val asciiTabs: String? = null,
     val tagsCsv: String = "",
-    val folder: String = "Без папки",
+    val folder: String = DEFAULT_TAB_FOLDER_KEY,
     val openCount: Int = 0,
     val lastOpenedAt: Long = 0L,
     val updatedAt: Long = 0L,

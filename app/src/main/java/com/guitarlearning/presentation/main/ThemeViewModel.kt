@@ -14,9 +14,11 @@ import javax.inject.Inject
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 enum class TabDisplayMode { TAB_ONLY, TAB_AND_NOTES, NOTES_ONLY }
 enum class FretboardDisplayMode { SIMPLE, DETAILED }
+enum class AppLanguage(val languageTag: String) { UKRAINIAN("uk"), ENGLISH("en") }
 
 data class ThemeUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val appLanguage: AppLanguage = AppLanguage.UKRAINIAN,
     val normalSpeed: Float = 1.0f,
     val practiceSpeed: Float = 0.25f,
     val normalTabScale: Float = 1.0f,
@@ -35,6 +37,7 @@ class ThemeViewModel @Inject constructor(
         .map { settings ->
             ThemeUiState(
                 themeMode = settings.themeMode,
+                appLanguage = settings.appLanguage,
                 normalSpeed = settings.normalSpeed,
                 practiceSpeed = settings.practiceSpeed,
                 normalTabScale = settings.normalTabScale,
@@ -53,6 +56,12 @@ class ThemeViewModel @Inject constructor(
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch {
             appSettingsRepository.setThemeMode(mode)
+        }
+    }
+
+    fun setAppLanguage(language: AppLanguage) {
+        viewModelScope.launch {
+            appSettingsRepository.setAppLanguage(language)
         }
     }
 

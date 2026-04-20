@@ -519,7 +519,7 @@ internal fun LoopConfigurator(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Зациклити відрізок",
+            text = stringResource(R.string.loop_config_title),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold
         )
@@ -532,7 +532,7 @@ internal fun LoopConfigurator(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Увімкнути зациклення", style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(R.string.loop_enable), style = MaterialTheme.typography.bodyLarge)
             Switch(
                 checked = isLoopEnabled,
                 onCheckedChange = { onToggleLoop(it) }
@@ -540,7 +540,7 @@ internal fun LoopConfigurator(
         }
         Spacer(Modifier.height(16.dp))
         Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Початковий такт: $startMeasure", fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.loop_start_measure, startMeasure), fontWeight = FontWeight.Bold)
             androidx.compose.material3.Slider(
                 value = startMeasure.toFloat(),
                 onValueChange = { onStartChange(it.toInt().coerceAtMost(endMeasure)) },
@@ -550,7 +550,7 @@ internal fun LoopConfigurator(
         }
         Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Кінцевий такт: $endMeasure", fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.loop_end_measure, endMeasure), fontWeight = FontWeight.Bold)
             androidx.compose.material3.Slider(
                 value = endMeasure.toFloat(),
                 onValueChange = { onEndChange(it.toInt().coerceAtLeast(startMeasure)) },
