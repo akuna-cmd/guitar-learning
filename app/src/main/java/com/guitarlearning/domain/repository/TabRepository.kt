@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface TabRepository {
     fun getTabs(): Flow<List<TabItem>>
+    suspend fun refreshBuiltInTabLocalizations()
     fun observeUserTabs(): Flow<List<TabItem>>
     suspend fun getAllTabsSync(): List<TabItem>
     suspend fun getLesson(id: String): Lesson?

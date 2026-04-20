@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.guitarlearning.R
+import com.guitarlearning.core.AppLocaleManager
 import com.guitarlearning.data.local.TabDao
 import com.guitarlearning.data.model.Lesson
 import com.guitarlearning.data.model.toDomain
@@ -14,6 +15,7 @@ import com.guitarlearning.domain.model.TabItem
 import com.guitarlearning.domain.repository.TabRepository
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -48,14 +50,26 @@ class TabRepositoryImpl @Inject constructor(
         }
     }
 
+    private fun shouldUseEnglishDescriptions(): Boolean {
+        return AppLocaleManager.getSavedLanguageTag(context).startsWith("en", ignoreCase = true)
+    }
+
+    private fun localizedLessonDescriptionMap(): Map<String, String> {
+        val useEnglishDescriptions = shouldUseEnglishDescriptions()
+        return lessonsFromJson.associate { lesson ->
+            lesson.id to lesson.localizedDescription(useEnglishDescriptions)
+        }
+    }
+
     override fun getTabs(): Flow<List<TabItem>> = flow {
+        val useEnglishDescriptions = shouldUseEnglishDescriptions()
         val tabsFromDb = tabDao.getTabs().first()
         if (tabsFromDb.isEmpty()) {
             val tabsToInsert = lessonsFromJson.mapIndexed { index, lesson ->
                 TabItem(
                     id = lesson.id,
                     name = lesson.title,
-                    description = lesson.description,
+                    description = lesson.localizedDescription(useEnglishDescriptions),
                     difficulty = when (lesson.level) {
                         "beginner" -> Difficulty.BEGINNER
                         "intermediate" -> Difficulty.INTERMEDIATE
@@ -75,9 +89,40 @@ class TabRepositoryImpl @Inject constructor(
                 )
             }
             tabDao.insertTabs(tabsToInsert)
-            emit(tabsToInsert)
-        } else {
-            emit(tabsFromDb)
+        }
+        emitAll(
+            tabDao.getTabs().map { storedTabs ->
+                val lessonDescriptionsById = localizedLessonDescriptionMap()
+                val localizedTabs = storedTabs.map { tab ->
+                    val localizedDescription = lessonDescriptionsById[tab.id] ?: return@map tab
+                    if (tab.isUserTab || tab.description == localizedDescription) {
+                        tab
+                    } else {
+                        tab.copy(description = localizedDescription)
+                    }
+                }
+                val changedTabs = localizedTabs.filterIndexed { index, tab -> tab != storedTabs[index] }
+                if (changedTabs.isNotEmpty()) {
+                    tabDao.insertTabs(changedTabs)
+                }
+                localizedTabs
+            }
+        )
+    }
+
+    override suspend fun refreshBuiltInTabLocalizations() {
+        val lessonDescriptionsById = localizedLessonDescriptionMap()
+        val tabsFromDb = tabDao.getTabs().first()
+        val changedTabs = tabsFromDb.mapNotNull { tab ->
+            val localizedDescription = lessonDescriptionsById[tab.id] ?: return@mapNotNull null
+            if (tab.description == localizedDescription) {
+                null
+            } else {
+                tab.copy(description = localizedDescription)
+            }
+        }
+        if (changedTabs.isNotEmpty()) {
+            tabDao.insertTabs(changedTabs)
         }
     }
 
@@ -88,6 +133,7 @@ class TabRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getLesson(id: String): DomainLesson? {
+        val useEnglishDescriptions = shouldUseEnglishDescriptions()
         val tab = tabDao.getTabById(id)
         if (tab?.isUserTab == true) {
             return tab.filePath
@@ -105,7 +151,7 @@ class TabRepositoryImpl @Inject constructor(
                 )
             }
         }
-        return lessonsFromJson.find { it.id == id }?.toDomain()
+        return lessonsFromJson.find { it.id == id }?.toDomain(useEnglishDescriptions)
     }
 
     override suspend fun updateTab(tab: TabItem) {

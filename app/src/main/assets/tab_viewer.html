@@ -93,8 +93,162 @@
 
 const STRING_NAMES = {1:'e (1)',2:'b (2)',3:'g (3)',4:'d (4)',5:'A (5)',6:'E (6)'};
 const STRING_SHORT = {1:'e',2:'b',3:'g',4:'d',5:'A',6:'E'};
-const LH_NAMES     = {1:'1 (вказівний)',2:'2 (середній)',3:'3 (безіменний)',4:'4 (мізинець)'};
 const DUR_BEATS    = {1:4,2:2,4:1,8:.5,16:.25,32:.125,64:.0625};
+let _locale = 'uk';
+
+const I18N = {
+    uk: {
+        lhIndex: '1 (вказівний)',
+        lhMiddle: '2 (середній)',
+        lhRing: '3 (безіменний)',
+        lhPinky: '4 (мізинець)',
+        rhThumb: 'p (великий)',
+        rhIndex: 'i (вказівний)',
+        rhMiddle: 'm (середній)',
+        rhRing: 'a (безіменний)',
+        techniqueHarmonic: 'Флажолет',
+        techniqueDead: 'Мертва нота',
+        techniqueBend: 'Підтяжка',
+        techniquePalmMute: 'Глушіння долонею',
+        techniqueTrill: 'Трель',
+        techniqueGhost: 'Нота-привид',
+        techniqueLetRing: 'Нота звучить далі',
+        techniqueTapping: 'Теппінг',
+        techniqueSlap: 'Слеп',
+        techniquePop: 'Поп',
+        techniqueLegato: 'Легато',
+        techniqueSlide: 'Слайд',
+        techniqueVibrato: 'Вібрато',
+        possibleBarre: 'Можливе баре на {fret} ладі',
+        wideStretch: 'Широка розтяжка!',
+        tappingInstruction: 'Теппінг: Нота виконується ударом пальця правої руки безпосередньо по ладу на грифі.',
+        positionBarre: 'Позиція: Можливе баре на {fret}-му ладі.',
+        barreHelp: 'За потреби можна притиснути кілька струн вказівним пальцем; якщо незручно, допускається аплікатура без повного баре.',
+        positionAround: 'Позиція: Навколо {fret}-го ладу.',
+        wideStretchInstruction: 'Широка розтяжка: Великий палець лівої руки слід опустити ближче до центру грифа для полегшення позиції.',
+        leftHandMuted: 'Ліва рука: Заглушена нота на струні {string}. Пальці торкаються струни без притискання.',
+        leftHandOpen: 'Ліва рука: Відкрита струна {string}.',
+        leftHandFinger: 'Ліва рука: Палець {finger} на струні {string}, лад {fret}.',
+        rightHandFinger: 'Права рука: Палець {finger}, напрямок удару — {direction}.',
+        directionDown: 'вниз',
+        directionUp: 'вгору',
+        chord: 'Акорд: Одночасне звучання {count} струн.',
+        mutedShort: 'глуха',
+        openShort: 'відкр.',
+        leftHandSummary: 'Ліва рука: {items}.',
+        rightHandArpeggio: 'Права рука: Виконується перебором (арпеджіо).',
+        rightHandStrum: 'Права рука: Удар по всіх струнах (страм) {direction}.',
+        accentInstruction: 'Акцент: Ця нота виконується з підвищеною динамікою (гучніше).',
+        ghostInstruction: 'Нота-привид: Виконується дуже тихо, ледь відчутно, створюючи фонову пульсацію.',
+        deadInstruction: 'Мертва нота: Струна повністю приглушена лівою рукою; удар правої руки генерує перкусійний звук.',
+        slapInstruction: 'Слеп: Виконується різким ударом суглоба великого пальця правої руки по басовій струні.',
+        popInstruction: 'Поп: Струна підчіплюється вказівним пальцем правої руки і різко відпускається, створюючи характерний ляскіт.',
+        letRingInstruction: 'Нота звучить далі: Струну не слід глушити під час переходу до наступних нот.',
+        bendInstruction: 'Підтяжка: Після удару по струні підтягніть її пальцями лівої руки для досягнення потрібної висоти тону.',
+        vibratoInstruction: 'Вібрато: Виконується ритмічним розгойдуванням притиснутого пальця для коливання висоти тону.',
+        slideInstruction: 'Слайд: Палець ковзає по струні до потрібного ладу без повторного удару медіатором.',
+        legatoInstruction: 'Легато: Наступна нота береться без удару правої руки ударом пальця лівої руки по грифу або зривом струни.',
+        tieInstruction: 'Ліга: Ноти під дугою виконуються зв’язно, без розриву між ними; перша нота береться атакою, наступні — переважно легато.',
+        palmMuteInstruction: 'Глушіння долонею: Ребро правої долоні злегка торкається струн біля підставки, приглушуючи їх резонанс.',
+        harmonicInstruction: 'Флажолет: Палець лівої руки злегка торкається струни над порожком без притискання, генеруючи обертон.',
+        trillInstruction: 'Трель: Швидке безперервне чергування двох нот методом Hammer-on та Pull-off.',
+        plainNoteInstruction: 'Звичайна нота без додаткових артикуляцій.',
+        deadLabel: 'Глуха (x)',
+        stringLabel: 'Струна {string} [{label}] (лад {fret})'
+    },
+    en: {
+        lhIndex: '1 (index)',
+        lhMiddle: '2 (middle)',
+        lhRing: '3 (ring)',
+        lhPinky: '4 (pinky)',
+        rhThumb: 'p (thumb)',
+        rhIndex: 'i (index)',
+        rhMiddle: 'm (middle)',
+        rhRing: 'a (ring)',
+        techniqueHarmonic: 'Harmonic',
+        techniqueDead: 'Dead note',
+        techniqueBend: 'Bend',
+        techniquePalmMute: 'Palm mute',
+        techniqueTrill: 'Trill',
+        techniqueGhost: 'Ghost note',
+        techniqueLetRing: 'Let ring',
+        techniqueTapping: 'Tapping',
+        techniqueSlap: 'Slap',
+        techniquePop: 'Pop',
+        techniqueLegato: 'Legato',
+        techniqueSlide: 'Slide',
+        techniqueVibrato: 'Vibrato',
+        possibleBarre: 'Possible barre on fret {fret}',
+        wideStretch: 'Wide stretch!',
+        tappingInstruction: 'Tapping: The note is played by striking the fret directly with a finger of the picking hand.',
+        positionBarre: 'Position: Possible barre on fret {fret}.',
+        barreHelp: 'If needed, press several strings with the index finger; if it feels awkward, a fingering without a full barre is also acceptable.',
+        positionAround: 'Position: Around fret {fret}.',
+        wideStretchInstruction: 'Wide stretch: Move the thumb of the fretting hand closer to the center of the neck to make the position easier.',
+        leftHandMuted: 'Left hand: Muted note on string {string}. The fingers touch the string without pressing it down.',
+        leftHandOpen: 'Left hand: Open string {string}.',
+        leftHandFinger: 'Left hand: Finger {finger} on string {string}, fret {fret}.',
+        rightHandFinger: 'Right hand: Finger {finger}, stroke direction — {direction}.',
+        directionDown: 'down',
+        directionUp: 'up',
+        chord: 'Chord: Simultaneous sound of {count} strings.',
+        mutedShort: 'muted',
+        openShort: 'open',
+        leftHandSummary: 'Left hand: {items}.',
+        rightHandArpeggio: 'Right hand: Played as a picked arpeggio.',
+        rightHandStrum: 'Right hand: Strum across all strings {direction}.',
+        accentInstruction: 'Accent: This note is played with increased emphasis and volume.',
+        ghostInstruction: 'Ghost note: Played very quietly, almost imperceptibly, creating a background pulse.',
+        deadInstruction: 'Dead note: The string is fully muted by the fretting hand; the picking hand produces a percussive sound.',
+        slapInstruction: 'Slap: Performed with a sharp strike of the thumb joint on a bass string.',
+        popInstruction: 'Pop: The string is hooked with the index finger of the picking hand and released sharply to create a snap.',
+        letRingInstruction: 'Let ring: Allow the note to keep sounding; do not mute the string while moving to the next notes.',
+        bendInstruction: 'Bend: After plucking the string, push it with the fretting hand to raise the pitch.',
+        vibratoInstruction: 'Vibrato: Performed by rhythmically rocking the fretting finger to vary the pitch slightly.',
+        slideInstruction: 'Slide: The finger glides along the string to the target fret without another pick attack.',
+        legatoInstruction: 'Legato: The next note is taken without a new right-hand attack, using a hammer-on or pull-off.',
+        tieInstruction: 'Slur: Notes under the arc are played smoothly without separation; the first note has the attack, the next notes are mostly legato.',
+        palmMuteInstruction: 'Palm mute: The edge of the picking hand lightly touches the strings near the bridge to damp their resonance.',
+        harmonicInstruction: 'Harmonic: The fretting finger lightly touches the string above the fret without pressing it down, producing an overtone.',
+        trillInstruction: 'Trill: Rapid continuous alternation of two notes using hammer-ons and pull-offs.',
+        plainNoteInstruction: 'Regular note without additional articulation.',
+        deadLabel: 'Dead (x)',
+        stringLabel: 'String {string} [{label}] (fret {fret})'
+    }
+};
+
+function activeLocale() {
+    return (_locale || 'uk').toLowerCase().startsWith('en') ? 'en' : 'uk';
+}
+
+function t(key, params = {}) {
+    const table = I18N[activeLocale()] || I18N.uk;
+    let value = table[key] || I18N.uk[key] || key;
+    for (const [paramKey, paramValue] of Object.entries(params)) {
+        value = value.replaceAll(`{${paramKey}}`, String(paramValue));
+    }
+    return value;
+}
+
+function leftHandName(finger) {
+    const names = {
+        1: t('lhIndex'),
+        2: t('lhMiddle'),
+        3: t('lhRing'),
+        4: t('lhPinky')
+    };
+    return names[finger] || String(finger);
+}
+
+function rightHandName(symbol) {
+    const names = {
+        p: t('rhThumb'),
+        i: t('rhIndex'),
+        m: t('rhMiddle'),
+        a: t('rhRing')
+    };
+    return names[symbol] || symbol;
+}
 const BIOMECH = {
     1:{1:8,2:1,3:2,4:4}, 2:{1:1,2:8,3:1,4:2},
     3:{1:3,2:1,3:8,4:1}, 4:{1:6,2:3,3:1,4:8}
@@ -178,7 +332,7 @@ function assignLhFingers(notes, pos, barre, prevF, prevBeatPlacement) {
 
     for(const{string:s,fret:f,isDead}of sorted){
         if(f===0){lhMap[`${s}_${f}`]='-';continue;}
-        if(f===barre && !isDead){lhMap[`${s}_${f}`]='1 (можливе баре)';newF[s]=1;}
+        if(f===barre && !isDead){lhMap[`${s}_${f}`]=`${leftHandName(1)} (${t('possibleBarre', { fret: f })})`;newF[s]=1;}
     }
 
     const toAssign = sorted.filter(n => n.fret > 0 && !n.isDead && !(barre !== null && n.fret === barre));
@@ -262,7 +416,7 @@ function assignLhFingers(notes, pos, barre, prevF, prevBeatPlacement) {
     dfs(0, 0);
 
     for(const item of (bestAssign || [])){
-        lhMap[`${item.string}_${item.fret}`]=LH_NAMES[item.finger]||String(item.finger);
+        lhMap[`${item.string}_${item.fret}`]=leftHandName(item.finger);
         newF[item.string]=item.finger;
     }
 
@@ -273,7 +427,7 @@ class RightHandSM {
     constructor(){this._last='m';}
     getFingers(notes){
         const res={};
-        const FULL={p:'p (великий)',i:'i (вказівний)',m:'m (середній)',a:'a (безіменний)'};
+        const FULL={p:rightHandName('p'),i:rightHandName('i'),m:rightHandName('m'),a:rightHandName('a')};
         const ordered = [...notes].sort((a,b)=>a.string-b.string);
         if(ordered.length === 1){
             const s = ordered[0].string;
@@ -305,48 +459,48 @@ function buildInstructions(notes, rawNotes, lhMap, rhMap, barre, pos, isTapping)
     const inst = [];
 
     if (isTapping) {
-        inst.push('Теппінг: Нота виконується ударом пальця правої руки безпосередньо по ладу на грифі.');
+        inst.push(t('tappingInstruction'));
         return inst;
     }
 
     const noteCount = notes.length;
 
     if (barre !== null) {
-        inst.push(`Позиція: Можливе баре на ${barre}-му ладі.`);
-        inst.push('За потреби можна притиснути кілька струн вказівним пальцем; якщо незручно — допускається аплікатура без повного баре.');
+        inst.push(t('positionBarre', { fret: barre }));
+        inst.push(t('barreHelp'));
     } else if (pos > 0) {
         const pr = notes.filter(n=>n.fret>0 && !n.isDead);
         if(pr.length > 0) {
             const span = Math.max(...pr.map(n=>n.fret)) - Math.min(...pr.map(n=>n.fret));
-            inst.push(`Позиція: Навколо ${pos}-го ладу.`);
-            if (span > 3) inst.push('Широка розтяжка: Великий палець лівої руки слід опустити ближче до центру грифа для полегшення позиції.');
+            inst.push(t('positionAround', { fret: pos }));
+            if (span > 3) inst.push(t('wideStretchInstruction'));
         }
     }
 
     if (noteCount === 1) {
         const {string:s, fret:f} = notes[0];
         const lh = lhMap[`${s}_${f}`]||'?';
-        const rh = rhMap[s]||'i (вказівний)';
+        const rh = rhMap[s]||rightHandName('i');
         if(rawNotes[0].isDead) {
-            inst.push(`Ліва рука: Заглушена нота на струні ${STRING_NAMES[s]}. Пальці торкаються струни без притискання.`);
+            inst.push(t('leftHandMuted', { string: STRING_NAMES[s] }));
         } else if (f === 0) {
-            inst.push(`Ліва рука: Відкрита струна ${STRING_NAMES[s]}.`);
+            inst.push(t('leftHandOpen', { string: STRING_NAMES[s] }));
         } else {
-            inst.push(`Ліва рука: Палець ${lh} на струні ${STRING_NAMES[s]}, лад ${f}.`);
+            inst.push(t('leftHandFinger', { finger: lh, string: STRING_NAMES[s], fret: f }));
         }
-        inst.push(`Права рука: Палець ${rh}, напрямок удару — ${s>=4 ? 'вниз' : 'вгору'}.`);
+        inst.push(t('rightHandFinger', { finger: rh, direction: s >= 4 ? t('directionDown') : t('directionUp') }));
     } else {
-        inst.push(`Акорд: Одночасне звучання ${noteCount} струн.`);
+        inst.push(t('chord', { count: noteCount }));
         const lhParts = notes.map(n=>{
-            if(n.isDead) return `${STRING_SHORT[n.string]}-глуха`;
-            return `${STRING_SHORT[n.string]}-${n.fret===0?'відкр.':n.fret}(${lhMap[`${n.string}_${n.fret}`]||'?'})`;
+            if(n.isDead) return `${STRING_SHORT[n.string]}-${t('mutedShort')}`;
+            return `${STRING_SHORT[n.string]}-${n.fret===0 ? t('openShort') : n.fret}(${lhMap[`${n.string}_${n.fret}`]||'?'})`;
         });
-        inst.push(`Ліва рука: ${lhParts.join(', ')}.`);
+        inst.push(t('leftHandSummary', { items: lhParts.join(', ') }));
         if (notes.some(n=>n.string>=4) && notes.some(n=>n.string<=3)) {
-            inst.push('Права рука: Виконується перебором (арпеджіо).');
+            inst.push(t('rightHandArpeggio'));
         } else {
-            const dir = notes[0].string>=4 ? 'вниз' : 'вгору';
-            inst.push(`Права рука: Удар по всім струнам (страм) ${dir}.`);
+            const dir = notes[0].string>=4 ? t('directionDown') : t('directionUp');
+            inst.push(t('rightHandStrum', { direction: dir }));
         }
     }
 
@@ -370,25 +524,25 @@ function buildInstructions(notes, rawNotes, lhMap, rhMap, barre, pos, isTapping)
         if(n.accent > 0) acc=true;
     }
 
-    if (acc) inst.push('Акцент: Ця нота виконується з підвищеною динамікою (гучніше).');
-    if (ghost) inst.push('Нота-привид (Ghost): Виконується дуже тихо, ледь відчутно, створюючи фонову пульсацію.');
-    if (dead) inst.push('Мертва нота (Dead Note): Струна повністю приглушена лівою рукою; удар правої руки генерує перкусійний звук.');
-    if (slap) inst.push('Слеп (Slap): Виконується різким ударом суглоба великого пальця правої руки по басовій струні.');
-    if (pop) inst.push('Поп (Pop): Струна підчіплюється вказівним пальцем правої руки і різко відпускається, створюючи характерний ляскіт.');
-    if (letR) inst.push('Let Ring: Нота залишається звучати; струну не слід глушити під час переходу до наступних нот.');
+    if (acc) inst.push(t('accentInstruction'));
+    if (ghost) inst.push(t('ghostInstruction'));
+    if (dead) inst.push(t('deadInstruction'));
+    if (slap) inst.push(t('slapInstruction'));
+    if (pop) inst.push(t('popInstruction'));
+    if (letR) inst.push(t('letRingInstruction'));
 
-    if (bend) inst.push('Підтяжка (Bend): Після удару по струні підтягніть її пальцями лівої руки для досягнення потрібної висоти тону.');
-    if (vib) inst.push('Вібрато: Виконується ритмічним розгойдуванням притиснутого пальця для коливання висоти тону.');
-    if (slIn || slOut) inst.push('Слайд (Glissando): Палець ковзає по струні до потрібного ладу без повторного удару медіатором.');
+    if (bend) inst.push(t('bendInstruction'));
+    if (vib) inst.push(t('vibratoInstruction'));
+    if (slIn || slOut) inst.push(t('slideInstruction'));
     if (leg) {
-        inst.push('Легато (Hammer-on/Pull-off): Наступна нота береться без удару правої руки (ударом пальця лівої руки по грифу або зривом струни).');
-        inst.push('Ліга: Ноти під дугою виконуються зв’язно, без розриву між ними; перша нота береться атакою, наступні — переважно легато.');
+        inst.push(t('legatoInstruction'));
+        inst.push(t('tieInstruction'));
     }
-    if (pm) inst.push('Palm Mute (Глушіння долонею): Ребро правої долоні злегка торкається струн біля підставки, приглушуючи їх резонанс.');
-    if (harm) inst.push('Флажолет (Harmonics): Палець лівої руки злегка торкається струни рівно над порожком (без притискання), генеруючи обертон.');
-    if (trill) inst.push('Трель: Швидке безперервне чергування двох нот методом Hammer-on та Pull-off.');
+    if (pm) inst.push(t('palmMuteInstruction'));
+    if (harm) inst.push(t('harmonicInstruction'));
+    if (trill) inst.push(t('trillInstruction'));
 
-    if (!inst.length) inst.push('Звичайна нота без додаткових артикуляцій.');
+    if (!inst.length) inst.push(t('plainNoteInstruction'));
     return inst;
 }
 
@@ -399,20 +553,30 @@ function buildAnalysis(barIdx, notes, rawNotes, lhMap, rhMap, barre, pos, isTapp
         const s = n.string, f = n.fret, isDead = n.isDead;
         const sn=STRING_SHORT[s]||String(s);
         let lbl=lhMap[`${s}_${f}`]||'?';
-        if(isDead) lbl = 'Глуха (x)';
+        if(isDead) lbl = t('deadLabel');
         const open=f===0&&!isDead;
         LH.push({
              finger:open?'0':lbl.charAt(0), 
              fingerName:open?'Відкрита струна':lbl, 
-             string:sn, stringIndex:s, fret:isDead?'x':String(f), 
+             string:sn, stringIndex:s, fret:String(f), 
              color:open?'#4FC3F7':(isDead?'#757575':'#D07B30'),
+             isDead: !!isDead,
              isHammer: !!rn.isHammer,
-             isPullOff: false,
+             isPullOff: !!rn.isPullOff,
              isSlide: !!rn.slideIn || !!rn.slideOut,
              isVibrato: !!rn.vibrato,
-             isGhost: !!rn.isGhost
+             isGhost: !!rn.isGhost,
+             hasBend: !!rn.hasBend,
+             isPalmMute: !!rn.isPalmMute,
+             hasHarmonic: !!rn.hasHarmonic,
+             isTrill: !!rn.isTrill,
+             isLetRing: !!rn.isLetRing,
+             isSlap: !!rn.isSlap,
+             isPop: !!rn.isPop,
+             isAccent: !!rn.accent,
+             isTapping: !!isTapping
         });
-        const rh=rhMap[s]||(s>=4 ? 'p (великий)' : 'i (вказівний)');
+        const rh=rhMap[s]||(s>=4 ? rightHandName('p') : rightHandName('i'));
         RH.push({finger:rh.charAt(0), fingerName:rh, string:sn, stringIndex:s, direction: rh.charAt(0), color: s>=4 ?'#8B6350':'#3678B5'});
     }
     
@@ -423,19 +587,28 @@ function buildAnalysis(barIdx, notes, rawNotes, lhMap, rhMap, barre, pos, isTapp
        width = Math.max(...fretted.map(n=>n.fret)) - Math.min(...fretted.map(n=>n.fret));
     }
     
-    if (barre !== null) contextHint = "Можливе баре на " + barre + " ладі";
-    else if (width > 3) contextHint = "Широка розтяжка!";
-    else if (rawNotes.some(r => r.isSlap)) contextHint = "Слеп!";
-    else if (rawNotes.some(r => r.isHammer)) contextHint = "Легато (Hammer-on)";
-    else if (rawNotes.some(r => r.slideIn || r.slideOut)) contextHint = "Слайд";
-    else if (rawNotes.some(r => r.vibrato)) contextHint = "Вібрато";
+    if (rawNotes.some(r => r.hasHarmonic)) contextHint = t('techniqueHarmonic');
+    else if (rawNotes.some(r => r.isDead)) contextHint = t('techniqueDead');
+    else if (rawNotes.some(r => r.hasBend)) contextHint = t('techniqueBend');
+    else if (rawNotes.some(r => r.isPalmMute)) contextHint = t('techniquePalmMute');
+    else if (rawNotes.some(r => r.isTrill)) contextHint = t('techniqueTrill');
+    else if (rawNotes.some(r => r.isGhost)) contextHint = t('techniqueGhost');
+    else if (rawNotes.some(r => r.isLetRing)) contextHint = t('techniqueLetRing');
+    else if (isTapping) contextHint = t('techniqueTapping');
+    else if (rawNotes.some(r => r.isSlap)) contextHint = t('techniqueSlap');
+    else if (rawNotes.some(r => r.isPop)) contextHint = t('techniquePop');
+    else if (rawNotes.some(r => r.isHammer || r.isPullOff)) contextHint = t('techniqueLegato');
+    else if (rawNotes.some(r => r.slideIn || r.slideOut)) contextHint = t('techniqueSlide');
+    else if (rawNotes.some(r => r.vibrato)) contextHint = t('techniqueVibrato');
+    else if (barre !== null) contextHint = t('possibleBarre', { fret: barre });
+    else if (width > 3) contextHint = t('wideStretch');
 
     const nextLH = [];
     if (nextData && nextData.notes) {
         for(const n of nextData.notes) {
             nextLH.push({
                 finger: 'ghost', fingerName: '', string: STRING_SHORT[n.string]||String(n.string),
-                fret: String(n.fret), color: '#FFFFFF', isGhost: true, isHammer: false, isPullOff: false, isSlide: false, isVibrato: false
+                fret: String(n.fret), color: '#FFFFFF', isDead: !!n.isDead, isGhost: true, isHammer: false, isPullOff: false, isSlide: false, isVibrato: false
             });
         }
     }
@@ -473,6 +646,7 @@ function runFullAnalysis(score) {
                             slideIn:    !!(n.slideInType&&n.slideInType!==0),
                             slideOut:   !!(n.slideOutType&&n.slideOutType!==0),
                             isHammer:   !!n.isHammerPullOrigin,
+                            isPullOff:  !!n.isLeftHandTapped,
                             isPalmMute: !!(n.isPalmMute||n.effect?.palmMute),
                             hasHarmonic:!!(n.harmonicType&&n.harmonicType!==0),
                             isTrill:    !!n.isTrill,
@@ -550,7 +724,7 @@ function runFullAnalysis(score) {
                     for(let i = notes.length - 1; i >= 0; i--) {
                         let n = notes[i];
                         let stringLabel = STRING_NAMES[n.string] || String(n.string);
-                        beatStr += "Струна " + n.string + " [" + stringLabel + "] (лад " + n.fret + ")";
+                        beatStr += t('stringLabel', { string: n.string, label: stringLabel, fret: n.fret });
                         if (i > 0) beatStr += ", ";
                     }
                     beatStr += "]";
@@ -601,8 +775,9 @@ window.setTheme = (isDark) => {
     applyCanvasTheme();
 };
 
-window.initSettings = (isDark, isPractice, speed, scale, displayMode) => {
+window.initSettings = (isDark, isPractice, speed, scale, displayMode, localeTag) => {
     window.setTheme(isDark);
+    _locale = localeTag || 'uk';
     if(window.setPracticeModeLayout) window.setPracticeModeLayout(isPractice);
     if(window.setPlaybackSpeed) window.setPlaybackSpeed(speed);
     if(window.setTabScale) window.setTabScale(scale);

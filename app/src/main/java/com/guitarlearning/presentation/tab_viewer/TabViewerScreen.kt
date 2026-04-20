@@ -488,6 +488,10 @@ private fun TabViewer(
         com.guitarlearning.presentation.main.ThemeMode.LIGHT -> false
         com.guitarlearning.presentation.main.ThemeMode.SYSTEM -> isSystemDark
     }
+    val languageTag = themeUiState.appLanguage.languageTag
+    val jsLanguageTag = remember(languageTag) {
+        languageTag.replace("\\", "\\\\").replace("'", "\\'")
+    }
     val webEntry = remember(fileName) {
         createTabWebViewEntry(context)
     }
@@ -751,7 +755,7 @@ private fun TabViewer(
                 TabDisplayMode.TAB_ONLY -> "Tab"
                 TabDisplayMode.TAB_AND_NOTES -> "ScoreTab"
             }
-            webView.evaluateJavascript("window.initSettings($isDark, $isPracticeMode, $currentSpeed, $currentScale, '$modeStr');", null)
+            webView.evaluateJavascript("window.initSettings($isDark, $isPracticeMode, $currentSpeed, $currentScale, '$modeStr', '$jsLanguageTag');", null)
             if (loadedSourceForCurrentLesson == null) {
                 isScoreLoaded = false
                 tabViewModel.markScoreLoading()
@@ -810,14 +814,14 @@ private fun TabViewer(
     }
 
     // React to settings changes explicitly in one combined effect to avoid frame spam
-    LaunchedEffect(isPracticeMode, currentSpeed, currentScale, tabDisplayMode, isReady, restorePending) {
+    LaunchedEffect(isPracticeMode, currentSpeed, currentScale, tabDisplayMode, isReady, restorePending, languageTag) {
         if (isReady && !restorePending) {
             val modeStr = when (tabDisplayMode) {
                 TabDisplayMode.NOTES_ONLY -> "Score"
                 TabDisplayMode.TAB_ONLY -> "Tab"
                 TabDisplayMode.TAB_AND_NOTES -> "ScoreTab"
             }
-            webView.evaluateJavascript("window.initSettings($isDark, $isPracticeMode, $currentSpeed, $currentScale, '$modeStr');", null)
+            webView.evaluateJavascript("window.initSettings($isDark, $isPracticeMode, $currentSpeed, $currentScale, '$modeStr', '$jsLanguageTag');", null)
         }
     }
 

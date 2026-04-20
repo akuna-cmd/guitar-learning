@@ -46,11 +46,21 @@ data class FingerInfo(
     val fret: String? = null,
     val direction: String? = null,
     val color: String,
+    val isDead: Boolean = false,
     val isHammer: Boolean = false,
     val isPullOff: Boolean = false,
     val isSlide: Boolean = false,
     val isVibrato: Boolean = false,
-    val isGhost: Boolean = false
+    val isGhost: Boolean = false,
+    val hasBend: Boolean = false,
+    val isPalmMute: Boolean = false,
+    val hasHarmonic: Boolean = false,
+    val isTrill: Boolean = false,
+    val isLetRing: Boolean = false,
+    val isSlap: Boolean = false,
+    val isPop: Boolean = false,
+    val isAccent: Boolean = false,
+    val isTapping: Boolean = false
 )
 
 @Immutable

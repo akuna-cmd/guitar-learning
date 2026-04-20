@@ -62,12 +62,23 @@ import kotlin.math.max
 private data class FretNote(
     val stringIndex: Int,
     val fret: Int?,
-    val isMuted: Boolean,
+    val isDead: Boolean,
     val finger: String,
     val color: Color,
     val isHammer: Boolean,
+    val isPullOff: Boolean,
     val isSlide: Boolean,
-    val isVibrato: Boolean
+    val isVibrato: Boolean,
+    val isGhost: Boolean,
+    val hasBend: Boolean,
+    val isPalmMute: Boolean,
+    val hasHarmonic: Boolean,
+    val isTrill: Boolean,
+    val isLetRing: Boolean,
+    val isTapping: Boolean,
+    val isSlap: Boolean,
+    val isPop: Boolean,
+    val isAccent: Boolean
 )
 
 @OptIn(ExperimentalTextApi::class)
@@ -111,7 +122,6 @@ fun GuitarFretboard(
             val stringIndex = (note.stringIndex?.let { it - 1 } ?: stringToIndex(note.string))
                 ?.coerceIn(0, 5) ?: return@mapNotNull null
             val rawFret = note.fret?.trim()
-            val isMuted = rawFret.equals("x", ignoreCase = true)
             val fretInt = rawFret?.toIntOrNull()
             val dotColor = runCatching {
                 Color(android.graphics.Color.parseColor(note.color))
@@ -119,12 +129,23 @@ fun GuitarFretboard(
             FretNote(
                 stringIndex = stringIndex,
                 fret = fretInt,
-                isMuted = isMuted,
+                isDead = note.isDead || rawFret.equals("x", ignoreCase = true),
                 finger = note.finger.ifBlank { "?" },
                 color = dotColor,
                 isHammer = note.isHammer,
+                isPullOff = note.isPullOff,
                 isSlide = note.isSlide,
-                isVibrato = note.isVibrato
+                isVibrato = note.isVibrato,
+                isGhost = note.isGhost,
+                hasBend = note.hasBend,
+                isPalmMute = note.isPalmMute,
+                hasHarmonic = note.hasHarmonic,
+                isTrill = note.isTrill,
+                isLetRing = note.isLetRing,
+                isTapping = note.isTapping,
+                isSlap = note.isSlap,
+                isPop = note.isPop,
+                isAccent = note.isAccent
             )
         }
     }
@@ -135,6 +156,17 @@ fun GuitarFretboard(
     val hintBackground = scheme.surfaceContainerHighest
     val hintTextColor = scheme.onSurface
     val hintAccent = scheme.primary
+    val boardHeight = when {
+        allInstructions.isNotEmpty() && displayMode == FretboardDisplayMode.DETAILED -> 150.dp
+        allInstructions.isNotEmpty() -> 136.dp
+        displayMode == FretboardDisplayMode.DETAILED -> 185.dp
+        else -> 170.dp
+    }
+    val instructionsHeight = when {
+        allInstructions.isNotEmpty() && displayMode == FretboardDisplayMode.DETAILED -> 170.dp
+        allInstructions.isNotEmpty() -> 150.dp
+        else -> 0.dp
+    }
 
     Column(
         modifier = modifier
@@ -153,7 +185,7 @@ fun GuitarFretboard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (displayMode == FretboardDisplayMode.SIMPLE) 170.dp else 185.dp)
+                .height(boardHeight)
                 .background(scheme.surfaceContainerHigh, RoundedCornerShape(14.dp))
                 .border(1.dp, scheme.outlineVariant, RoundedCornerShape(14.dp))
                 .padding(8.dp)
@@ -242,17 +274,27 @@ fun GuitarFretboard(
 
                 notes.forEach { note ->
                     val y = yForString(note.stringIndex)
-                    if (note.isMuted) {
-                        val x = nutX + 8f
+                    if (note.isDead) {
+                        val x = if ((note.fret ?: 0) > 0) {
+                            left + ((note.fret ?: 0) - startFret + 0.5f) * fretStep
+                        } else {
+                            nutX + 10f
+                        }
+                        drawCircle(
+                            color = scheme.surfaceBright,
+                            radius = 12.5f,
+                            center = Offset(x, y),
+                            style = Stroke(width = 2.2f)
+                        )
                         drawLine(
-                            color = scheme.onSurfaceVariant,
+                            color = scheme.error,
                             start = Offset(x - 6f, y - 6f),
                             end = Offset(x + 6f, y + 6f),
                             strokeWidth = 2.4f,
                             cap = StrokeCap.Round
                         )
                         drawLine(
-                            color = scheme.onSurfaceVariant,
+                            color = scheme.error,
                             start = Offset(x - 6f, y + 6f),
                             end = Offset(x + 6f, y - 6f),
                             strokeWidth = 2.4f,
@@ -280,20 +322,41 @@ fun GuitarFretboard(
 
                     if (fret < startFret || fret > endFret) return@forEach
                     val x = left + (fret - startFret + 0.5f) * fretStep
+                    val fillColor = when {
+                        note.hasHarmonic -> Color.Transparent
+                        note.isGhost -> note.color.copy(alpha = 0.28f)
+                        else -> note.color
+                    }
                     drawCircle(
-                        color = note.color,
+                        color = fillColor,
                         radius = 15f,
                         center = Offset(x, y)
                     )
                     drawCircle(
-                        color = Color.Black.copy(alpha = 0.28f),
+                        color = when {
+                            note.hasHarmonic -> scheme.tertiary
+                            note.isGhost -> note.color.copy(alpha = 0.65f)
+                            else -> Color.Black.copy(alpha = 0.28f)
+                        },
                         radius = 15f,
                         center = Offset(x, y),
                         style = Stroke(width = 1.8f)
                     )
+                    if (note.hasHarmonic) {
+                        drawCircle(
+                            color = scheme.tertiary,
+                            radius = 10.5f,
+                            center = Offset(x, y),
+                            style = Stroke(width = 1.6f)
+                        )
+                    }
                     val txt = textMeasurer.measure(
                         text = note.finger,
-                        style = TextStyle(color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                        style = TextStyle(
+                            color = if (note.hasHarmonic) scheme.onSurface else Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
                     )
                     drawText(txt, topLeft = Offset(x - txt.size.width / 2f, y - txt.size.height / 2f))
 
@@ -311,31 +374,6 @@ fun GuitarFretboard(
                     )
                     drawText(fretText, topLeft = Offset(badgeX + 1f, badgeY + 1f))
 
-                    val articulation = when {
-                        note.isSlide -> "S"
-                        note.isHammer -> "H"
-                        note.isVibrato -> "V"
-                        else -> null
-                    }
-                    if (articulation != null && displayMode == FretboardDisplayMode.DETAILED) {
-                        val art = textMeasurer.measure(
-                            text = articulation,
-                            style = TextStyle(
-                                color = scheme.onTertiaryContainer,
-                                fontSize = 8.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                        val artX = x - 17f
-                        val artY = y - 20f
-                        drawRoundRect(
-                            color = scheme.tertiaryContainer.copy(alpha = 0.95f),
-                            topLeft = Offset(artX - 2f, artY - 1f),
-                            size = Size(art.size.width + 6f, art.size.height + 4f),
-                            cornerRadius = CornerRadius(6f, 6f)
-                        )
-                        drawText(art, topLeft = Offset(artX + 1f, artY + 1f))
-                    }
                 }
             }
 
@@ -362,7 +400,7 @@ fun GuitarFretboard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(if (displayMode == FretboardDisplayMode.SIMPLE) 200.dp else 240.dp)
+                    .height(instructionsHeight)
             ) {
                 LazyColumn(
                     state = hintListState,

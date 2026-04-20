@@ -209,6 +209,7 @@
     <string name="goal_delete_message">Ви впевнені, що хочете видалити цю ціль?</string>
     <string name="fretboard_hint_finger">Палець = цифра в колі</string>
     <string name="fretboard_hint_fret">L = лад, 0 = відкрита</string>
+    <string name="fretboard_hint_technique">Мітки = прийоми</string>
     <string name="loop_config_title">Зациклити відрізок</string>
     <string name="loop_enable">Увімкнути зациклення</string>
     <string name="loop_start_measure">Початковий такт: %1$d</string>

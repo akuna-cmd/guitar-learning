@@ -72,6 +72,7 @@ fun TabListScreen(
     val viewModel: TabListViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val localeTag = context.resources.configuration.locales[0]?.toLanguageTag().orEmpty()
     var showAddMenuDialog by remember { mutableStateOf(false) }
     var showCreateFolderDialog by remember { mutableStateOf(false) }
     var newFolderFromFab by remember { mutableStateOf("") }
@@ -86,6 +87,10 @@ fun TabListScreen(
     LaunchedEffect(Unit) {
         delay(350)
         WebViewWarmup.warm(context)
+    }
+
+    LaunchedEffect(localeTag) {
+        viewModel.refreshBuiltInTabLocalizations()
     }
 
     Scaffold(

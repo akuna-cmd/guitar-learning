@@ -132,6 +132,12 @@ class TabListViewModel @Inject constructor(
         }
     }
 
+    fun refreshBuiltInTabLocalizations() {
+        viewModelScope.launch(dispatchers.io) {
+            tabRepository.refreshBuiltInTabLocalizations()
+        }
+    }
+
     fun moveToFolder(tab: TabItem, folder: String) {
         viewModelScope.launch(dispatchers.io) {
             tabRepository.updateTabFolder(tab.id, folder)

@@ -209,6 +209,7 @@ Question:
     <string name="goal_delete_message">Are you sure you want to delete this goal?</string>
     <string name="fretboard_hint_finger">Finger = number in circle</string>
     <string name="fretboard_hint_fret">L = fret, 0 = open</string>
+    <string name="fretboard_hint_technique">Tags = techniques</string>
     <string name="loop_config_title">Loop section</string>
     <string name="loop_enable">Enable looping</string>
     <string name="loop_start_measure">Start measure: %1$d</string>
