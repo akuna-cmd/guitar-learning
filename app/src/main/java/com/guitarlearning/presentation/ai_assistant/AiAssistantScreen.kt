@@ -23,8 +23,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -174,8 +174,12 @@ fun AiAssistantScreen(
                 )
                 IconButton(
                     onClick = {
-                        val mRange = if (isFullContext) null else measureRange.start.toInt()..measureRange.endInclusive.toInt()
-                        
+                        val selectedRange = if (isFullContext) {
+                            null
+                        } else {
+                            measureRange.start.toInt()..measureRange.endInclusive.toInt()
+                        }
+
                         val tabsToSend = if (isFullContext || compactTabs == null) {
                             asciiTab ?: lesson.tabsAscii
                         } else {
@@ -183,20 +187,25 @@ fun AiAssistantScreen(
                                 .filter { it.isNotBlank() }
                                 .filter {
                                     val idx = it.substringBefore(":").toIntOrNull()
-                                    idx != null && idx in mRange!!
+                                    idx != null && idx in selectedRange!!
                                 }
                                 .map { "$MeasurePrefix$it" }
                                 .joinToString("")
                             if (sliced.isBlank()) asciiTab ?: lesson.tabsAscii else sliced
                         }
-                        
-                        viewModel.askQuestion(question, lesson.text, tabsToSend, mRange)
+
+                        viewModel.askQuestion(
+                            question = question,
+                            theory = lesson.text,
+                            tabs = tabsToSend,
+                            measureRange = selectedRange
+                        )
                         question = ""
                     },
                     enabled = question.isNotBlank()
                 ) {
                     Icon(
-                        Icons.Default.Send,
+                        Icons.AutoMirrored.Filled.Send,
                         contentDescription = stringResource(R.string.send),
                         tint = if (question.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                     )
@@ -232,6 +241,15 @@ fun ChatMessageItem(message: ChatMessage) {
             )
             Spacer(modifier = Modifier.width(8.dp))
             Column {
+                if (!isUser && message.sourceLabel != null) {
+                    Text(
+                        text = message.sourceLabel.asString(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
                 MarkdownView(markdown = message.text.asString())
             }
         }

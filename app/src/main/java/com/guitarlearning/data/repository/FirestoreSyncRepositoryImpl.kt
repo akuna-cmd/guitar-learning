@@ -19,6 +19,7 @@ import com.guitarlearning.domain.repository.SessionRepository
 import com.guitarlearning.domain.repository.SyncRepository
 import com.guitarlearning.domain.repository.TabPlaybackProgressRepository
 import com.guitarlearning.domain.repository.TabRepository
+import com.guitarlearning.presentation.main.AiProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
@@ -382,6 +383,8 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
         return mapOf(
             "themeMode" to themeMode.name,
             "appLanguage" to appLanguage.name,
+            "aiProvider" to aiProvider.name,
+            "localAiServerUrl" to localAiServerUrl,
             "normalSpeed" to normalSpeed,
             "practiceSpeed" to practiceSpeed,
             "normalTabScale" to normalTabScale,
@@ -462,6 +465,8 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
         return AppSettingsSnapshot(
             themeMode = enumValueOrDefault(getString("themeMode"), AppSettingsSnapshot().themeMode),
             appLanguage = enumValueOrDefault(getString("appLanguage"), AppSettingsSnapshot().appLanguage),
+            aiProvider = enumValueOrDefault(getString("aiProvider"), AppSettingsSnapshot().aiProvider),
+            localAiServerUrl = getString("localAiServerUrl").orEmpty(),
             normalSpeed = getDouble("normalSpeed")?.toFloat() ?: 1.0f,
             practiceSpeed = getDouble("practiceSpeed")?.toFloat() ?: 0.25f,
             normalTabScale = getDouble("normalTabScale")?.toFloat() ?: 1.0f,

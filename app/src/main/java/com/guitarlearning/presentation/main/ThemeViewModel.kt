@@ -15,10 +15,13 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 enum class TabDisplayMode { TAB_ONLY, TAB_AND_NOTES, NOTES_ONLY }
 enum class FretboardDisplayMode { SIMPLE, DETAILED }
 enum class AppLanguage(val languageTag: String) { UKRAINIAN("uk"), ENGLISH("en") }
+enum class AiProvider { GEMINI, LOCAL_LLAMA_CPP }
 
 data class ThemeUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val appLanguage: AppLanguage = AppLanguage.UKRAINIAN,
+    val aiProvider: AiProvider = AiProvider.GEMINI,
+    val localAiServerUrl: String = "",
     val normalSpeed: Float = 1.0f,
     val practiceSpeed: Float = 0.25f,
     val normalTabScale: Float = 1.0f,
@@ -38,6 +41,8 @@ class ThemeViewModel @Inject constructor(
             ThemeUiState(
                 themeMode = settings.themeMode,
                 appLanguage = settings.appLanguage,
+                aiProvider = settings.aiProvider,
+                localAiServerUrl = settings.localAiServerUrl,
                 normalSpeed = settings.normalSpeed,
                 practiceSpeed = settings.practiceSpeed,
                 normalTabScale = settings.normalTabScale,
@@ -62,6 +67,24 @@ class ThemeViewModel @Inject constructor(
     fun setAppLanguage(language: AppLanguage) {
         viewModelScope.launch {
             appSettingsRepository.setAppLanguage(language)
+        }
+    }
+
+    fun setAiProvider(provider: AiProvider) {
+        viewModelScope.launch {
+            appSettingsRepository.setAiProvider(provider)
+        }
+    }
+
+    fun setLocalAiServerUrl(url: String) {
+        viewModelScope.launch {
+            appSettingsRepository.setLocalAiServerUrl(url)
+        }
+    }
+
+    fun saveAiSettings(provider: AiProvider, url: String) {
+        viewModelScope.launch {
+            appSettingsRepository.setAiSettings(provider, url)
         }
     }
 

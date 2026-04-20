@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
@@ -40,6 +41,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.guitarlearning.R
 import com.guitarlearning.core.AppLocaleManager
+import com.guitarlearning.presentation.main.AiProvider
 import com.guitarlearning.presentation.main.AppLanguage
 import com.guitarlearning.presentation.main.ThemeMode
 import com.guitarlearning.presentation.main.ThemeViewModel
@@ -64,6 +66,13 @@ fun SettingsScreen() {
     val authViewModel: AuthViewModel = hiltViewModel()
     val authState by authViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var aiProviderDraft by remember(uiState.aiProvider) { mutableStateOf(uiState.aiProvider) }
+    var aiServerUrlDraft by remember(uiState.localAiServerUrl) { mutableStateOf(uiState.localAiServerUrl) }
+
+    LaunchedEffect(uiState.aiProvider, uiState.localAiServerUrl) {
+        aiProviderDraft = uiState.aiProvider
+        aiServerUrlDraft = uiState.localAiServerUrl
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -107,6 +116,40 @@ fun SettingsScreen() {
             }
         }
 
+        if (!settingsUiState.message.isNullOrBlank()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    ),
+                    border = appBlockBorder(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = settingsUiState.message.orEmpty(),
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        TextButton(onClick = settingsViewModel::clearMessage) {
+                            Text(
+                                text = stringResource(R.string.ok),
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // ─── Theme ────────────────────────────────────────────────
         item {
             SettingsSection(title = stringResource(R.string.settings_theme_title)) {
@@ -132,6 +175,201 @@ fun SettingsScreen() {
                         activity.overridePendingTransition(0, 0)
                         activity.recreate()
                         activity.overridePendingTransition(0, 0)
+                    }
+                }
+            }
+        }
+
+        item {
+            SettingsSection(title = stringResource(R.string.settings_ai_provider_title)) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.settings_ai_provider_description),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    val currentBackendLabel = when (uiState.aiProvider) {
+                        AiProvider.GEMINI -> stringResource(R.string.settings_ai_provider_gemini)
+                        AiProvider.LOCAL_LLAMA_CPP -> stringResource(R.string.settings_ai_provider_local)
+                    }
+
+                    Text(
+                        text = stringResource(
+                            R.string.settings_ai_current_backend,
+                            currentBackendLabel
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    SettingsOptionsRow(
+                        label = stringResource(R.string.settings_ai_provider_gemini),
+                        selected = aiProviderDraft == AiProvider.GEMINI,
+                        onClick = { aiProviderDraft = AiProvider.GEMINI }
+                    )
+                    SettingsOptionsRow(
+                        label = stringResource(R.string.settings_ai_provider_local),
+                        selected = aiProviderDraft == AiProvider.LOCAL_LLAMA_CPP,
+                        onClick = { aiProviderDraft = AiProvider.LOCAL_LLAMA_CPP }
+                    )
+
+                    if (aiProviderDraft == AiProvider.LOCAL_LLAMA_CPP) {
+                        OutlinedTextField(
+                            value = aiServerUrlDraft,
+                            onValueChange = { aiServerUrlDraft = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            label = { Text(stringResource(R.string.settings_ai_server_label)) },
+                            placeholder = { Text(stringResource(R.string.settings_ai_server_placeholder)) },
+                            supportingText = {
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(
+                                        text = stringResource(R.string.settings_ai_server_help),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.settings_ai_server_example_address),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.settings_ai_server_example_command),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        )
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = stringResource(R.string.settings_ai_test_description),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_ai_test_prompt_label),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            border = appBlockBorder()
+                        ) {
+                            Text(
+                                text = stringResource(R.string.settings_ai_test_prompt_value),
+                                modifier = Modifier.padding(12.dp),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        if (aiProviderDraft == AiProvider.LOCAL_LLAMA_CPP) {
+                            Text(
+                                text = stringResource(R.string.settings_ai_setup_title),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            AiHelpBullet(stringResource(R.string.settings_ai_setup_step_1))
+                            AiHelpBullet(stringResource(R.string.settings_ai_setup_step_2))
+                            AiHelpBullet(stringResource(R.string.settings_ai_setup_step_3))
+                            AiHelpBullet(stringResource(R.string.settings_ai_setup_step_4))
+                        }
+                    }
+
+                    val hasAiChanges = aiProviderDraft != uiState.aiProvider ||
+                        aiServerUrlDraft != uiState.localAiServerUrl
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        val isLocalWithoutUrl =
+                            aiProviderDraft == AiProvider.LOCAL_LLAMA_CPP && aiServerUrlDraft.trim().isBlank()
+
+                        Button(
+                            onClick = {
+                                themeViewModel.saveAiSettings(aiProviderDraft, aiServerUrlDraft.trim())
+                                settingsViewModel.clearMessage()
+                                settingsViewModel.clearAiTestMessage()
+                            },
+                            enabled = hasAiChanges,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(stringResource(R.string.settings_ai_save))
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                themeViewModel.saveAiSettings(aiProviderDraft, aiServerUrlDraft.trim())
+                                settingsViewModel.testAiConnection(
+                                    provider = aiProviderDraft,
+                                    localServerUrl = aiServerUrlDraft.trim()
+                                )
+                            },
+                            enabled = !settingsUiState.isTestingAi && !isLocalWithoutUrl,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            if (settingsUiState.isTestingAi) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text(stringResource(R.string.settings_ai_test))
+                            }
+                        }
+                    }
+
+                    Text(
+                        text = if (hasAiChanges) {
+                            stringResource(R.string.settings_ai_status_unsaved)
+                        } else {
+                            stringResource(R.string.settings_ai_status_saved)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    if (!settingsUiState.aiTestMessage.isNullOrBlank()) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer
+                            ),
+                            border = appBlockBorder(),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                SelectionContainer {
+                                    Text(
+                                        text = settingsUiState.aiTestMessage.orEmpty(),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+                                TextButton(
+                                    onClick = settingsViewModel::clearAiTestMessage,
+                                    modifier = Modifier.align(Alignment.End)
+                                ) {
+                                    Text(stringResource(R.string.ok))
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -646,6 +884,27 @@ fun SettingsIconOptionRow(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
             color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun AiHelpBullet(text: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(
+            text = "•",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = text,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

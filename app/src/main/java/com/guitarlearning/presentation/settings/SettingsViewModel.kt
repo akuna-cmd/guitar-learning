@@ -7,8 +7,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.guitarlearning.domain.model.PracticedTab
 import com.guitarlearning.domain.model.Session
+import com.guitarlearning.domain.repository.AiAssistantRepository
 import com.guitarlearning.domain.repository.SessionRepository
 import com.guitarlearning.domain.repository.SyncRepository
+import com.guitarlearning.presentation.main.AiProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,15 +30,18 @@ data class SettingsUiState(
     val isExporting: Boolean = false,
     val isImporting: Boolean = false,
     val isSyncing: Boolean = false,
+    val isTestingAi: Boolean = false,
     val lastSyncedTime: Long? = null,
-    val message: String? = null
+    val message: String? = null,
+    val aiTestMessage: String? = null
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val sessionRepository: SessionRepository,
-    private val syncRepository: SyncRepository
+    private val syncRepository: SyncRepository,
+    private val aiAssistantRepository: AiAssistantRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SettingsUiState())
     
@@ -160,6 +165,28 @@ class SettingsViewModel @Inject constructor(
             sessionRepository.clearHistory()
             _uiState.value = _uiState.value.copy(message = appContext.getString(R.string.settings_message_history_cleared))
         }
+    }
+
+    fun testAiConnection(provider: AiProvider, localServerUrl: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isTestingAi = true,
+                aiTestMessage = appContext.getString(R.string.settings_ai_test_running)
+            )
+            val result = runCatching {
+                aiAssistantRepository.testConnection(provider, localServerUrl)
+            }
+            _uiState.value = _uiState.value.copy(
+                isTestingAi = false,
+                aiTestMessage = result.getOrElse { error ->
+                    error.localizedMessage ?: appContext.getString(R.string.ai_error_generic)
+                }
+            )
+        }
+    }
+
+    fun clearAiTestMessage() {
+        _uiState.value = _uiState.value.copy(aiTestMessage = null)
     }
 
     fun clearMessage() {

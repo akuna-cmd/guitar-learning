@@ -21,7 +21,8 @@ enum class Author {
 data class ChatMessage(
     val id: String = java.util.UUID.randomUUID().toString(),
     val text: UiText,
-    val author: Author
+    val author: Author,
+    val sourceLabel: UiText? = null
 )
 
 data class AiAssistantUiState(
@@ -58,12 +59,20 @@ class AiAssistantViewModel @Inject constructor(
 
             _uiState.update { current ->
                 val message = result.fold(
-                    onSuccess = { UiText.Plain(it) },
-                    onFailure = { UiText.Res(R.string.ai_error_generic) }
+                    onSuccess = { UiText.Plain(it.text) },
+                    onFailure = { error ->
+                        val text = error.localizedMessage?.trim().orEmpty()
+                        if (text.isNotBlank()) UiText.Plain(text) else UiText.Res(R.string.ai_error_generic)
+                    }
                 )
+                val sourceLabel = result.getOrNull()?.backendLabel?.let(UiText::Plain)
                 current.copy(
                     isLoading = false,
-                    messages = current.messages + ChatMessage(text = message, author = Author.AI)
+                    messages = current.messages + ChatMessage(
+                        text = message,
+                        author = Author.AI,
+                        sourceLabel = sourceLabel
+                    )
                 )
             }
         }

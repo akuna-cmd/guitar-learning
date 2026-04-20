@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.guitarlearning.presentation.main.AiProvider
 import com.guitarlearning.presentation.main.AppLanguage
 import com.guitarlearning.presentation.main.FretboardDisplayMode
 import com.guitarlearning.presentation.main.TabDisplayMode
@@ -20,6 +21,8 @@ import javax.inject.Singleton
 data class AppSettingsSnapshot(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val appLanguage: AppLanguage = AppLanguage.UKRAINIAN,
+    val aiProvider: AiProvider = AiProvider.GEMINI,
+    val localAiServerUrl: String = "",
     val normalSpeed: Float = 1.0f,
     val practiceSpeed: Float = 0.25f,
     val normalTabScale: Float = 1.0f,
@@ -36,6 +39,8 @@ class AppSettingsRepository @Inject constructor(
     private object Keys {
         val themeMode = stringPreferencesKey("theme_mode")
         val appLanguage = stringPreferencesKey("app_language")
+        val aiProvider = stringPreferencesKey("ai_provider")
+        val localAiServerUrl = stringPreferencesKey("local_ai_server_url")
         val normalSpeed = floatPreferencesKey("normal_speed")
         val practiceSpeed = floatPreferencesKey("practice_speed")
         val normalTabScale = floatPreferencesKey("normal_tab_scale")
@@ -87,6 +92,13 @@ class AppSettingsRepository @Inject constructor(
 
     suspend fun setAppLanguage(language: AppLanguage) = updateSettings { it.copy(appLanguage = language) }
 
+    suspend fun setAiProvider(provider: AiProvider) = updateSettings { it.copy(aiProvider = provider) }
+
+    suspend fun setLocalAiServerUrl(url: String) = updateSettings { it.copy(localAiServerUrl = url) }
+
+    suspend fun setAiSettings(provider: AiProvider, url: String) =
+        updateSettings { it.copy(aiProvider = provider, localAiServerUrl = url) }
+
     suspend fun setNormalSpeed(speed: Float) = updateSettings { it.copy(normalSpeed = speed) }
 
     suspend fun setPracticeSpeed(speed: Float) = updateSettings { it.copy(practiceSpeed = speed) }
@@ -124,6 +136,8 @@ class AppSettingsRepository @Inject constructor(
         return AppSettingsSnapshot(
             themeMode = ThemeMode.valueOf(preferences[Keys.themeMode] ?: ThemeMode.SYSTEM.name),
             appLanguage = AppLanguage.valueOf(preferences[Keys.appLanguage] ?: AppLanguage.UKRAINIAN.name),
+            aiProvider = AiProvider.valueOf(preferences[Keys.aiProvider] ?: AiProvider.GEMINI.name),
+            localAiServerUrl = preferences[Keys.localAiServerUrl].orEmpty(),
             normalSpeed = preferences[Keys.normalSpeed] ?: 1.0f,
             practiceSpeed = preferences[Keys.practiceSpeed] ?: 0.25f,
             normalTabScale = preferences[Keys.normalTabScale] ?: 1.0f,
@@ -141,6 +155,8 @@ class AppSettingsRepository @Inject constructor(
     private fun writeSnapshot(preferences: MutablePreferences, snapshot: AppSettingsSnapshot) {
         preferences[Keys.themeMode] = snapshot.themeMode.name
         preferences[Keys.appLanguage] = snapshot.appLanguage.name
+        preferences[Keys.aiProvider] = snapshot.aiProvider.name
+        preferences[Keys.localAiServerUrl] = snapshot.localAiServerUrl
         preferences[Keys.normalSpeed] = snapshot.normalSpeed
         preferences[Keys.practiceSpeed] = snapshot.practiceSpeed
         preferences[Keys.normalTabScale] = snapshot.normalTabScale
