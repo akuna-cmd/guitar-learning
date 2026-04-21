@@ -351,7 +351,11 @@ fun TabViewerScreen(
                                 asciiTab = uiState.asciiTab,
                                 compactTabs = uiState.compactTabs,
                                 totalMeasures = totalMeasures,
-                                initialMeasureRange = if (isLoopEnabled) loopStartMeasure..loopEndMeasure else null
+                                initialMeasureRange = if (isLoopEnabled) {
+                                    loopStartMeasure..loopEndMeasure
+                                } else {
+                                    lastBarIndex?.takeIf { it > 0 }?.let { it..it } ?: (1..1)
+                                }
                             )
                         }
                     }

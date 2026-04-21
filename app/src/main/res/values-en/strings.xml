@@ -64,6 +64,7 @@
     <string name="send">Send</string>
     <string name="ai_full_context">Full song</string>
     <string name="ai_select_measures">Select measures</string>
+    <string name="ai_full_context_warning">Full-song context may use many tokens and significantly slow down the AI response, especially for a local model.</string>
     <string name="measure_from">From: %1$d</string>
     <string name="measure_to">To: %1$d</string>
     <string name="user_icon_description">User icon</string>

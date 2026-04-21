@@ -64,6 +64,7 @@
     <string name="send">Надіслати</string>
     <string name="ai_full_context">Вся пісня</string>
     <string name="ai_select_measures">Вибрати такти</string>
+    <string name="ai_full_context_warning">Уся пісня може коштувати багато токенів і значно сповільнити відповідь ШІ, особливо для локальної моделі.</string>
     <string name="measure_from">Від: %1$d</string>
     <string name="measure_to">До: %1$d</string>
     <string name="user_icon_description">Іконка користувача</string>

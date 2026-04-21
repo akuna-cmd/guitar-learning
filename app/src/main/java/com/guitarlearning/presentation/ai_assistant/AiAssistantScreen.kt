@@ -65,18 +65,23 @@ fun AiAssistantScreen(
     val viewModel: AiAssistantViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
     var question by remember { mutableStateOf("") }
-    
-    var isFullContext by remember(initialMeasureRange, totalMeasures) {
-        mutableStateOf(initialMeasureRange == null)
-    }
-    var measureRange by remember(initialMeasureRange, totalMeasures) {
+
+    val defaultMeasureRange = remember(initialMeasureRange, totalMeasures) {
+        val safeTotalMeasures = totalMeasures.coerceAtLeast(1)
         val range = initialMeasureRange
+        if (range != null) {
+            range.first.coerceIn(1, safeTotalMeasures)..range.last.coerceIn(1, safeTotalMeasures)
+        } else {
+            1..1
+        }
+    }
+
+    var isFullContext by remember(defaultMeasureRange, totalMeasures) {
+        mutableStateOf(false)
+    }
+    var measureRange by remember(defaultMeasureRange, totalMeasures) {
         mutableStateOf(
-            if (range != null) {
-                range.first.toFloat()..range.last.toFloat()
-            } else {
-                1f..totalMeasures.coerceAtLeast(1).toFloat()
-            }
+            defaultMeasureRange.first.toFloat()..defaultMeasureRange.last.toFloat()
         )
     }
 
@@ -117,6 +122,17 @@ fun AiAssistantScreen(
                         Text(stringResource(labelRes))
                     }
                 }
+            }
+            if (isFullContext) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.ai_full_context_warning),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
             }
             if (!isFullContext && totalMeasures > 1) {
                 Spacer(modifier = Modifier.height(8.dp))
