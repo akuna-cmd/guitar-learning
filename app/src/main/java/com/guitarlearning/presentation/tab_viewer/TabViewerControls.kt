@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +27,7 @@ import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
@@ -87,7 +90,12 @@ internal fun TabViewerSheets(
     metronomeEnabled: Boolean,
     metronomeBpm: Int,
     onMetronomeEnabledChange: (Boolean) -> Unit,
-    onMetronomeBpmChange: (Int) -> Unit
+    onMetronomeBpmChange: (Int) -> Unit,
+    trackOptions: List<TabTrackOption>,
+    selectedTrackIndex: Int,
+    transposeSemitones: Int,
+    onTrackSelected: (Int) -> Unit,
+    onTransposeChange: (Int) -> Unit
 ) {
     if (showDisplaySheet) {
         ModalBottomSheet(
@@ -128,7 +136,12 @@ internal fun TabViewerSheets(
                 metronomeEnabled = metronomeEnabled,
                 metronomeBpm = metronomeBpm,
                 onMetronomeEnabledChange = onMetronomeEnabledChange,
-                onMetronomeBpmChange = onMetronomeBpmChange
+                onMetronomeBpmChange = onMetronomeBpmChange,
+                trackOptions = trackOptions,
+                selectedTrackIndex = selectedTrackIndex,
+                transposeSemitones = transposeSemitones,
+                onTrackSelected = onTrackSelected,
+                onTransposeChange = onTransposeChange
             )
         }
     }
@@ -282,11 +295,17 @@ internal fun LearningControlsSheet(
     metronomeEnabled: Boolean,
     metronomeBpm: Int,
     onMetronomeEnabledChange: (Boolean) -> Unit,
-    onMetronomeBpmChange: (Int) -> Unit
+    onMetronomeBpmChange: (Int) -> Unit,
+    trackOptions: List<TabTrackOption>,
+    selectedTrackIndex: Int,
+    transposeSemitones: Int,
+    onTrackSelected: (Int) -> Unit,
+    onTransposeChange: (Int) -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -305,6 +324,79 @@ internal fun LearningControlsSheet(
             leadingIcon = Icons.Filled.Repeat,
             headline = stringResource(R.string.loop_section)
         )
+        SheetSection(
+            contentPadding = 0.dp,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.track_selection)) },
+                    supportingContent = {
+                        Text(
+                            text = trackOptions.firstOrNull { it.index == selectedTrackIndex }?.name
+                                ?: stringResource(R.string.track_selection_empty)
+                        )
+                    },
+                    leadingContent = { Icon(Icons.Filled.QueueMusic, contentDescription = null) },
+                    colors = androidx.compose.material3.ListItemDefaults.colors(
+                        containerColor = Color.Transparent
+                    )
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val fallbackTrackName = stringResource(R.string.track_selection_empty)
+                    val visibleTracks = trackOptions.ifEmpty {
+                        listOf(TabTrackOption(index = selectedTrackIndex, name = fallbackTrackName))
+                    }
+                    visibleTracks.forEach { track ->
+                        TrackOptionRow(
+                            track = track,
+                            selected = track.index == selectedTrackIndex,
+                            onClick = { onTrackSelected(track.index) }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+        SheetSection(
+            contentPadding = 0.dp,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ) {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.transpose_track)) },
+                supportingContent = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.transpose_value, transposeSemitones),
+                            modifier = Modifier.weight(1f)
+                        )
+                        HoldableIconButton(
+                            onClick = { onTransposeChange((transposeSemitones - 1).coerceAtLeast(-36)) },
+                            contentDescription = stringResource(R.string.transpose_decrease),
+                            icon = Icons.Default.Remove
+                        )
+                        HoldableIconButton(
+                            onClick = { onTransposeChange((transposeSemitones + 1).coerceAtMost(36)) },
+                            contentDescription = stringResource(R.string.transpose_increase),
+                            icon = Icons.Default.Add
+                        )
+                    }
+                },
+                leadingContent = { Icon(Icons.Filled.Tune, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = androidx.compose.material3.ListItemDefaults.colors(
+                    containerColor = Color.Transparent
+                )
+            )
+        }
         SheetSection(
             contentPadding = 0.dp,
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
@@ -351,6 +443,40 @@ internal fun LearningControlsSheet(
             headline = stringResource(R.string.ai_assistant)
         )
         Spacer(modifier = Modifier.height(12.dp))
+    }
+}
+
+@Composable
+private fun TrackOptionRow(
+    track: TabTrackOption,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(
+                if (selected) MaterialTheme.colorScheme.primaryContainer
+                else Color.Transparent
+            )
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Filled.MusicNote,
+            contentDescription = null,
+            tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp)
+        )
+        Text(
+            text = track.name,
+            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 

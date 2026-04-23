@@ -89,6 +89,8 @@ import com.guitarlearning.presentation.main.FretboardDisplayMode
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONTokener
 import org.json.JSONObject
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -511,6 +513,9 @@ private fun TabViewer(
     var metronomeEnabled by remember { mutableStateOf(false) }
     var metronomeBpm by remember { mutableStateOf(90) }
     var metronomeBpmTouched by remember { mutableStateOf(false) }
+    var trackOptions by remember(fileName) { mutableStateOf<List<TabTrackOption>>(emptyList()) }
+    var selectedTrackIndex by remember(fileName) { mutableStateOf(0) }
+    var transposeSemitones by remember(fileName) { mutableStateOf(0) }
     val displaySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val learningSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var lastControlsY by remember { mutableStateOf<Int?>(null) }
@@ -751,6 +756,35 @@ private fun TabViewer(
         showLoadingOverlay = !isScoreLoaded
     }
 
+    fun refreshTrackOptions() {
+        if (!isReady || !isScoreLoaded) return
+        webView.evaluateJavascript("window.getTrackOptions();") { raw ->
+            val parsed = parseTrackOptionsFromJs(raw)
+            if (parsed.isNotEmpty()) {
+                trackOptions = parsed
+                if (parsed.none { it.index == selectedTrackIndex }) {
+                    selectedTrackIndex = parsed.first().index
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(isReady, isScoreLoaded, fileName) {
+        if (isReady && isScoreLoaded) {
+            refreshTrackOptions()
+        }
+    }
+
+    LaunchedEffect(selectedTrackIndex, transposeSemitones, isReady, isScoreLoaded) {
+        if (isReady && isScoreLoaded) {
+            webView.evaluateJavascript(
+                "window.applyLearningTools($selectedTrackIndex, $transposeSemitones);"
+            ) {
+                refreshTrackOptions()
+            }
+        }
+    }
+
     // Load SoundFont + score only once per lesson to avoid late resets of cursor after restore.
     LaunchedEffect(fileName, tabBytesReady, soundFontReady, isReady, loadedSourceForCurrentLesson) {
         if (isReady) {
@@ -947,7 +981,12 @@ private fun TabViewer(
         onMetronomeBpmChange = {
             metronomeBpmTouched = true
             metronomeBpm = it
-        }
+        },
+        trackOptions = trackOptions,
+        selectedTrackIndex = selectedTrackIndex,
+        transposeSemitones = transposeSemitones,
+        onTrackSelected = { selectedTrackIndex = it },
+        onTransposeChange = { transposeSemitones = it.coerceIn(-36, 36) }
     )
 }
 
@@ -1060,4 +1099,21 @@ private fun TabViewerViewport(
             }
         }
     }
+}
+
+private fun parseTrackOptionsFromJs(raw: String?): List<TabTrackOption> {
+    if (raw.isNullOrBlank() || raw == "null") return emptyList()
+    return runCatching {
+        val decoded = JSONTokener(raw).nextValue()
+        val payload = decoded as? String ?: raw
+        val array = JSONArray(payload)
+        buildList {
+            for (i in 0 until array.length()) {
+                val item = array.getJSONObject(i)
+                val index = item.optInt("index", i)
+                val name = item.optString("name").ifBlank { "Track ${i + 1}" }
+                add(TabTrackOption(index = index, name = name))
+            }
+        }
+    }.getOrDefault(emptyList())
 }

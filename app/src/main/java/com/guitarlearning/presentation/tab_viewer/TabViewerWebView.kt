@@ -76,6 +76,11 @@ internal data class TabWebViewEntry(
     var lastKnownBarIndex: Int = 0
 )
 
+internal data class TabTrackOption(
+    val index: Int,
+    val name: String
+)
+
 internal fun createTabWebViewEntry(context: Context): TabWebViewEntry {
     val assetLoader = WebViewAssetLoader.Builder()
         .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context.applicationContext))

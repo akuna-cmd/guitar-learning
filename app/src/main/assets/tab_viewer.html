@@ -620,13 +620,23 @@ function buildAnalysis(barIdx, notes, rawNotes, lhMap, rhMap, barre, pos, isTapp
 // ── Two-level beat cache ─────────────────────────────────
 const beatMap = new Map();  
 const tickArr = [];         
+let _selectedTrackIndex = 0;
+let _transposeSemitones = 0;
 
 function beatKey(beat){try{return`${beat.voice.bar.index}_${beat.index}`;}catch{return null;}}
+
+function getActiveTrack(score) {
+    if (!score?.tracks?.length) return null;
+    return score.tracks.find(t => t.index === _selectedTrackIndex)
+        || api?.tracks?.[0]
+        || score.tracks.find(t => !t.isPercussionTrack)
+        || score.tracks[0];
+}
 
 function runFullAnalysis(score) {
     beatMap.clear(); tickArr.length=0;
     try {
-        const track=score.tracks.find(t=>!t.isPercussionTrack)||score.tracks[0];
+        const track=getActiveTrack(score);
         if(!track?.staves?.length)return;
         const data=[];
         for(const bar of track.staves[0].bars){
@@ -1346,6 +1356,49 @@ window.setMetronomeBpm=(bpm)=>{
         restartMetronome();
     }
     postStatus('metronome:bpm=' + _metronomeBpm);
+};
+window.getTrackOptions=()=>{
+    if(!api?.score?.tracks?.length) return JSON.stringify([]);
+    const selected = getActiveTrack(api.score)?.index ?? _selectedTrackIndex;
+    return JSON.stringify(api.score.tracks.map((track, i) => ({
+        index: track.index ?? i,
+        name: (track.name || track.shortName || `Track ${i + 1}`).trim(),
+        selected: (track.index ?? i) === selected
+    })));
+};
+window.applyLearningTools=(trackIndex, transposeSemitones)=>{
+    if(!api?.score?.tracks?.length) return false;
+    const parsedTrackIndex = parseInt(trackIndex, 10);
+    const parsedTranspose = parseInt(transposeSemitones, 10);
+    const nextTrackIndex = Number.isFinite(parsedTrackIndex) ? parsedTrackIndex : 0;
+    const nextTranspose = Number.isFinite(parsedTranspose) ? Math.max(-36, Math.min(36, parsedTranspose)) : 0;
+    const track = api.score.tracks.find(t => t.index === nextTrackIndex) || api.score.tracks[0];
+    if(!track) return false;
+
+    _selectedTrackIndex = track.index ?? nextTrackIndex;
+    _transposeSemitones = nextTranspose;
+
+    const trackCount = api.score.tracks.length;
+    const pitches = new Array(trackCount).fill(0);
+    if(_selectedTrackIndex >= 0 && _selectedTrackIndex < trackCount) {
+        pitches[_selectedTrackIndex] = _transposeSemitones;
+    }
+
+    const wasPlaying = api.playerState === 1;
+    const tick = api.tickPosition ?? 0;
+    if(_restoreTick == null && _restoreBarIndex == null){
+        _restoreTick = tick;
+        _restorePlay = wasPlaying;
+        _restoreBarIndex = getBarIndexForTick(tick);
+    }
+
+    api.settings.notation.transpositionPitches = pitches;
+    api.settings.notation.displayTranspositionPitches = pitches.slice();
+    api.updateSettings();
+    api.renderTracks([track]);
+    runFullAnalysis(api.score);
+    postStatus(`learningTools:track=${_selectedTrackIndex}:transpose=${_transposeSemitones}`);
+    return true;
 };
 window.setTabScale=(s)=>{
     _pendingScale = parseFloat(s);

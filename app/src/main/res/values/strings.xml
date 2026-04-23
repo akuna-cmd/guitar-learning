@@ -218,6 +218,12 @@
     <string name="metronome_bpm">%1$d BPM</string>
     <string name="metronome_increase">Збільшити BPM</string>
     <string name="metronome_decrease">Зменшити BPM</string>
+    <string name="track_selection">Доріжка</string>
+    <string name="track_selection_empty">Поточна доріжка</string>
+    <string name="transpose_track">Транспонування треку</string>
+    <string name="transpose_value">%1$+d півтонів</string>
+    <string name="transpose_increase">Підняти транспозицію</string>
+    <string name="transpose_decrease">Опустити транспозицію</string>
     <string name="ok">OK</string>
     <string name="tab_folder_default">Без папки</string>
     <string name="tab_list_choose_action">Обери дію</string>
