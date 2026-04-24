@@ -726,11 +726,11 @@ function runFullAnalysis(score) {
             compactTabs += "Measure " + (bar.index + 1) + ":\n";
             for(const voice of bar.voices){
                 if(voice.isEmpty)continue;
-                let beatNum = 1;
+                let eventNum = 1;
                 for(const beat of voice.beats){
                     const notes=beat.notes.filter(n=>n.fret!=null);
-                    if(!notes.length) { beatNum++; continue; }
-                    let beatStr = "Beat " + beatNum + ": [";
+                    if(!notes.length) { eventNum++; continue; }
+                    let beatStr = "Event " + eventNum + " inside this measure: [";
                     for(let i = notes.length - 1; i >= 0; i--) {
                         let n = notes[i];
                         let stringLabel = STRING_NAMES[n.string] || String(n.string);
@@ -739,7 +739,7 @@ function runFullAnalysis(score) {
                     }
                     beatStr += "]";
                     compactTabs += beatStr + "\n";
-                    beatNum++;
+                    eventNum++;
                 }
             }
         }
