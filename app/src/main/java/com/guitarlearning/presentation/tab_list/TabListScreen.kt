@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,10 +21,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -32,7 +35,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.School
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.*
@@ -50,7 +52,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.guitarlearning.R
@@ -73,9 +74,6 @@ fun TabListScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val localeTag = context.resources.configuration.locales[0]?.toLanguageTag().orEmpty()
-    var showAddMenuDialog by remember { mutableStateOf(false) }
-    var showCreateFolderDialog by remember { mutableStateOf(false) }
-    var newFolderFromFab by remember { mutableStateOf("") }
 
     val pickFileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -96,7 +94,11 @@ fun TabListScreen(
     Scaffold(
         floatingActionButton = {
             if (uiState.selectedTabIndex == 0) {
-                FloatingActionButton(onClick = { showAddMenuDialog = true }) {
+                FloatingActionButton(
+                    onClick = {
+                        pickFileLauncher.launch(arrayOf("application/octet-stream", "text/plain", "*/*"))
+                    }
+                ) {
                     Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_tab))
                 }
             }
@@ -111,13 +113,17 @@ fun TabListScreen(
                 Tab(
                     selected = uiState.selectedTabIndex == 0,
                     onClick = { viewModel.selectTab(0) },
-                    text = { Text(stringResource(R.string.my_tabs_tab)) },
+                    text = {
+                        Text("${stringResource(R.string.my_tabs_tab)} (${uiState.totalUserTabs})")
+                    },
                     icon = { Icon(Icons.Default.MusicNote, contentDescription = null) }
                 )
                 Tab(
                     selected = uiState.selectedTabIndex == 1,
                     onClick = { viewModel.selectTab(1) },
-                    text = { Text(stringResource(R.string.lessons_tab)) },
+                    text = {
+                        Text("${stringResource(R.string.lessons_tab)} (${uiState.totalCompletedLessons}/${uiState.totalLessons})")
+                    },
                     icon = { Icon(Icons.Default.School, contentDescription = null) }
                 )
             }
@@ -167,87 +173,6 @@ fun TabListScreen(
             }
         }
     }
-
-    if (showAddMenuDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddMenuDialog = false },
-            title = { Text(stringResource(R.string.tab_list_choose_action)) },
-            text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    FilledTonalButton(
-                        onClick = {
-                            showAddMenuDialog = false
-                            showCreateFolderDialog = true
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Icon(Icons.Default.Folder, contentDescription = null)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(stringResource(R.string.tab_list_new_folder), style = MaterialTheme.typography.titleMedium)
-                    }
-                    FilledTonalButton(
-                        onClick = {
-                            showAddMenuDialog = false
-                            pickFileLauncher.launch(arrayOf("application/octet-stream", "text/plain", "*/*"))
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Icon(Icons.Default.LibraryMusic, contentDescription = null)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(stringResource(R.string.tab_list_tab_item), style = MaterialTheme.typography.titleMedium)
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showAddMenuDialog = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            }
-        )
-    }
-
-    if (showCreateFolderDialog) {
-        AlertDialog(
-            onDismissRequest = { showCreateFolderDialog = false },
-            title = { Text(stringResource(R.string.tab_list_create_folder_title)) },
-            text = {
-                OutlinedTextField(
-                    value = newFolderFromFab,
-                    onValueChange = { newFolderFromFab = it },
-                    label = { Text(stringResource(R.string.tab_list_folder_name)) },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp)
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.createFolder(newFolderFromFab)
-                        newFolderFromFab = ""
-                        showCreateFolderDialog = false
-                    }
-                ) { Text(stringResource(R.string.tab_list_create)) }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    newFolderFromFab = ""
-                    showCreateFolderDialog = false
-                }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            }
-        )
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -270,7 +195,9 @@ private fun UserTabsScreen(
     var newTabName by remember { mutableStateOf("") }
     var newFolderName by remember { mutableStateOf("") }
     var folderMenuExpanded by remember { mutableStateOf(false) }
-    var folderActionsFor by remember { mutableStateOf<String?>(null) }
+    var folderActionsExpanded by remember { mutableStateOf(false) }
+    var showCreateFolderDialog by remember { mutableStateOf(false) }
+    var newFolderValue by remember { mutableStateOf("") }
     var folderToRename by remember { mutableStateOf<String?>(null) }
     var renameFolderValue by remember { mutableStateOf("") }
     var folderToDelete by remember { mutableStateOf<String?>(null) }
@@ -384,54 +311,36 @@ private fun UserTabsScreen(
         )
     }
 
-    folderActionsFor?.let { folder ->
+    if (showCreateFolderDialog) {
         AlertDialog(
-            onDismissRequest = { folderActionsFor = null },
-            title = { Text(stringResource(R.string.tab_list_folder_title, displayTabFolder(context, folder))) },
+            onDismissRequest = { showCreateFolderDialog = false },
+            title = { Text(stringResource(R.string.tab_list_create_folder_title)) },
             text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    FilledTonalButton(
-                        onClick = {
-                            folderToRename = folder
-                            renameFolderValue = folder
-                            folderActionsFor = null
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Icon(Icons.Default.Edit, contentDescription = null)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(stringResource(R.string.rename), style = MaterialTheme.typography.titleMedium)
-                    }
-                    FilledTonalButton(
-                        onClick = {
-                            folderToDelete = folder
-                            folderActionsFor = null
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(54.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                    ) {
-                        Icon(Icons.Default.Delete, contentDescription = null)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(stringResource(R.string.delete), style = MaterialTheme.typography.titleMedium)
-                    }
-                }
+                OutlinedTextField(
+                    value = newFolderValue,
+                    onValueChange = { newFolderValue = it },
+                    label = { Text(stringResource(R.string.tab_list_folder_name)) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp)
+                )
             },
             confirmButton = {
-                TextButton(onClick = { folderActionsFor = null }) { Text(stringResource(R.string.cancel)) }
+                Button(
+                    onClick = {
+                        viewModel.createFolder(newFolderValue)
+                        newFolderValue = ""
+                        showCreateFolderDialog = false
+                    }
+                ) { Text(stringResource(R.string.tab_list_create)) }
             },
-            dismissButton = {}
+            dismissButton = {
+                TextButton(onClick = {
+                    newFolderValue = ""
+                    showCreateFolderDialog = false
+                }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
         )
     }
 
@@ -491,13 +400,6 @@ private fun UserTabsScreen(
             .fillMaxWidth()
             .padding(16.dp)
     ) {
-        Text(
-            text = stringResource(R.string.total_tabs, uiState.totalUserTabs),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
         if (uiState.isUserTabsLoading) {
             Box(
                 modifier = Modifier
@@ -517,59 +419,103 @@ private fun UserTabsScreen(
 
         LazyColumn(modifier = Modifier.fillMaxWidth()) {
             item {
-                ExposedDropdownMenuBox(
-                    expanded = folderMenuExpanded,
-                    onExpandedChange = { folderMenuExpanded = !folderMenuExpanded }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    OutlinedTextField(
-                        value = uiState.selectedFolder?.let { displayTabFolder(context, it) } ?: allFoldersLabel,
-                        onValueChange = {},
-                        readOnly = true,
-                        modifier = Modifier
-                            .menuAnchor()
-                            .fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        leadingIcon = { Icon(Icons.Default.Folder, contentDescription = null) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = folderMenuExpanded) }
-                    )
-                    ExposedDropdownMenu(
-                        expanded = folderMenuExpanded,
-                        onDismissRequest = { folderMenuExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(allFoldersLabel) },
-                            onClick = {
-                                viewModel.selectFolder(null)
-                                folderMenuExpanded = false
-                            }
-                        )
-                        uiState.availableFolders.forEach { folder ->
-                            DropdownMenuItem(
-                                text = {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
+                    Box(modifier = Modifier.weight(1f)) {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(appBlockBorder(), RoundedCornerShape(16.dp))
+                                .clickable { folderMenuExpanded = true },
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surface
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Folder, contentDescription = null)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = uiState.selectedFolder?.let { displayTabFolder(context, it) } ?: allFoldersLabel,
+                                    modifier = Modifier.weight(1f),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Box {
+                                    IconButton(onClick = { folderActionsExpanded = true }) {
+                                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.menu))
+                                    }
+                                    DropdownMenu(
+                                        expanded = folderActionsExpanded,
+                                        onDismissRequest = { folderActionsExpanded = false }
                                     ) {
-                                        Text(displayTabFolder(context, folder))
-                                        if (!isDefaultTabFolder(folder)) {
-                                            Text(
-                                                text = "⋮",
-                                                style = MaterialTheme.typography.headlineSmall,
-                                                fontSize = 30.sp,
-                                                modifier = Modifier.clickable {
-                                                    folderActionsFor = folder
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.tab_list_new_folder)) },
+                                            leadingIcon = { Icon(Icons.Default.Folder, contentDescription = null) },
+                                            onClick = {
+                                                folderActionsExpanded = false
+                                                showCreateFolderDialog = true
+                                            }
+                                        )
+                                        if (uiState.selectedFolder != null && !isDefaultTabFolder(uiState.selectedFolder)) {
+                                            DropdownMenuItem(
+                                                text = { Text(stringResource(R.string.rename)) },
+                                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                                onClick = {
+                                                    folderActionsExpanded = false
+                                                    folderToRename = uiState.selectedFolder
+                                                    renameFolderValue = uiState.selectedFolder.orEmpty()
+                                                }
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text(stringResource(R.string.delete)) },
+                                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
+                                                onClick = {
+                                                    folderActionsExpanded = false
+                                                    folderToDelete = uiState.selectedFolder
                                                 }
                                             )
                                         }
                                     }
-                                },
-                                onClick = {
-                                    viewModel.selectFolder(folder)
-                                    folderMenuExpanded = false
                                 }
-                            )
+                                Box {
+                                    IconButton(onClick = { folderMenuExpanded = true }) {
+                                        Icon(
+                                            imageVector = Icons.Default.ArrowDropDown,
+                                            contentDescription = stringResource(R.string.tab_list_all_folders)
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = folderMenuExpanded,
+                                        onDismissRequest = { folderMenuExpanded = false }
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text(allFoldersLabel) },
+                                            onClick = {
+                                                viewModel.selectFolder(null)
+                                                folderMenuExpanded = false
+                                            }
+                                        )
+                                        uiState.availableFolders.forEach { folder ->
+                                            DropdownMenuItem(
+                                                text = { Text(displayTabFolder(context, folder)) },
+                                                onClick = {
+                                                    viewModel.selectFolder(folder)
+                                                    folderMenuExpanded = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
+
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -693,44 +639,22 @@ private fun LessonsScreen(
     onTabClick: (String) -> Unit
 ) {
     Column {
-        SecondaryTabRow(selectedTabIndex = uiState.selectedDifficulty.ordinal) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             Difficulty.values().forEach { difficulty ->
-                Tab(
+                FilterChip(
                     selected = uiState.selectedDifficulty == difficulty,
                     onClick = { viewModel.selectDifficulty(difficulty) },
-                    text = {
-                        DifficultyStars(
-                            count = when (difficulty) {
-                                Difficulty.BEGINNER -> 1
-                                Difficulty.INTERMEDIATE -> 2
-                                Difficulty.ADVANCED -> 3
-                            }
-                        )
-                    }
+                    label = { Text(difficultyChipLabel(difficulty, uiState)) }
                 )
             }
         }
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = stringResource(
-                    R.string.completed_this_level,
-                    uiState.completedLessonsInSelectedDifficulty,
-                    uiState.totalLessonsInSelectedDifficulty
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = stringResource(
-                    R.string.total_progress,
-                    uiState.totalCompletedLessons,
-                    uiState.totalLessons
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(16.dp))
             if (uiState.isTabsLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -792,20 +716,13 @@ private fun LessonsScreen(
     }
 }
 
-@Composable
-private fun DifficultyStars(count: Int) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        repeat(count) {
-            Icon(
-                imageVector = Icons.Filled.Star,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp)
-            )
-        }
+private fun difficultyChipLabel(difficulty: Difficulty, uiState: TabListUiState): String {
+    val stars = when (difficulty) {
+        Difficulty.BEGINNER -> "★"
+        Difficulty.INTERMEDIATE -> "★★"
+        Difficulty.ADVANCED -> "★★★"
     }
+    return "$stars (${uiState.completedLessons(difficulty)}/${uiState.totalLessons(difficulty)})"
 }
 
 @Composable

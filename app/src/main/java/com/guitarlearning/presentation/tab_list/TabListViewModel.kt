@@ -69,6 +69,14 @@ data class TabListUiState(
     val totalLessons: Int
         get() = tabs.size
 
+    fun completedLessons(difficulty: Difficulty): Int {
+        return tabs.count { it.difficulty == difficulty && it.isCompleted }
+    }
+
+    fun totalLessons(difficulty: Difficulty): Int {
+        return tabs.count { it.difficulty == difficulty }
+    }
+
     val totalUserTabs: Int
         get() = userTabs.size
 
