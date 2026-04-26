@@ -126,8 +126,6 @@ class TabViewerViewModel @Inject constructor(
 
     private var lastSavedBarIndex: Int = -1
     private var activeLessonId: String? = null
-    private var lessonOpenedAt: Long = 0L
-    private var restoreFloorBarIndex: Int = 0
 
     @Volatile
     var tabBytesRef: String? = null
@@ -166,13 +164,11 @@ class TabViewerViewModel @Inject constructor(
             val shouldRestore = savedBar > 1 || savedTick > 1L
 
             activeLessonId = id
-            lessonOpenedAt = System.currentTimeMillis()
-            restoreFloorBarIndex = savedBar.coerceAtLeast(0)
             lastSavedBarIndex = savedBar.takeIf { it > 0 } ?: -1
 
             perfLog(
                 RESTORE_TAG,
-                "loadLesson(id=$id) savedProgress={tick=${savedProgress?.lastTick}, bar=${savedProgress?.lastBarIndex}, total=${savedProgress?.totalBars}} shouldRestore=$shouldRestore restoreFloor=$restoreFloorBarIndex"
+                "loadLesson(id=$id) savedProgress={tick=${savedProgress?.lastTick}, bar=${savedProgress?.lastBarIndex}, total=${savedProgress?.totalBars}} shouldRestore=$shouldRestore"
             )
 
             _uiState.update { currentState ->
@@ -310,7 +306,6 @@ class TabViewerViewModel @Inject constructor(
 
     fun markRestoreCompleted() {
         perfLog(RESTORE_TAG, "markRestoreCompleted()")
-        restoreFloorBarIndex = 0
         _uiState.update { state ->
             if (!state.restorePending) state else state.copy(restorePending = false)
         }
@@ -337,7 +332,6 @@ class TabViewerViewModel @Inject constructor(
                 "onRestoreApplied tick=$tick currentBar=$currentBarIndex requestedBar=$requestedBarIndex targetBar=$targetBar reached=$reached"
             )
             if (!reached) return@update state
-            restoreFloorBarIndex = 0
             _lastTickPosition.value = tick
             _lastBarIndex.value = if (currentBarIndex > 0) currentBarIndex else _lastBarIndex.value
             state.copy(restorePending = false)
@@ -356,11 +350,7 @@ class TabViewerViewModel @Inject constructor(
         if (activeLessonId != lessonId) return
         if (currentState.restorePending) return
 
-        val openedAgoMs = System.currentTimeMillis() - lessonOpenedAt
-        val floor = restoreFloorBarIndex
-        if (floor > 1 && openedAgoMs < 7000L && barIndex < floor) return
         if (tick <= 0L || barIndex <= 0 || totalBars <= 0) return
-        if (!isPlaying && barIndex < lastSavedBarIndex && openedAgoMs < 15000L) return
         if (barIndex == lastSavedBarIndex) return
 
         val now = System.currentTimeMillis()

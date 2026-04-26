@@ -1,5 +1,6 @@
 package com.guitarlearning.presentation.tab_list
 
+import android.content.Context
 import com.guitarlearning.di.AppDispatchers
 import com.guitarlearning.domain.model.TabPlaybackProgress
 import com.guitarlearning.testutil.FakeSoundFontRepository
@@ -14,8 +15,12 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.RobolectricTestRunner
+import org.junit.runner.RunWith
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
 class TabListViewModelTest {
 
     @get:Rule
@@ -73,6 +78,7 @@ class TabListViewModelTest {
         progressRepository: FakeTabPlaybackProgressRepository
     ): TabListViewModel {
         return TabListViewModel(
+            context = RuntimeEnvironment.getApplication().applicationContext as Context,
             tabRepository = tabRepository,
             progressRepository = progressRepository,
             tabFileRepository = FakeTabFileRepository(),

@@ -57,6 +57,8 @@ class FakeTabRepository(
 
     override fun getTabs(): Flow<List<TabItem>> = tabsFlow
 
+    override suspend fun refreshBuiltInTabLocalizations() = Unit
+
     override fun observeUserTabs(): Flow<List<TabItem>> = userTabsFlow
 
     override suspend fun getAllTabsSync(): List<TabItem> = tabsFlow.value + userTabsFlow.value
