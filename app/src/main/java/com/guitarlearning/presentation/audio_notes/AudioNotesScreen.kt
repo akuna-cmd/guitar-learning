@@ -23,13 +23,20 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -58,6 +65,7 @@ fun AudioNotesScreen(
     onSeekAudio: (String, Float) -> Unit
 ) {
     val recordAudioPermissionState = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
+    var audioNoteToDelete by remember { mutableStateOf<AudioNote?>(null) }
 
     val pickAudioLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
@@ -67,6 +75,32 @@ fun AudioNotesScreen(
     )
 
     Column(modifier = Modifier.fillMaxSize()) {
+        audioNoteToDelete?.let { note ->
+            AlertDialog(
+                onDismissRequest = { audioNoteToDelete = null },
+                title = { Text(stringResource(id = R.string.delete_audio_note_title)) },
+                text = { Text(stringResource(id = R.string.delete_audio_note_message)) },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onDeleteAudioNote(note.id)
+                            audioNoteToDelete = null
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = androidx.compose.material3.MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text(stringResource(id = R.string.delete))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { audioNoteToDelete = null }) {
+                        Text(stringResource(id = R.string.cancel))
+                    }
+                }
+            )
+        }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -120,7 +154,7 @@ fun AudioNotesScreen(
                         playerState = playerState,
                         onPlay = { onPlayAudio(audioNote) },
                         onSeek = { progress -> onSeekAudio(audioNote.id.toString(), progress) },
-                        onDelete = { onDeleteAudioNote(audioNote.id) }
+                        onDelete = { audioNoteToDelete = audioNote }
                     )
                 }
             }

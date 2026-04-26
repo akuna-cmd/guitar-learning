@@ -30,8 +30,10 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -42,6 +44,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -82,6 +85,8 @@ fun NotesScreen(
     onDeleteTextNote: (TextNote) -> Unit
 ) {
     var newTextNote by remember { mutableStateOf("") }
+    var audioNoteToDelete by remember { mutableStateOf<AudioNote?>(null) }
+    var textNoteToDelete by remember { mutableStateOf<TextNote?>(null) }
     val recordAudioPermissionState = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
 
     val pickAudioLauncher = rememberLauncherForActivityResult(
@@ -171,7 +176,7 @@ fun NotesScreen(
                     playerState = playerState,
                     onPlay = { onPlayAudio(audioNote) },
                     onSeek = { progress -> onSeekAudio(audioNote.id.toString(), progress) },
-                    onDelete = { onDeleteAudioNote(audioNote.id) }
+                    onDelete = { audioNoteToDelete = audioNote }
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -198,7 +203,7 @@ fun NotesScreen(
         }
 
         items(textNotes, key = { it.id }) { note ->
-            TextNoteItem(note = note, onUpdate = onUpdateTextNote, onDelete = onDeleteTextNote)
+            TextNoteItem(note = note, onUpdate = onUpdateTextNote, onDelete = { textNoteToDelete = it })
             Spacer(modifier = Modifier.height(8.dp))
         }
 
@@ -233,6 +238,58 @@ fun NotesScreen(
             )
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+
+    audioNoteToDelete?.let { note ->
+        AlertDialog(
+            onDismissRequest = { audioNoteToDelete = null },
+            title = { Text(stringResource(id = R.string.delete_audio_note_title)) },
+            text = { Text(stringResource(id = R.string.delete_audio_note_message)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteAudioNote(note.id)
+                        audioNoteToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text(stringResource(id = R.string.delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { audioNoteToDelete = null }) {
+                    Text(stringResource(id = R.string.cancel))
+                }
+            }
+        )
+    }
+
+    textNoteToDelete?.let { note ->
+        AlertDialog(
+            onDismissRequest = { textNoteToDelete = null },
+            title = { Text(stringResource(id = R.string.delete_text_note_title)) },
+            text = { Text(stringResource(id = R.string.delete_text_note_message)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteTextNote(note)
+                        textNoteToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text(stringResource(id = R.string.delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { textNoteToDelete = null }) {
+                    Text(stringResource(id = R.string.cancel))
+                }
+            }
+        )
     }
 }
 
