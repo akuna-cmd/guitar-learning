@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.guitarlearning.presentation.main.AiProvider
 import com.guitarlearning.presentation.main.AppLanguage
 import com.guitarlearning.presentation.main.FretboardDisplayMode
@@ -50,6 +51,7 @@ class AppSettingsRepository @Inject constructor(
         val settingsUpdatedAt = longPreferencesKey("settings_updated_at")
         val syncOwnerUid = stringPreferencesKey("cloud_sync_owner_uid")
         val lastCloudSyncAt = longPreferencesKey("last_cloud_sync_at")
+        val pendingDeletedUserTabIds = stringSetPreferencesKey("pending_deleted_user_tab_ids")
     }
 
     fun observeSettings(): Flow<AppSettingsSnapshot> {
@@ -85,6 +87,37 @@ class AppSettingsRepository @Inject constructor(
             } else {
                 preferences[Keys.lastCloudSyncAt] = timestamp
             }
+        }
+    }
+
+    suspend fun getPendingDeletedUserTabIds(): Set<String> {
+        return dataStore.data.first()[Keys.pendingDeletedUserTabIds].orEmpty()
+    }
+
+    suspend fun markUserTabPendingDeletion(tabId: String) {
+        if (tabId.isBlank()) return
+        dataStore.edit { preferences ->
+            val current = preferences[Keys.pendingDeletedUserTabIds].orEmpty()
+            preferences[Keys.pendingDeletedUserTabIds] = current + tabId
+        }
+    }
+
+    suspend fun clearPendingDeletedUserTabIds(tabIds: Set<String>) {
+        if (tabIds.isEmpty()) return
+        dataStore.edit { preferences ->
+            val current = preferences[Keys.pendingDeletedUserTabIds].orEmpty()
+            val updated = current - tabIds
+            if (updated.isEmpty()) {
+                preferences.remove(Keys.pendingDeletedUserTabIds)
+            } else {
+                preferences[Keys.pendingDeletedUserTabIds] = updated
+            }
+        }
+    }
+
+    suspend fun clearAllPendingDeletedUserTabIds() {
+        dataStore.edit { preferences ->
+            preferences.remove(Keys.pendingDeletedUserTabIds)
         }
     }
 

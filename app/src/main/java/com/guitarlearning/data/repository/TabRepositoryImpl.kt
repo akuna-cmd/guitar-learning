@@ -8,6 +8,7 @@ import com.guitarlearning.core.AppLocaleManager
 import com.guitarlearning.data.local.TabDao
 import com.guitarlearning.data.model.Lesson
 import com.guitarlearning.data.model.toDomain
+import com.guitarlearning.data.settings.AppSettingsRepository
 import com.guitarlearning.domain.model.Difficulty
 import com.guitarlearning.domain.model.DEFAULT_TAB_FOLDER_KEY
 import com.guitarlearning.domain.model.Lesson as DomainLesson
@@ -31,7 +32,8 @@ import javax.inject.Singleton
 @Singleton
 class TabRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val tabDao: TabDao
+    private val tabDao: TabDao,
+    private val appSettingsRepository: AppSettingsRepository
 ) : TabRepository {
 
     private companion object {
@@ -229,6 +231,9 @@ class TabRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteUserTab(tab: TabItem) {
+        if (tab.isUserTab) {
+            appSettingsRepository.markUserTabPendingDeletion(tab.id)
+        }
         tab.filePath?.let { File(it).delete() }
         tabDao.deleteTab(tab)
     }
@@ -290,6 +295,7 @@ class TabRepositoryImpl @Inject constructor(
             tab.filePath?.let { File(it).delete() }
         }
         tabDao.deleteAllTabs()
+        appSettingsRepository.clearAllPendingDeletedUserTabIds()
     }
 
     private fun getDisplayName(uri: Uri): String? {

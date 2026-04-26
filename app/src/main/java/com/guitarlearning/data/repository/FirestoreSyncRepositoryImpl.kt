@@ -88,6 +88,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
         return runCatching {
             val userRef = firestore.collection("users").document(user.uid)
             val previousOwnerUid = appSettingsRepository.getSyncOwnerUid()
+            val pendingDeletedUserTabIds = appSettingsRepository.getPendingDeletedUserTabIds()
             val isAccountSwitch = !previousOwnerUid.isNullOrBlank() && previousOwnerUid != user.uid
 
             if (isAccountSwitch) {
@@ -101,7 +102,11 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             val remoteGoalsSnapshot = userRef.collection("goals").get().await()
             val remoteProgressSnapshot = userRef.collection("progress").get().await()
             val remoteStoragePathsByTabId = remoteTabsSnapshot.documents.associate { it.id to it.getString("storagePath") }
-            val remoteTabsImport = importRemoteTabs(remoteTabsSnapshot.documents)
+            val filteredRemoteTabDocuments = remoteTabsSnapshot.documents.filterNot { document ->
+                val remoteId = document.getString("id") ?: document.id
+                document.getBoolean("isUserTab") == true && remoteId in pendingDeletedUserTabIds
+            }
+            val remoteTabsImport = importRemoteTabs(filteredRemoteTabDocuments)
             val remoteTabs = remoteTabsImport.tabs
             val remoteSessions = remoteSessionsSnapshot.documents.mapNotNull { it.toSession() }
             val remoteGoals = remoteGoalsSnapshot.documents.mapNotNull { it.toGoal() }
@@ -215,6 +220,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             batch.commit().await()
 
             val syncTimestamp = System.currentTimeMillis()
+            appSettingsRepository.clearPendingDeletedUserTabIds(pendingDeletedUserTabIds)
             appSettingsRepository.setSyncOwnerUid(user.uid)
             appSettingsRepository.setLastCloudSyncAt(syncTimestamp)
         }
@@ -262,6 +268,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
         goalRepository.clearGoals()
         progressRepository.clearAll()
         appSettingsRepository.resetSettingsToDefaults()
+        appSettingsRepository.clearAllPendingDeletedUserTabIds()
     }
 
     private suspend fun ensureBuiltInTabsSeeded() {
