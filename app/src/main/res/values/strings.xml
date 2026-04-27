@@ -254,6 +254,16 @@
     <string name="loop_enable">Увімкнути зациклення</string>
     <string name="loop_start_measure">Початковий такт: %1$d</string>
     <string name="loop_end_measure">Кінцевий такт: %1$d</string>
+    <string name="loop_gradual_speedup_title">Поступове прискорення</string>
+    <string name="loop_gradual_speedup_description">Автоматично підвищує темп після заданої кількості повторів циклу.</string>
+    <string name="loop_gradual_start_tempo">Стартовий темп</string>
+    <string name="loop_gradual_end_tempo">Кінцевий темп</string>
+    <string name="loop_gradual_step">Крок прискорення</string>
+    <string name="loop_gradual_repeats">Кількість повторів</string>
+    <string name="loop_gradual_repeats_value">%1$d повтори</string>
+    <string name="loop_gradual_repeats_decrease">Зменшити кількість повторів</string>
+    <string name="loop_gradual_repeats_increase">Збільшити кількість повторів</string>
+    <string name="loop_gradual_progress">Прискорення через %1$d/%2$d повторів</string>
     <string name="auth_error_unexpected_credential">Неочікуваний тип облікових даних</string>
     <string name="auth_error_google_sign_in">Google Sign-In: %1$s</string>
     <string name="auth_error_generic">Помилка: %1$s</string>

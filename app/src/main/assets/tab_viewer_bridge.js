@@ -22,6 +22,11 @@ let _metronomeCtx = null;
 let _silentMode = false;
 let _restoreLock = false;
 let _isDark = false;
+let _lastLoopProgressTick = null;
+let _lastLoopIterationAtMs = 0;
+let _currentTabScale = null;
+let _currentDisplayMode = null;
+let _currentPracticeLayout = null;
 
 function applyCanvasTheme() {
     document.querySelectorAll('#alphaTab canvas, #alphaTab svg').forEach(c => {
@@ -44,10 +49,19 @@ window.setTheme = (isDark) => {
 window.initSettings = (isDark, isPractice, speed, scale, displayMode, localeTag) => {
     window.setTheme(isDark);
     _locale = localeTag || 'uk';
-    if (window.setPracticeModeLayout) window.setPracticeModeLayout(isPractice);
+    if (window.setPracticeModeLayout && _currentPracticeLayout !== isPractice) {
+        _currentPracticeLayout = isPractice;
+        window.setPracticeModeLayout(isPractice);
+    }
     if (window.setPlaybackSpeed) window.setPlaybackSpeed(speed);
-    if (window.setTabScale) window.setTabScale(scale);
-    if (window.setTabDisplayMode) window.setTabDisplayMode(displayMode);
+    if (window.setTabScale && _currentTabScale !== scale) {
+        _currentTabScale = scale;
+        window.setTabScale(scale);
+    }
+    if (window.setTabDisplayMode && _currentDisplayMode !== displayMode) {
+        _currentDisplayMode = displayMode;
+        window.setTabDisplayMode(displayMode);
+    }
 };
 
 window.setPracticeModeSpeed = (isPractice) => {
@@ -56,6 +70,7 @@ window.setPracticeModeSpeed = (isPractice) => {
 };
 
 window.setPracticeModeLayout = (isPractice) => {
+    _currentPracticeLayout = isPractice;
     if (!api) return;
     api.settings.display.layoutMode = 0;
     api.settings.player.scrollOffsetX = 0;
@@ -66,6 +81,8 @@ window.setPracticeModeLayout = (isPractice) => {
 window.setLoopRange = (startMeasure, endMeasure, isLooping) => {
     if (!api || !api.score) return;
     api.isLooping = isLooping;
+    _lastLoopProgressTick = null;
+    _lastLoopIterationAtMs = 0;
     if (isLooping && startMeasure > 0 && endMeasure > 0) {
         const startMasterBar = api.score.masterBars[startMeasure - 1];
         const endMasterBar = api.score.masterBars[endMeasure - 1];
@@ -84,6 +101,36 @@ window.setLoopRange = (startMeasure, endMeasure, isLooping) => {
         api.playbackRange = null;
     }
 };
+
+function maybeNotifyLoopIteration(currentTick, isPlaying) {
+    if (!api?.isLooping || !isPlaying) {
+        _lastLoopProgressTick = currentTick;
+        return;
+    }
+    const range = api.playbackRange;
+    if (!range || range.startTick == null || range.endTick == null) {
+        _lastLoopProgressTick = currentTick;
+        return;
+    }
+    const previousTick = _lastLoopProgressTick;
+    _lastLoopProgressTick = currentTick;
+    if (previousTick == null) return;
+
+    const span = Math.max(1, range.endTick - range.startTick);
+    const wrapThreshold = Math.max(60, Math.floor(span * 0.25));
+    const edgeWindow = Math.max(30, Math.floor(span * 0.2));
+    const wrappedBack = previousTick > currentTick + wrapThreshold;
+    const previousNearEnd = previousTick >= range.endTick - edgeWindow;
+    const currentNearStart = currentTick <= range.startTick + edgeWindow;
+    const now = Date.now();
+    const debouncePassed = now - _lastLoopIterationAtMs > 250;
+    if (wrappedBack && previousNearEnd && currentNearStart && debouncePassed) {
+        _lastLoopIterationAtMs = now;
+        if (window.Android?.onLoopIterationCompleted) {
+            window.Android.onLoopIterationCompleted();
+        }
+    }
+}
 
 function signalReady() {
     window.__tabViewerReady = true;
@@ -457,6 +504,7 @@ function initAlphaTab() {
         api.playerPositionChanged.on(args => {
             if (args?.currentBeat) sendForBeat(args.currentBeat);
             try {
+                maybeNotifyLoopIteration(api.tickPosition ?? 0, api.playerState === 1);
                 let barIndex = args?.currentBeat?.voice?.bar?.index;
                 if (barIndex != null) barIndex = barIndex + 1;
                 if (barIndex == null) barIndex = getBarIndexForTick(api.tickPosition ?? 0);
@@ -470,6 +518,9 @@ function initAlphaTab() {
         api.playerStateChanged.on(args => {
             if (args?.state === 1) startPoller();
             else stopPoller();
+            if (args?.state !== 1) {
+                _lastLoopProgressTick = api?.tickPosition ?? null;
+            }
             try {
                 if (window.Android?.onTickPosition) {
                     window.Android.onTickPosition(api.tickPosition ?? 0, api.playerState === 1);
@@ -656,6 +707,7 @@ window.applyLearningTools = (trackIndex, transposeSemitones) => {
 };
 window.setTabScale = (s) => {
     _pendingScale = parseFloat(s);
+    _currentTabScale = _pendingScale;
     if (!api) return;
     if (_restoreLock) {
         api.settings.display.scale = _pendingScale;
@@ -679,6 +731,7 @@ window.setTabScale = (s) => {
     if (api.score) api.render();
 };
 window.setTabDisplayMode = (mode) => {
+    _currentDisplayMode = mode;
     if (!api) return;
     if (_restoreLock) {
         if (window.alphaTab && window.alphaTab.StaveProfile) {

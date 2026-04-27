@@ -254,6 +254,16 @@ Question:
     <string name="loop_enable">Enable looping</string>
     <string name="loop_start_measure">Start measure: %1$d</string>
     <string name="loop_end_measure">End measure: %1$d</string>
+    <string name="loop_gradual_speedup_title">Gradual speed-up</string>
+    <string name="loop_gradual_speedup_description">Automatically increases tempo after the chosen number of loop repeats.</string>
+    <string name="loop_gradual_start_tempo">Start tempo</string>
+    <string name="loop_gradual_end_tempo">End tempo</string>
+    <string name="loop_gradual_step">Speed-up step</string>
+    <string name="loop_gradual_repeats">Repeats before speed-up</string>
+    <string name="loop_gradual_repeats_value">%1$d repeats</string>
+    <string name="loop_gradual_repeats_decrease">Decrease repeat count</string>
+    <string name="loop_gradual_repeats_increase">Increase repeat count</string>
+    <string name="loop_gradual_progress">Speed-up after %1$d/%2$d repeats</string>
     <string name="auth_error_unexpected_credential">Unexpected credential type</string>
     <string name="auth_error_google_sign_in">Google Sign-In: %1$s</string>
     <string name="auth_error_generic">Error: %1$s</string>

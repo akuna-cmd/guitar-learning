@@ -29,6 +29,7 @@ internal class TabJsBridge {
     var onTickPositionCallback: (Long, Boolean) -> Unit = { _, _ -> }
     var onPlaybackProgressCallback: (Long, Boolean, Int) -> Unit = { _, _, _ -> }
     var onRestoreAppliedCallback: (Long, Int, Int) -> Unit = { _, _, _ -> }
+    var onLoopIterationCompletedCallback: () -> Unit = {}
 
     @JavascriptInterface fun postAsciiTab(ascii: String) = onAsciiTabCallback(ascii)
     @JavascriptInterface fun postTabAnalysis(json: String) = onTabAnalysisCallback(json)
@@ -63,6 +64,9 @@ internal class TabJsBridge {
     @JavascriptInterface
     fun onRestoreApplied(tick: Long, currentBarIndex: Int, requestedBarIndex: Int) =
         onRestoreAppliedCallback(tick, currentBarIndex, requestedBarIndex)
+
+    @JavascriptInterface
+    fun onLoopIterationCompleted() = onLoopIterationCompletedCallback()
 }
 
 internal data class TabWebViewEntry(
@@ -197,5 +201,6 @@ internal data class TabViewerHandlers(
     val onAsciiTabGenerated: (String) -> Unit,
     val onTabAnalysis: (String) -> Unit,
     val onCompactTabsGenerated: (String) -> Unit,
-    val onTotalMeasuresLoaded: (Int) -> Unit
+    val onTotalMeasuresLoaded: (Int) -> Unit,
+    val onLoopIterationCompleted: () -> Unit
 )

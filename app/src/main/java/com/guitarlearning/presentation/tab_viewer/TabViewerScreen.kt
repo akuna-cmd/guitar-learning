@@ -92,6 +92,16 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONTokener
 import org.json.JSONObject
+import kotlin.math.max
+
+private const val DEFAULT_LOOP_ACCELERATION_STEP = 0.05f
+private const val DEFAULT_LOOP_ACCELERATION_REPEATS = 3
+private const val DEFAULT_LOOP_ACCELERATION_END_SPEED = 1.0f
+
+private fun clampLoopSpeed(value: Float): Float = value.coerceIn(0.1f, 2.5f)
+private fun clampLoopStep(value: Float): Float = value.coerceIn(0.05f, 1.0f)
+
+private fun clampLoopRepeatCount(value: Int): Int = value.coerceIn(1, 32)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -158,11 +168,28 @@ fun TabViewerScreen(
     var loopStartMeasure by remember { mutableStateOf(1) }
     var loopEndMeasure by remember { mutableStateOf(1) }
     var isLoopEnabled by remember { mutableStateOf(false) }
+    var isLoopAccelerationEnabled by remember { mutableStateOf(false) }
+    var loopAccelerationStartSpeed by remember { mutableStateOf(themeUiState.practiceSpeed) }
+    var loopAccelerationEndSpeed by remember { mutableStateOf(DEFAULT_LOOP_ACCELERATION_END_SPEED) }
+    var loopAccelerationStep by remember { mutableStateOf(DEFAULT_LOOP_ACCELERATION_STEP) }
+    var loopAccelerationRepeats by remember { mutableStateOf(DEFAULT_LOOP_ACCELERATION_REPEATS) }
+    var loopAccelerationCompletedRepeats by remember { mutableStateOf(0) }
+    var hasInitializedLoopRange by remember { mutableStateOf(false) }
     var silentMode by remember { mutableStateOf(false) }
     val aiSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val notesSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val loopSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val tabScaleOverrides = remember { mutableStateMapOf<String, Float>() }
+
+    LaunchedEffect(lessonId) {
+        isLoopAccelerationEnabled = false
+        loopAccelerationStartSpeed = themeUiState.practiceSpeed
+        loopAccelerationEndSpeed = DEFAULT_LOOP_ACCELERATION_END_SPEED
+        loopAccelerationStep = DEFAULT_LOOP_ACCELERATION_STEP
+        loopAccelerationRepeats = DEFAULT_LOOP_ACCELERATION_REPEATS
+        loopAccelerationCompletedRepeats = 0
+        hasInitializedLoopRange = false
+    }
 
     val contentAlpha = if (isDisplayUnlocked) 1f else 0f
 
@@ -195,6 +222,26 @@ fun TabViewerScreen(
                 val defaultScale = if (isPracticeMode) themeUiState.practiceTabScale else themeUiState.normalTabScale
                 var currentScale by remember(lesson.id, isPracticeMode, defaultScale) {
                     mutableStateOf(tabScaleOverrides[lesson.id] ?: defaultScale)
+                }
+
+                fun resetLoopAccelerationProgress(
+                    applyStartSpeed: Boolean = false,
+                    startOverride: Float? = null
+                ) {
+                    loopAccelerationCompletedRepeats = 0
+                    if (applyStartSpeed && isLoopEnabled && isLoopAccelerationEnabled) {
+                        val targetSpeed = clampLoopSpeed(startOverride ?: loopAccelerationStartSpeed)
+                            .coerceAtMost(loopAccelerationEndSpeed)
+                        currentSpeed = targetSpeed
+                    }
+                }
+                var previousPlayingState by remember(lesson.id) { mutableStateOf(isPlayingState) }
+
+                LaunchedEffect(isPlayingState, isLoopEnabled, isLoopAccelerationEnabled) {
+                    if (isPlayingState && !previousPlayingState && isLoopEnabled && isLoopAccelerationEnabled) {
+                        resetLoopAccelerationProgress(applyStartSpeed = true)
+                    }
+                    previousPlayingState = isPlayingState
                 }
 
                 Column(
@@ -305,8 +352,24 @@ fun TabViewerScreen(
                             onTotalMeasuresLoaded = { measures ->
                                 totalMeasures = measures
                                 viewModel.markScoreLoaded(measures)
-                                if (loopEndMeasure == 1 && measures > 1) {
+                                if (!hasInitializedLoopRange && loopEndMeasure == 1 && measures > 1) {
                                     loopEndMeasure = measures
+                                    hasInitializedLoopRange = true
+                                } else if (!hasInitializedLoopRange) {
+                                    hasInitializedLoopRange = true
+                                }
+                            },
+                            onLoopIterationCompleted = {
+                                if (isLoopEnabled && isLoopAccelerationEnabled) {
+                                    val nextRepeatCount = loopAccelerationCompletedRepeats + 1
+                                    loopAccelerationCompletedRepeats = nextRepeatCount
+                                    if (nextRepeatCount % loopAccelerationRepeats == 0) {
+                                        val nextSpeed = clampLoopSpeed(currentSpeed + loopAccelerationStep)
+                                            .coerceAtMost(loopAccelerationEndSpeed)
+                                        if (nextSpeed > currentSpeed) {
+                                            currentSpeed = nextSpeed
+                                        }
+                                    }
                                 }
                             }
                         ),
@@ -398,9 +461,66 @@ fun TabViewerScreen(
                                 startMeasure = loopStartMeasure,
                                 endMeasure = loopEndMeasure,
                                 isLoopEnabled = isLoopEnabled,
-                                onStartChange = { loopStartMeasure = it },
-                                onEndChange = { loopEndMeasure = it },
-                                onToggleLoop = { isLoopEnabled = it }
+                                onStartChange = {
+                                    loopStartMeasure = it
+                                    resetLoopAccelerationProgress(applyStartSpeed = true)
+                                },
+                                onEndChange = {
+                                    loopEndMeasure = it
+                                    resetLoopAccelerationProgress(applyStartSpeed = true)
+                                },
+                                onToggleLoop = {
+                                    isLoopEnabled = it
+                                    if (!it) {
+                                        isLoopAccelerationEnabled = false
+                                        loopAccelerationCompletedRepeats = 0
+                                    }
+                                    resetLoopAccelerationProgress(applyStartSpeed = it)
+                                },
+                                isLoopAccelerationEnabled = isLoopAccelerationEnabled,
+                                loopAccelerationStartSpeed = loopAccelerationStartSpeed,
+                                loopAccelerationEndSpeed = loopAccelerationEndSpeed,
+                                loopAccelerationStep = loopAccelerationStep,
+                                loopAccelerationRepeats = loopAccelerationRepeats,
+                                loopAccelerationCompletedRepeats = loopAccelerationCompletedRepeats % loopAccelerationRepeats,
+                                onToggleLoopAcceleration = { enabled ->
+                                    if (!isLoopEnabled) return@LoopConfigurator
+                                    isLoopAccelerationEnabled = enabled
+                                    if (enabled) {
+                                        val defaultStartSpeed = clampLoopSpeed(currentSpeed)
+                                        loopAccelerationStartSpeed = defaultStartSpeed
+                                        loopAccelerationEndSpeed = max(
+                                            DEFAULT_LOOP_ACCELERATION_END_SPEED,
+                                            defaultStartSpeed
+                                        )
+                                        loopAccelerationStep = DEFAULT_LOOP_ACCELERATION_STEP
+                                        loopAccelerationRepeats = DEFAULT_LOOP_ACCELERATION_REPEATS
+                                        resetLoopAccelerationProgress(applyStartSpeed = false)
+                                    } else {
+                                        loopAccelerationCompletedRepeats = 0
+                                    }
+                                },
+                                onLoopAccelerationStartSpeedChange = { updated ->
+                                    val sanitized = clampLoopSpeed(updated)
+                                    loopAccelerationStartSpeed = sanitized.coerceAtMost(loopAccelerationEndSpeed)
+                                    resetLoopAccelerationProgress(applyStartSpeed = true, startOverride = loopAccelerationStartSpeed)
+                                },
+                                onLoopAccelerationEndSpeedChange = { updated ->
+                                    val sanitized = clampLoopSpeed(updated).coerceAtLeast(loopAccelerationStartSpeed)
+                                    loopAccelerationEndSpeed = sanitized
+                                    if (currentSpeed > sanitized && isLoopAccelerationEnabled) {
+                                        currentSpeed = sanitized
+                                    }
+                                    resetLoopAccelerationProgress(applyStartSpeed = false)
+                                },
+                                onLoopAccelerationStepChange = { updated ->
+                                    loopAccelerationStep = clampLoopStep(updated)
+                                    resetLoopAccelerationProgress(applyStartSpeed = false)
+                                },
+                                onLoopAccelerationRepeatsChange = { updated ->
+                                    loopAccelerationRepeats = clampLoopRepeatCount(updated)
+                                    resetLoopAccelerationProgress(applyStartSpeed = false)
+                                }
                             )
                         }
                     }
@@ -480,6 +600,7 @@ private fun TabViewer(
     val onTabAnalysis = handlers.onTabAnalysis
     val onCompactTabsGenerated = handlers.onCompactTabsGenerated
     val onTotalMeasuresLoaded = handlers.onTotalMeasuresLoaded
+    val onLoopIterationCompleted = handlers.onLoopIterationCompleted
 
     val restoreTag = "TabRestoreFlow"
     val loadTag = "TabLoadPerf"
@@ -558,6 +679,7 @@ private fun TabViewer(
         onTickPosition,
         onPlaybackProgress,
         onRestoreApplied,
+        onLoopIterationCompleted,
         fileName,
         metronomeBpmTouched
     ) {
@@ -650,6 +772,11 @@ private fun TabViewer(
             }
             onRestoreApplied(tick, currentBarIndex, requestedBarIndex)
         }
+        bridge.onLoopIterationCompletedCallback = {
+            Handler(Looper.getMainLooper()).post {
+                onLoopIterationCompleted()
+            }
+        }
         onDispose {}
     }
 
@@ -665,6 +792,7 @@ private fun TabViewer(
             bridge.onTickPositionCallback = { _, _ -> }
             bridge.onPlaybackProgressCallback = { _, _, _ -> }
             bridge.onRestoreAppliedCallback = { _, _, _ -> }
+            bridge.onLoopIterationCompletedCallback = {}
             runCatching { webView.evaluateJavascript("window.stopAudio();", null) }
             runCatching { webView.stopLoading() }
             runCatching { webView.loadUrl("about:blank") }
