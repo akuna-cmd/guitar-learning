@@ -508,7 +508,7 @@ function runFullAnalysis(score) {
                         const label = n.isDead ? 'x' : n.fret;
                         return t('stringLabel', { string: stringIndex, label, fret: n.fret });
                     });
-                    compactTabs += `  ${eventNum}. ${noteLabels.join(', ')}\n`;
+                    compactTabs += `  Event ${eventNum} inside this measure: ${noteLabels.join(', ')}\n`;
                     eventNum++;
                 }
             }
