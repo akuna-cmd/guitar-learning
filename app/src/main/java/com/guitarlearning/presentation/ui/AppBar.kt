@@ -3,8 +3,11 @@ package com.guitarlearning.presentation.ui
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -21,6 +24,11 @@ fun AppBar(sessionDuration: Long, onStopSession: () -> Unit) {
     TopAppBar(
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Outlined.Schedule,
+                    contentDescription = null
+                )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(formatDuration(sessionDuration))
                 Spacer(modifier = Modifier.width(16.dp))
                 Button(onClick = onStopSession) { Text(stringResource(id = R.string.stop_session)) }

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,6 +29,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -61,7 +63,6 @@ fun HomeScreen(
     lastPlaybackProgressFlow: StateFlow<com.guitarlearning.domain.model.TabPlaybackProgress?>
 ) {
     val lastPlaybackProgress by lastPlaybackProgressFlow.collectAsStateWithLifecycle()
-    val recentSessions = remember(sessions) { sessions.take(20) }
     val progress = lastPlaybackProgress
     val lastTabName = progress?.tabName
     val progressValue = if (progress != null && progress.totalBars > 0) {
@@ -74,8 +75,8 @@ fun HomeScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize(),
-        contentPadding = PaddingValues(top = 32.dp, start = 16.dp, end = 16.dp, bottom = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        contentPadding = PaddingValues(top = 28.dp, start = 16.dp, end = 16.dp, bottom = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
             ContinueLearningCard(
@@ -117,9 +118,6 @@ fun HomeScreen(
                 Text(stringResource(id = R.string.start_practice))
             }
         }
-        items(recentSessions, key = { it.id }) { session ->
-            SessionItem(session)
-        }
     }
 }
 
@@ -142,22 +140,17 @@ fun ContinueLearningCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
+                .padding(horizontal = 18.dp, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
                 text = stringResource(id = R.string.continue_learning_title),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = stringResource(id = R.string.continue_learning_last_song),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
             )
             Text(
                 text = lastTabName ?: stringResource(id = R.string.continue_learning_no_song),
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold
             )
             Row(
@@ -167,7 +160,8 @@ fun ContinueLearningCard(
             ) {
                 Text(
                     text = stringResource(id = R.string.continue_learning_progress_label),
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = stringResource(id = R.string.progress_percent_format, progressPercent),
@@ -182,7 +176,9 @@ fun ContinueLearningCard(
             OutlinedButton(
                 onClick = onContinue,
                 enabled = !isSessionActive && isEnabled,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
             ) {
                 Text(stringResource(id = R.string.continue_learning_button))
             }
@@ -222,8 +218,8 @@ private fun StatTimeCard(totalSessionTime: Long, modifier: Modifier = Modifier) 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(180.dp)
-                .padding(16.dp),
+                .defaultMinSize(minHeight = 144.dp)
+                .padding(horizontal = 12.dp, vertical = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -232,6 +228,7 @@ private fun StatTimeCard(totalSessionTime: Long, modifier: Modifier = Modifier) 
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = stringResource(id = R.string.total_session_time),
                 style = MaterialTheme.typography.labelMedium,
@@ -258,16 +255,16 @@ private fun LessonsProgressCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(180.dp)
-                .padding(16.dp),
+                .defaultMinSize(minHeight = 144.dp)
+                .padding(horizontal = 12.dp, vertical = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Box(contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(
                     progress = { progressValue },
-                    strokeWidth = 7.dp,
-                    modifier = Modifier.size(86.dp)
+                    strokeWidth = 6.dp,
+                    modifier = Modifier.size(80.dp)
                 )
                 Text(
                     text = stringResource(id = R.string.lessons_progress_format, lessonsCompleted, totalLessons),
@@ -275,7 +272,7 @@ private fun LessonsProgressCard(
                     fontWeight = FontWeight.Bold
                 )
             }
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = stringResource(id = R.string.lessons_progress_title),
                 style = MaterialTheme.typography.labelMedium,
@@ -296,7 +293,7 @@ fun MyTabsSummaryCard(userTabsCount: Int) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(vertical = 14.dp),
             horizontalArrangement = Arrangement.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {

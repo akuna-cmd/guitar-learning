@@ -10,6 +10,7 @@ import com.guitarlearning.data.local.AppDatabase
 import com.guitarlearning.data.local.AudioNoteDao
 import com.guitarlearning.data.local.GoalDao
 import com.guitarlearning.data.local.Migration12To13
+import com.guitarlearning.data.local.Migration13To14
 import com.guitarlearning.data.local.SessionDao
 import com.guitarlearning.data.local.TabDao
 import com.guitarlearning.data.local.TextNoteDao
@@ -49,7 +50,7 @@ object DataModule {
             context.applicationContext,
             AppDatabase::class.java,
             "app_database"
-        ).addMigrations(Migration12To13)
+        ).addMigrations(Migration12To13, Migration13To14)
             .fallbackToDestructiveMigration()
             .build()
     }

@@ -10,16 +10,27 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Brightness4
+import androidx.compose.material.icons.filled.Brightness5
+import androidx.compose.material.icons.filled.BrightnessAuto
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.*
@@ -75,9 +86,11 @@ fun SettingsScreen() {
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(28.dp)
     ) {
         // ─── Profile / Auth ───────────────────────────────────────
         item {
@@ -154,11 +167,11 @@ fun SettingsScreen() {
         item {
             SettingsSection(title = stringResource(R.string.settings_theme_title)) {
                 listOf(
-                    ThemeMode.SYSTEM to stringResource(R.string.settings_theme_system),
-                    ThemeMode.LIGHT to stringResource(R.string.settings_theme_light),
-                    ThemeMode.DARK to stringResource(R.string.settings_theme_dark)
-                ).forEach { (mode, label) ->
-                    SettingsOptionsRow(label, uiState.themeMode == mode) { themeViewModel.setThemeMode(mode) }
+                    Triple(ThemeMode.SYSTEM, stringResource(R.string.settings_theme_system), Icons.Default.BrightnessAuto),
+                    Triple(ThemeMode.LIGHT, stringResource(R.string.settings_theme_light), Icons.Default.Brightness5),
+                    Triple(ThemeMode.DARK, stringResource(R.string.settings_theme_dark), Icons.Default.Brightness4)
+                ).forEach { (mode, label, icon) ->
+                    SettingsOptionsRow(label, uiState.themeMode == mode, icon) { themeViewModel.setThemeMode(mode) }
                 }
             }
         }
@@ -169,7 +182,7 @@ fun SettingsScreen() {
                     AppLanguage.UKRAINIAN to stringResource(R.string.settings_language_ukrainian),
                     AppLanguage.ENGLISH to stringResource(R.string.settings_language_english)
                 ).forEach { (language, label) ->
-                    SettingsOptionsRow(label, uiState.appLanguage == language) {
+                    SettingsOptionsRow(label, uiState.appLanguage == language, Icons.Default.Language) {
                         AppLocaleManager.persistLanguage(context, language.languageTag)
                         themeViewModel.setAppLanguage(language)
                         activity.overridePendingTransition(0, 0)
@@ -209,11 +222,13 @@ fun SettingsScreen() {
                     SettingsOptionsRow(
                         label = stringResource(R.string.settings_ai_provider_gemini),
                         selected = aiProviderDraft == AiProvider.GEMINI,
+                        icon = Icons.Default.AutoAwesome,
                         onClick = { aiProviderDraft = AiProvider.GEMINI }
                     )
                     SettingsOptionsRow(
                         label = stringResource(R.string.settings_ai_provider_local),
                         selected = aiProviderDraft == AiProvider.LOCAL_LLAMA_CPP,
+                        icon = Icons.Default.Memory,
                         onClick = { aiProviderDraft = AiProvider.LOCAL_LLAMA_CPP }
                     )
 
@@ -225,66 +240,30 @@ fun SettingsScreen() {
                             singleLine = true,
                             shape = RoundedCornerShape(16.dp),
                             label = { Text(stringResource(R.string.settings_ai_server_label)) },
-                            placeholder = { Text(stringResource(R.string.settings_ai_server_placeholder)) },
-                            supportingText = {
-                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Text(
-                                        text = stringResource(R.string.settings_ai_server_help),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.settings_ai_server_example_address),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.settings_ai_server_example_command),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
+                            placeholder = { Text(stringResource(R.string.settings_ai_server_placeholder)) }
                         )
                     }
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (aiProviderDraft == AiProvider.LOCAL_LLAMA_CPP) {
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                                shape = RoundedCornerShape(12.dp),
+                                border = appBlockBorder()
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.settings_ai_local_setup_full),
+                                    modifier = Modifier.padding(12.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                         Text(
                             text = stringResource(R.string.settings_ai_test_description),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = stringResource(R.string.settings_ai_test_prompt_label),
-                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            border = appBlockBorder()
-                        ) {
-                            Text(
-                                text = stringResource(R.string.settings_ai_test_prompt_value),
-                                modifier = Modifier.padding(12.dp),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        if (aiProviderDraft == AiProvider.LOCAL_LLAMA_CPP) {
-                            Text(
-                                text = stringResource(R.string.settings_ai_setup_title),
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            AiHelpBullet(stringResource(R.string.settings_ai_setup_step_1))
-                            AiHelpBullet(stringResource(R.string.settings_ai_setup_step_2))
-                            AiHelpBullet(stringResource(R.string.settings_ai_setup_step_3))
-                            AiHelpBullet(stringResource(R.string.settings_ai_setup_step_4))
-                        }
                     }
 
                     val hasAiChanges = aiProviderDraft != uiState.aiProvider ||
@@ -399,26 +378,24 @@ fun SettingsScreen() {
 
         item {
             SettingsSection(title = stringResource(R.string.tab_display_mode_title)) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SettingsIconOptionRow(
-                        label = stringResource(R.string.tab_display_mode_tab_and_notes),
-                        selected = uiState.tabDisplayMode == TabDisplayMode.TAB_AND_NOTES,
-                        icon = Icons.Default.LibraryMusic,
-                        onClick = { themeViewModel.setTabDisplayMode(TabDisplayMode.TAB_AND_NOTES) }
-                    )
-                    SettingsIconOptionRow(
-                        label = stringResource(R.string.tab_display_mode_notes_only),
-                        selected = uiState.tabDisplayMode == TabDisplayMode.NOTES_ONLY,
-                        icon = Icons.Default.MusicNote,
-                        onClick = { themeViewModel.setTabDisplayMode(TabDisplayMode.NOTES_ONLY) }
-                    )
-                    SettingsIconOptionRow(
-                        label = stringResource(R.string.tab_display_mode_tab_only),
-                        selected = uiState.tabDisplayMode == TabDisplayMode.TAB_ONLY,
-                        icon = Icons.Default.QueueMusic,
-                        onClick = { themeViewModel.setTabDisplayMode(TabDisplayMode.TAB_ONLY) }
-                    )
-                }
+                SettingsIconOptionRow(
+                    label = stringResource(R.string.tab_display_mode_tab_and_notes),
+                    selected = uiState.tabDisplayMode == TabDisplayMode.TAB_AND_NOTES,
+                    icon = Icons.Default.LibraryMusic,
+                    onClick = { themeViewModel.setTabDisplayMode(TabDisplayMode.TAB_AND_NOTES) }
+                )
+                SettingsIconOptionRow(
+                    label = stringResource(R.string.tab_display_mode_notes_only),
+                    selected = uiState.tabDisplayMode == TabDisplayMode.NOTES_ONLY,
+                    icon = Icons.Default.MusicNote,
+                    onClick = { themeViewModel.setTabDisplayMode(TabDisplayMode.NOTES_ONLY) }
+                )
+                SettingsIconOptionRow(
+                    label = stringResource(R.string.tab_display_mode_tab_only),
+                    selected = uiState.tabDisplayMode == TabDisplayMode.TAB_ONLY,
+                    icon = Icons.Default.QueueMusic,
+                    onClick = { themeViewModel.setTabDisplayMode(TabDisplayMode.TAB_ONLY) }
+                )
             }
         }
 
@@ -432,7 +409,7 @@ private fun CompactSpeedScale(
     onSpeedChange: (Float) -> Unit,
     onScaleChange: (Float) -> Unit
 ) {
-    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -464,6 +441,7 @@ private fun CompactSpeedScale(
                 )
             }
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -521,61 +499,93 @@ private fun ProfileCard(
     } ?: context.getString(R.string.settings_last_sync_never)
 
     Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         border = appBlockBorder()
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Text(
-                    text = initials.ifEmpty { "?" },
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Box(
+                    modifier = Modifier
+                        .size(70.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = initials.ifEmpty { "?" },
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = displayName ?: email ?: stringResource(R.string.settings_profile_user),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
+                    )
+                    if (displayName != null && email != null) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Email,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = email,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2
+                            )
+                        }
+                    }
+                }
             }
-            Text(
-                text = displayName ?: email ?: stringResource(R.string.settings_profile_user),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold
-            )
-            if (displayName != null && email != null) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AccountCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
                 Text(
-                    text = email,
+                    text = syncText,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.65f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Text(
-                text = syncText,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                textAlign = TextAlign.Center
-            )
             if (!message.isNullOrBlank()) {
                 Text(
                     text = message,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    textAlign = TextAlign.Center
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Button(
                 onClick = onSync,
                 enabled = !isSyncing,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
+                shape = RoundedCornerShape(18.dp),
+                modifier = Modifier.fillMaxWidth().height(48.dp)
             ) {
                 if (isSyncing) {
                     CircularProgressIndicator(
@@ -584,14 +594,26 @@ private fun ProfileCard(
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                 } else {
+                    Icon(
+                        imageVector = Icons.Default.Sync,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(stringResource(R.string.settings_sync_now))
                 }
             }
             OutlinedButton(
                 onClick = onSignOut,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
+                shape = RoundedCornerShape(18.dp),
+                modifier = Modifier.fillMaxWidth().height(48.dp)
             ) {
+                Icon(
+                    imageVector = Icons.Default.ExitToApp,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
                 Text(stringResource(R.string.settings_sign_out))
             }
         }
@@ -827,31 +849,31 @@ fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) 
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 12.dp)
         )
         Card(
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
             border = appBlockBorder()
         ) {
-            Column(content = content)
+            Column(
+                modifier = Modifier.padding(vertical = 2.dp),
+                content = content
+            )
         }
     }
 }
 
 @Composable
-fun SettingsOptionsRow(label: String, selected: Boolean, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(text = label, modifier = Modifier.weight(1f))
-        RadioButton(selected = selected, onClick = null)
-    }
+fun SettingsOptionsRow(
+    label: String,
+    selected: Boolean,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
+    SettingsRadioRow(label = label, selected = selected, icon = icon, onClick = onClick)
 }
 
 @Composable
@@ -861,50 +883,41 @@ fun SettingsIconOptionRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .background(
-                if (selected) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.surfaceVariant
-            )
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
+    SettingsRadioRow(label = label, selected = selected, icon = icon, onClick = onClick)
 }
 
 @Composable
-private fun AiHelpBullet(text: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        Text(
-            text = "•",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+private fun SettingsRadioRow(
+    label: String,
+    selected: Boolean,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
         )
-        Text(
-            text = text,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f)
+            )
+            RadioButton(selected = selected, onClick = null)
+        }
     }
 }

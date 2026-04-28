@@ -20,7 +20,7 @@ import java.util.UUID
         TabItem::class,
         Goal::class
     ],
-    version = 13
+    version = 14
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -29,6 +29,13 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun sessionDao(): SessionDao
     abstract fun tabDao(): TabDao
     abstract fun goalDao(): GoalDao
+}
+
+val Migration13To14 = object : Migration(13, 14) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL("ALTER TABLE audio_notes ADD COLUMN isFavorite INTEGER NOT NULL DEFAULT 0")
+        database.execSQL("ALTER TABLE text_notes ADD COLUMN isFavorite INTEGER NOT NULL DEFAULT 0")
+    }
 }
 
 val Migration12To13 = object : Migration(12, 13) {

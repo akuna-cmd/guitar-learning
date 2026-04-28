@@ -444,7 +444,10 @@ fun TabViewerScreen(
                                 onSeekAudio = { id, prog -> notesViewModel.onSeekAudio(id, prog) },
                                 onAddTextNote = { content -> notesViewModel.addTextNote(lesson.id, content) },
                                 onUpdateTextNote = { note -> notesViewModel.updateTextNote(note) },
-                                onDeleteTextNote = { note -> notesViewModel.deleteTextNote(note) }
+                                onDeleteTextNote = { note -> notesViewModel.deleteTextNote(note) },
+                                onRenameAudioNote = notesViewModel::renameAudioNote,
+                                onToggleAudioFavorite = notesViewModel::toggleAudioFavorite,
+                                onToggleTextFavorite = notesViewModel::toggleTextFavorite
                             )
                         }
                     }

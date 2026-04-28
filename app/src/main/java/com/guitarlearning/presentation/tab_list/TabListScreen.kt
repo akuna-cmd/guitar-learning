@@ -26,7 +26,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -35,6 +34,8 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.*
@@ -194,8 +195,8 @@ private fun UserTabsScreen(
     var tabToMove by remember { mutableStateOf<TabItem?>(null) }
     var newTabName by remember { mutableStateOf("") }
     var newFolderName by remember { mutableStateOf("") }
-    var folderMenuExpanded by remember { mutableStateOf(false) }
     var folderActionsExpanded by remember { mutableStateOf(false) }
+    var sortMenuExpanded by remember { mutableStateOf(false) }
     var showCreateFolderDialog by remember { mutableStateOf(false) }
     var newFolderValue by remember { mutableStateOf("") }
     var folderToRename by remember { mutableStateOf<String?>(null) }
@@ -419,106 +420,109 @@ private fun UserTabsScreen(
 
         LazyColumn(modifier = Modifier.fillMaxWidth()) {
             item {
+                OutlinedTextField(
+                    value = uiState.userTabsQuery,
+                    onValueChange = viewModel::updateUserTabsQuery,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    placeholder = { Text(stringResource(R.string.tab_list_search_placeholder)) },
+                    shape = RoundedCornerShape(20.dp)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .border(appBlockBorder(), RoundedCornerShape(16.dp))
-                                .clickable { folderMenuExpanded = true },
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.surface
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        FilterChip(
+                            selected = uiState.selectedFolder == null,
+                            onClick = { viewModel.selectFolder(null) },
+                            label = { Text(allFoldersLabel) }
+                        )
+                        uiState.availableFolders.forEach { folder ->
+                            FilterChip(
+                                selected = uiState.selectedFolder == folder,
+                                onClick = { viewModel.selectFolder(folder) },
+                                label = { Text(displayTabFolder(context, folder)) }
+                            )
+                        }
+                    }
+                    Box {
+                        IconButton(onClick = { folderActionsExpanded = true }) {
+                            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.tab_list_folder_actions))
+                        }
+                        DropdownMenu(
+                            expanded = folderActionsExpanded,
+                            onDismissRequest = { folderActionsExpanded = false }
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.Folder, contentDescription = null)
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = uiState.selectedFolder?.let { displayTabFolder(context, it) } ?: allFoldersLabel,
-                                    modifier = Modifier.weight(1f),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.tab_list_new_folder)) },
+                                leadingIcon = { Icon(Icons.Default.Folder, contentDescription = null) },
+                                onClick = {
+                                    folderActionsExpanded = false
+                                    showCreateFolderDialog = true
+                                }
+                            )
+                            if (uiState.selectedFolder != null && !isDefaultTabFolder(uiState.selectedFolder)) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.rename)) },
+                                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                    onClick = {
+                                        folderActionsExpanded = false
+                                        folderToRename = uiState.selectedFolder
+                                        renameFolderValue = uiState.selectedFolder.orEmpty()
+                                    }
                                 )
-                                Box {
-                                    IconButton(onClick = { folderActionsExpanded = true }) {
-                                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.menu))
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.delete)) },
+                                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
+                                    onClick = {
+                                        folderActionsExpanded = false
+                                        folderToDelete = uiState.selectedFolder
                                     }
-                                    DropdownMenu(
-                                        expanded = folderActionsExpanded,
-                                        onDismissRequest = { folderActionsExpanded = false }
-                                    ) {
-                                        DropdownMenuItem(
-                                            text = { Text(stringResource(R.string.tab_list_new_folder)) },
-                                            leadingIcon = { Icon(Icons.Default.Folder, contentDescription = null) },
-                                            onClick = {
-                                                folderActionsExpanded = false
-                                                showCreateFolderDialog = true
-                                            }
-                                        )
-                                        if (uiState.selectedFolder != null && !isDefaultTabFolder(uiState.selectedFolder)) {
-                                            DropdownMenuItem(
-                                                text = { Text(stringResource(R.string.rename)) },
-                                                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                                                onClick = {
-                                                    folderActionsExpanded = false
-                                                    folderToRename = uiState.selectedFolder
-                                                    renameFolderValue = uiState.selectedFolder.orEmpty()
-                                                }
-                                            )
-                                            DropdownMenuItem(
-                                                text = { Text(stringResource(R.string.delete)) },
-                                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
-                                                onClick = {
-                                                    folderActionsExpanded = false
-                                                    folderToDelete = uiState.selectedFolder
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
-                                Box {
-                                    IconButton(onClick = { folderMenuExpanded = true }) {
-                                        Icon(
-                                            imageVector = Icons.Default.ArrowDropDown,
-                                            contentDescription = stringResource(R.string.tab_list_all_folders)
-                                        )
-                                    }
-                                    DropdownMenu(
-                                        expanded = folderMenuExpanded,
-                                        onDismissRequest = { folderMenuExpanded = false }
-                                    ) {
-                                        DropdownMenuItem(
-                                            text = { Text(allFoldersLabel) },
-                                            onClick = {
-                                                viewModel.selectFolder(null)
-                                                folderMenuExpanded = false
-                                            }
-                                        )
-                                        uiState.availableFolders.forEach { folder ->
-                                            DropdownMenuItem(
-                                                text = { Text(displayTabFolder(context, folder)) },
-                                                onClick = {
-                                                    viewModel.selectFolder(folder)
-                                                    folderMenuExpanded = false
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
+                                )
                             }
                         }
-
+                    }
+                    Box {
+                        IconButton(onClick = { sortMenuExpanded = true }) {
+                            Icon(Icons.Default.SwapVert, contentDescription = stringResource(R.string.tab_list_sort))
+                        }
+                        DropdownMenu(
+                            expanded = sortMenuExpanded,
+                            onDismissRequest = { sortMenuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.tab_list_sort_progress)) },
+                                onClick = {
+                                    viewModel.updateUserTabsSortMode(UserTabsSortMode.PROGRESS_ASC)
+                                    sortMenuExpanded = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.tab_list_sort_date_added)) },
+                                onClick = {
+                                    viewModel.updateUserTabsSortMode(UserTabsSortMode.DATE_ADDED_DESC)
+                                    sortMenuExpanded = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.tab_list_sort_alphabetical)) },
+                                onClick = {
+                                    viewModel.updateUserTabsSortMode(UserTabsSortMode.ALPHABETICAL_ASC)
+                                    sortMenuExpanded = false
+                                }
+                            )
+                        }
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
             }
 
             items(uiState.filteredUserTabs, key = { it.id }) { tab ->
@@ -591,9 +595,10 @@ private fun UserTabsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Box(
-                                modifier = Modifier.weight(1f, fill = false),
-                                contentAlignment = Alignment.CenterStart
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 Surface(
                                     modifier = Modifier.wrapContentWidth(),
@@ -621,8 +626,16 @@ private fun UserTabsScreen(
                                         )
                                     }
                                 }
+                                LinearProgressIndicator(
+                                    progress = { ((progress ?: 0).coerceIn(0, 100)) / 100f },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(8.dp),
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                TabProgressBadge(progressPercent = progress)
                             }
-                            TabProgressBadge(progressPercent = progress)
                         }
                     }
                 }
@@ -697,7 +710,7 @@ private fun LessonsScreen(
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
-                                TabProgressBadge(progressPercent = progress)
+                                TabProgressLine(progressPercent = progress, modifier = Modifier.fillMaxWidth())
                             }
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 IconButton(onClick = { viewModel.toggleCompleted(tab.id) }) {
@@ -753,6 +766,29 @@ private fun TabProgressBadge(
                 color = MaterialTheme.colorScheme.onTertiaryContainer
             )
         }
+    }
+}
+
+@Composable
+private fun TabProgressLine(
+    progressPercent: Int?,
+    modifier: Modifier = Modifier
+) {
+    val value = ((progressPercent ?: 0).coerceIn(0, 100)) / 100f
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        LinearProgressIndicator(
+            progress = { value },
+            modifier = Modifier
+                .weight(1f)
+                .height(8.dp),
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            color = MaterialTheme.colorScheme.primary
+        )
+        TabProgressBadge(progressPercent = progressPercent)
     }
 }
 

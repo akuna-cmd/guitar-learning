@@ -12,5 +12,6 @@ data class TextNote(
     val id: Int = 0,
     val lessonId: String,
     val content: String,
-    val createdAt: Date
+    val createdAt: Date,
+    val isFavorite: Boolean = false
 )

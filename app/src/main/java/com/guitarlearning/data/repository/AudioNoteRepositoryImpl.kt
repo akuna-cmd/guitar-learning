@@ -20,6 +20,10 @@ class AudioNoteRepositoryImpl @Inject constructor(
         audioNoteDao.insert(audioNote)
     }
 
+    override suspend fun updateAudioNote(audioNote: AudioNote) {
+        audioNoteDao.update(audioNote)
+    }
+
     override suspend fun deleteAudioNote(id: Int) {
         audioNoteDao.delete(id)
     }

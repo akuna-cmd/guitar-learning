@@ -12,5 +12,6 @@ data class AudioNote(
     val id: Int = 0,
     val lessonId: String,
     val filePath: String,
-    val createdAt: Date
+    val createdAt: Date,
+    val isFavorite: Boolean = false
 )

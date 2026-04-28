@@ -27,6 +27,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+enum class UserTabsSortMode {
+    PROGRESS_ASC,
+    DATE_ADDED_DESC,
+    ALPHABETICAL_ASC
+}
+
 data class TabListUiState(
     val tabs: List<TabItem> = emptyList(),
     val userTabs: List<TabItem> = emptyList(),
@@ -39,7 +45,9 @@ data class TabListUiState(
     val message: String? = null,
     val selectedFolder: String? = null,
     val customFolders: List<String> = emptyList(),
-    val isDownloadingOfflinePackage: Boolean = false
+    val isDownloadingOfflinePackage: Boolean = false,
+    val userTabsQuery: String = "",
+    val userTabsSortMode: UserTabsSortMode = UserTabsSortMode.DATE_ADDED_DESC
 ) {
     fun displayFolder(tab: TabItem): String {
         return normalizeTabFolder(tab.folder)
@@ -86,9 +94,25 @@ data class TabListUiState(
     ): List<TabItem> {
         val filtered = source.filter { tab ->
             val folderMatches = !applyFolderFilter || selectedFolder == null || displayFolder(tab) == selectedFolder
-            folderMatches
+            val query = userTabsQuery.trim().lowercase()
+            val queryMatches = query.isBlank() ||
+                tab.name.lowercase().contains(query) ||
+                tab.description.lowercase().contains(query) ||
+                displayFolder(tab).lowercase().contains(query)
+            folderMatches && queryMatches
         }
-        return filtered
+        return when (userTabsSortMode) {
+            UserTabsSortMode.PROGRESS_ASC -> filtered.sortedWith(
+                compareBy<TabItem> { progressByTabId[it.id] ?: 0 }
+                    .thenBy { it.name.lowercase() }
+            )
+            UserTabsSortMode.DATE_ADDED_DESC -> filtered.sortedWith(
+                compareByDescending<TabItem> { it.updatedAt }
+                    .thenByDescending { it.lastOpenedAt }
+                    .thenBy { it.name.lowercase() }
+            )
+            UserTabsSortMode.ALPHABETICAL_ASC -> filtered.sortedBy { it.name.lowercase() }
+        }
     }
 }
 
@@ -121,6 +145,14 @@ class TabListViewModel @Inject constructor(
 
     fun selectFolder(folder: String?) {
         _uiState.update { it.copy(selectedFolder = folder) }
+    }
+
+    fun updateUserTabsQuery(query: String) {
+        _uiState.update { it.copy(userTabsQuery = query) }
+    }
+
+    fun updateUserTabsSortMode(sortMode: UserTabsSortMode) {
+        _uiState.update { it.copy(userTabsSortMode = sortMode) }
     }
 
     fun createFolder(folderName: String) {

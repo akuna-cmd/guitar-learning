@@ -118,6 +118,31 @@ class TabNotesViewModel @Inject constructor(
         }
     }
 
+    fun toggleAudioFavorite(audioNote: AudioNote) {
+        viewModelScope.launch(dispatchers.io) {
+            audioNoteRepository.updateAudioNote(audioNote.copy(isFavorite = !audioNote.isFavorite))
+        }
+    }
+
+    fun renameAudioNote(audioNote: AudioNote, newName: String) {
+        viewModelScope.launch(dispatchers.io) {
+            val trimmedName = newName.trim()
+            if (trimmedName.isBlank()) return@launch
+            val sourceFile = File(audioNote.filePath)
+            if (!sourceFile.exists()) return@launch
+            val extension = sourceFile.extension.takeIf { it.isNotBlank() }?.let { ".$it" }.orEmpty()
+            val normalizedName = if (trimmedName.endsWith(extension, ignoreCase = true) || extension.isEmpty()) {
+                trimmedName
+            } else {
+                trimmedName + extension
+            }
+            val targetFile = File(sourceFile.parentFile ?: return@launch, normalizedName)
+            if (targetFile.absolutePath != sourceFile.absolutePath && sourceFile.renameTo(targetFile)) {
+                audioNoteRepository.updateAudioNote(audioNote.copy(filePath = targetFile.absolutePath))
+            }
+        }
+    }
+
     fun onPlayAudio(audioNote: AudioNote) {
         mediaController.play(audioNote.id.toString(), audioNote.filePath)
     }
@@ -147,6 +172,12 @@ class TabNotesViewModel @Inject constructor(
     fun deleteTextNote(textNote: TextNote) {
         viewModelScope.launch(dispatchers.io) {
             textNoteRepository.deleteTextNote(textNote)
+        }
+    }
+
+    fun toggleTextFavorite(textNote: TextNote) {
+        viewModelScope.launch(dispatchers.io) {
+            textNoteRepository.updateTextNote(textNote.copy(isFavorite = !textNote.isFavorite))
         }
     }
 

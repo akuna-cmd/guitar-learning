@@ -52,6 +52,7 @@ import androidx.navigation.compose.rememberNavController
 import com.guitarlearning.presentation.goals.GoalsScreen
 import com.guitarlearning.presentation.main.HomeScreen
 import com.guitarlearning.presentation.main.MainViewModel
+import com.guitarlearning.presentation.main.SessionHistoryScreen
 import com.guitarlearning.presentation.navigation.BottomNavItem
 import com.guitarlearning.presentation.navigation.lessonsNavGraph
 import com.guitarlearning.presentation.settings.SettingsScreen
@@ -237,6 +238,13 @@ fun MainScreen() {
             }
             composable(BottomNavItem.Settings.route) {
                 SettingsScreen()
+            }
+            composable("session_history") {
+                val mainUiState by mainViewModel.uiState.collectAsStateWithLifecycle()
+                SessionHistoryScreen(
+                    sessions = mainUiState.sessions,
+                    onBack = { navController.popBackStack() }
+                )
             }
         }
     }

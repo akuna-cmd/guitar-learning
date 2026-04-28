@@ -2,10 +2,10 @@ package com.guitarlearning.presentation.navigation
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.guitarlearning.R
 
@@ -28,8 +28,8 @@ sealed class BottomNavItem(
 
     object Goals : BottomNavItem(
         route = "goals",
-        titleResId = R.string.goals,
-        icon = Icons.Default.Check
+        titleResId = R.string.progress,
+        icon = Icons.Default.TrendingUp
     )
 
     object Settings : BottomNavItem(
