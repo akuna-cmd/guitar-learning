@@ -41,6 +41,21 @@ class TabPlaybackProgressRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun removeByTabId(tabId: String) {
+        dataStore.edit { preferences ->
+            val raw = preferences[progressKey].orEmpty()
+            if (raw.isBlank()) return@edit
+            val json = JSONObject(raw)
+            if (!json.has(tabId)) return@edit
+            json.remove(tabId)
+            if (json.length() == 0) {
+                preferences.remove(progressKey)
+            } else {
+                preferences[progressKey] = json.toString()
+            }
+        }
+    }
+
     override suspend fun replaceAll(progressList: List<TabPlaybackProgress>) {
         dataStore.edit { preferences ->
             val json = JSONObject()

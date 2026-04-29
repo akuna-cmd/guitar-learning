@@ -534,7 +534,6 @@ private fun UserTabsScreen(
                         .border(appBlockBorder(), RoundedCornerShape(16.dp))
                         .clickable {
                             TabLoadMetricsTracker.start(tab.id, tab.name)
-                            viewModel.markTabOpened(tab.id)
                             onTabClick(tab.id)
                         }
                 ) {
@@ -687,7 +686,6 @@ private fun LessonsScreen(
                             .border(appBlockBorder(), RoundedCornerShape(16.dp))
                             .clickable {
                                 TabLoadMetricsTracker.start(tab.id, tab.name)
-                                viewModel.markTabOpened(tab.id)
                                 onTabClick(tab.id)
                             }
                     ) {

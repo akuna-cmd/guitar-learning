@@ -13,6 +13,7 @@ import com.guitarlearning.domain.model.Difficulty
 import com.guitarlearning.domain.model.DEFAULT_TAB_FOLDER_KEY
 import com.guitarlearning.domain.model.Lesson as DomainLesson
 import com.guitarlearning.domain.model.TabItem
+import com.guitarlearning.domain.repository.TabPlaybackProgressRepository
 import com.guitarlearning.domain.repository.TabRepository
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -33,7 +34,8 @@ import javax.inject.Singleton
 class TabRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val tabDao: TabDao,
-    private val appSettingsRepository: AppSettingsRepository
+    private val appSettingsRepository: AppSettingsRepository,
+    private val tabPlaybackProgressRepository: TabPlaybackProgressRepository
 ) : TabRepository {
 
     private companion object {
@@ -236,6 +238,7 @@ class TabRepositoryImpl @Inject constructor(
         }
         tab.filePath?.let { File(it).delete() }
         tabDao.deleteTab(tab)
+        tabPlaybackProgressRepository.removeByTabId(tab.id)
     }
 
     override suspend fun deleteTabs(tabs: List<TabItem>) {
@@ -296,6 +299,7 @@ class TabRepositoryImpl @Inject constructor(
         }
         tabDao.deleteAllTabs()
         appSettingsRepository.clearAllPendingDeletedUserTabIds()
+        tabPlaybackProgressRepository.clearAll()
     }
 
     private fun getDisplayName(uri: Uri): String? {

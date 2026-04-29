@@ -145,6 +145,10 @@ class TabViewerViewModel @Inject constructor(
         _lastTickPosition.value = null
         _lastBarIndex.value = null
 
+        viewModelScope.launch(dispatchers.io) {
+            tabRepository.markTabOpened(id)
+        }
+
         viewModelScope.launch {
             val (lesson, tabItem, savedProgress) = withContext(dispatchers.io) {
                 coroutineScope {

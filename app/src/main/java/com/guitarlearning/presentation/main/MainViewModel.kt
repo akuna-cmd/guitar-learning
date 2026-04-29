@@ -54,7 +54,21 @@ class MainViewModel @Inject constructor(
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
 
     val lastPlaybackProgress: StateFlow<TabPlaybackProgress?> = progressRepository.observeAll()
-        .map { list -> list.maxByOrNull { it.updatedAt } }
+        .combine(tabRepository.getTabs().combine(tabRepository.observeUserTabs()) { tabs, userTabs ->
+            tabs + userTabs
+        }) { progressList, allTabs ->
+            val latestOpenedTab = allTabs.maxByOrNull { it.lastOpenedAt }
+            latestOpenedTab?.let { tab ->
+                progressList.firstOrNull { it.tabId == tab.id } ?: TabPlaybackProgress(
+                    tabId = tab.id,
+                    tabName = tab.name,
+                    lastTick = 0L,
+                    lastBarIndex = 0,
+                    totalBars = 0,
+                    updatedAt = tab.lastOpenedAt
+                )
+            }
+        }
         .distinctUntilChanged()
         .stateIn(
             scope = viewModelScope,
