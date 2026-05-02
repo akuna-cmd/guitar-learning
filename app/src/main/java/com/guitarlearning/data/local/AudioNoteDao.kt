@@ -14,12 +14,21 @@ interface AudioNoteDao {
     @Query("SELECT * FROM audio_notes WHERE lessonId = :lessonId ORDER BY createdAt DESC")
     fun getNotesForLesson(lessonId: String): Flow<List<AudioNote>>
 
+    @Query("SELECT * FROM audio_notes ORDER BY createdAt DESC")
+    suspend fun getAllNotes(): List<AudioNote>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(audioNote: AudioNote)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(audioNotes: List<AudioNote>)
 
     @Update
     suspend fun update(audioNote: AudioNote)
 
     @Query("DELETE FROM audio_notes WHERE id = :id")
     suspend fun delete(id: Int)
+
+    @Query("DELETE FROM audio_notes")
+    suspend fun clearAll()
 }

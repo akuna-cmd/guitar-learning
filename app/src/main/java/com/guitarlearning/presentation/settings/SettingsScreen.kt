@@ -85,6 +85,17 @@ fun SettingsScreen() {
         aiServerUrlDraft = uiState.localAiServerUrl
     }
 
+    LaunchedEffect(uiState.appLanguage) {
+        val savedLanguageTag = AppLocaleManager.getSavedLanguageTag(context)
+        val targetLanguageTag = uiState.appLanguage.languageTag
+        if (savedLanguageTag != targetLanguageTag) {
+            AppLocaleManager.persistLanguage(context, targetLanguageTag)
+            activity.overridePendingTransition(0, 0)
+            activity.recreate()
+            activity.overridePendingTransition(0, 0)
+        }
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -170,8 +181,13 @@ fun SettingsScreen() {
                     Triple(ThemeMode.SYSTEM, stringResource(R.string.settings_theme_system), Icons.Default.BrightnessAuto),
                     Triple(ThemeMode.LIGHT, stringResource(R.string.settings_theme_light), Icons.Default.Brightness5),
                     Triple(ThemeMode.DARK, stringResource(R.string.settings_theme_dark), Icons.Default.Brightness4)
-                ).forEach { (mode, label, icon) ->
-                    SettingsOptionsRow(label, uiState.themeMode == mode, icon) { themeViewModel.setThemeMode(mode) }
+                ).forEachIndexed { index, (mode, label, icon) ->
+                    SettingsOptionsRow(
+                        label = label,
+                        selected = uiState.themeMode == mode,
+                        icon = icon,
+                        showTopDivider = index != 0
+                    ) { themeViewModel.setThemeMode(mode) }
                 }
             }
         }
@@ -181,13 +197,14 @@ fun SettingsScreen() {
                 listOf(
                     AppLanguage.UKRAINIAN to stringResource(R.string.settings_language_ukrainian),
                     AppLanguage.ENGLISH to stringResource(R.string.settings_language_english)
-                ).forEach { (language, label) ->
-                    SettingsOptionsRow(label, uiState.appLanguage == language, Icons.Default.Language) {
-                        AppLocaleManager.persistLanguage(context, language.languageTag)
+                ).forEachIndexed { index, (language, label) ->
+                    SettingsOptionsRow(
+                        label = label,
+                        selected = uiState.appLanguage == language,
+                        icon = Icons.Default.Language,
+                        showTopDivider = index != 0
+                    ) {
                         themeViewModel.setAppLanguage(language)
-                        activity.overridePendingTransition(0, 0)
-                        activity.recreate()
-                        activity.overridePendingTransition(0, 0)
                     }
                 }
             }
@@ -382,6 +399,7 @@ fun SettingsScreen() {
                     label = stringResource(R.string.tab_display_mode_tab_and_notes),
                     selected = uiState.tabDisplayMode == TabDisplayMode.TAB_AND_NOTES,
                     icon = Icons.Default.LibraryMusic,
+                    showTopDivider = false,
                     onClick = { themeViewModel.setTabDisplayMode(TabDisplayMode.TAB_AND_NOTES) }
                 )
                 SettingsIconOptionRow(
@@ -871,9 +889,16 @@ fun SettingsOptionsRow(
     label: String,
     selected: Boolean,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    showTopDivider: Boolean = true,
     onClick: () -> Unit
 ) {
-    SettingsRadioRow(label = label, selected = selected, icon = icon, onClick = onClick)
+    SettingsRadioRow(
+        label = label,
+        selected = selected,
+        icon = icon,
+        showTopDivider = showTopDivider,
+        onClick = onClick
+    )
 }
 
 @Composable
@@ -881,9 +906,16 @@ fun SettingsIconOptionRow(
     label: String,
     selected: Boolean,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    showTopDivider: Boolean = true,
     onClick: () -> Unit
 ) {
-    SettingsRadioRow(label = label, selected = selected, icon = icon, onClick = onClick)
+    SettingsRadioRow(
+        label = label,
+        selected = selected,
+        icon = icon,
+        showTopDivider = showTopDivider,
+        onClick = onClick
+    )
 }
 
 @Composable
@@ -891,13 +923,16 @@ private fun SettingsRadioRow(
     label: String,
     selected: Boolean,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    showTopDivider: Boolean,
     onClick: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 16.dp),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-        )
+        if (showTopDivider) {
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()

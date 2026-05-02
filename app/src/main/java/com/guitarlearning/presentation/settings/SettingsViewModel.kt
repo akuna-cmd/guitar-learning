@@ -3,6 +3,7 @@ package com.guitarlearning.presentation.settings
 import android.content.Context
 import android.net.Uri
 import com.guitarlearning.R
+import com.guitarlearning.core.AppLocaleManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.guitarlearning.domain.model.PracticedTab
@@ -148,10 +149,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val result = syncRepository.syncData()
             if (result.isSuccess) {
-                _uiState.value = _uiState.value.copy(message = appContext.getString(R.string.settings_message_sync_success))
+                _uiState.value = _uiState.value.copy(message = localizedString(R.string.settings_message_sync_success))
             } else {
                 _uiState.value = _uiState.value.copy(
-                    message = appContext.getString(
+                    message = localizedString(
                         R.string.settings_message_sync_error,
                         result.exceptionOrNull()?.localizedMessage ?: ""
                     )
@@ -191,5 +192,9 @@ class SettingsViewModel @Inject constructor(
 
     fun clearMessage() {
         _uiState.value = _uiState.value.copy(message = null)
+    }
+
+    private fun localizedString(resId: Int, vararg formatArgs: Any): String {
+        return AppLocaleManager.wrap(appContext).getString(resId, *formatArgs)
     }
 }
