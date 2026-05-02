@@ -74,11 +74,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            val themeUiState by hiltViewModel<com.guitarlearning.presentation.main.ThemeViewModel>()
+            val themeViewModel = hiltViewModel<com.guitarlearning.presentation.main.ThemeViewModel>()
+            val themeUiState by themeViewModel
                 .uiState
                 .collectAsStateWithLifecycle()
+            val mainViewModel = hiltViewModel<com.guitarlearning.presentation.main.MainViewModel>()
+            val mainUiState by mainViewModel.uiState.collectAsStateWithLifecycle()
 
-            splashScreen.setKeepOnScreenCondition { false }
+            splashScreen.setKeepOnScreenCondition { themeUiState.isLoading || mainUiState.isLoading }
 
             val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
             val isDarkTheme = when (themeUiState.themeMode) {
@@ -88,7 +91,7 @@ class MainActivity : ComponentActivity() {
             }
 
             GuitarLearningTheme(darkTheme = isDarkTheme) {
-                MainScreen()
+                MainScreen(mainViewModel = mainViewModel)
             }
         }
     }
@@ -96,9 +99,10 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
+fun MainScreen(
+    mainViewModel: MainViewModel
+) {
     val context = LocalContext.current
-    val mainViewModel: MainViewModel = hiltViewModel()
     val uiState by mainViewModel.uiState.collectAsStateWithLifecycle()
 
     val navController = rememberNavController()

@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Card
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
@@ -527,15 +528,18 @@ private fun UserTabsScreen(
 
             items(uiState.filteredUserTabs, key = { it.id }) { tab ->
                 val progress = if (uiState.areMetricsLoading) null else (uiState.progressByTabId[tab.id] ?: 0)
-                ElevatedCard(
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp)
-                        .border(appBlockBorder(), RoundedCornerShape(16.dp))
                         .clickable {
                             TabLoadMetricsTracker.start(tab.id, tab.name)
                             onTabClick(tab.id)
-                        }
+                        },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.elevatedCardColors(),
+                    elevation = CardDefaults.elevatedCardElevation(),
+                    border = appBlockBorder()
                 ) {
                     Column(
                         modifier = Modifier
@@ -679,15 +683,18 @@ private fun LessonsScreen(
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(uiState.filteredTabs, key = { it.id }) { tab ->
                     val progress = if (uiState.areMetricsLoading) null else (uiState.progressByTabId[tab.id] ?: 0)
-                    ElevatedCard(
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 4.dp)
-                            .border(appBlockBorder(), RoundedCornerShape(16.dp))
                             .clickable {
                                 TabLoadMetricsTracker.start(tab.id, tab.name)
                                 onTabClick(tab.id)
-                            }
+                            },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.elevatedCardColors(),
+                        elevation = CardDefaults.elevatedCardElevation(),
+                        border = appBlockBorder()
                     ) {
                         Row(
                             modifier = Modifier
@@ -799,10 +806,13 @@ private fun EmptyTabsState(onAddFirstTab: () -> Unit) {
             .padding(top = 28.dp),
         contentAlignment = Alignment.Center
     ) {
-        ElevatedCard(
+        Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .border(appBlockBorder(), RoundedCornerShape(16.dp))
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.elevatedCardColors(),
+            elevation = CardDefaults.elevatedCardElevation(),
+            border = appBlockBorder()
         ) {
             Column(
                 modifier = Modifier

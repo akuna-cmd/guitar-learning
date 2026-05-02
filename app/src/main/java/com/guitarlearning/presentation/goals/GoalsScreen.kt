@@ -30,6 +30,7 @@ import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -406,11 +407,13 @@ private fun FilterRow(
 
 @Composable
 private fun EmptyGoalsState(onAddGoal: () -> Unit) {
-    ElevatedCard(
+    Card(
         modifier = Modifier
-            .fillMaxWidth()
-            .border(appBlockBorder(), MaterialTheme.shapes.extraLarge),
-        colors = CardDefaults.elevatedCardColors()
+            .fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.elevatedCardColors(),
+        elevation = CardDefaults.elevatedCardElevation(),
+        border = appBlockBorder()
     ) {
         Column(
             modifier = Modifier
@@ -451,10 +454,13 @@ private fun GoalItem(
     var showMenu by remember { mutableStateOf(false) }
     val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()) }
 
-    ElevatedCard(
+    Card(
         modifier = Modifier
-            .fillMaxWidth()
-            .border(appBlockBorder(), MaterialTheme.shapes.extraLarge)
+            .fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.elevatedCardColors(),
+        elevation = CardDefaults.elevatedCardElevation(),
+        border = appBlockBorder()
     ) {
         Column(
             modifier = Modifier.padding(16.dp),

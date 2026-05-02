@@ -29,6 +29,7 @@ import kotlinx.collections.immutable.toImmutableList
 import javax.inject.Inject
 
 data class MainUiState(
+    val isLoading: Boolean = true,
     val sessions: ImmutableList<Session> = persistentListOf(),
     val isSessionActive: Boolean = false,
     val sessionStartTime: Long = 0L,
@@ -94,6 +95,7 @@ class MainViewModel @Inject constructor(
                 val totalSessionTime = sessions.sumOf { it.duration }
                 _uiState.update { current ->
                     current.copy(
+                        isLoading = false,
                         sessions = sessions.toImmutableList(),
                         lessonsCompleted = lessonsCompleted,
                         totalLessons = totalLessons,
