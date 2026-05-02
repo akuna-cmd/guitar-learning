@@ -27,6 +27,7 @@ let _lastLoopIterationAtMs = 0;
 let _currentTabScale = null;
 let _currentDisplayMode = null;
 let _currentPracticeLayout = null;
+let _renderSettledNotifyTimer = null;
 
 function applyCanvasTheme() {
     document.querySelectorAll('#alphaTab canvas, #alphaTab svg').forEach(c => {
@@ -186,6 +187,25 @@ function postStatus(msg) {
     if (window.Android?.onAlphaTabStatus) window.Android.onAlphaTabStatus(msg);
 }
 
+function clearRenderSettledNotifyTimer() {
+    if (_renderSettledNotifyTimer != null) {
+        clearTimeout(_renderSettledNotifyTimer);
+        _renderSettledNotifyTimer = null;
+    }
+}
+
+function scheduleScoreLoadedNotification() {
+    clearRenderSettledNotifyTimer();
+    const totalMeasures = api?.score?.masterBars?.length ?? 0;
+    const settleDelayMs = _currentDisplayMode === 'ScoreTab' ? 260 : 120;
+    _renderSettledNotifyTimer = setTimeout(() => {
+        _renderSettledNotifyTimer = null;
+        if (window.Android?.onScoreLoaded) {
+            window.Android.onScoreLoaded(totalMeasures);
+        }
+    }, settleDelayMs);
+}
+
 window.onerror = function(message, source, lineno, colno, error) {
     const details = error?.stack ? (` | ${error.stack.split('\n')[0]}`) : '';
     postStatus(`jsError:${message}${details}`);
@@ -333,7 +353,7 @@ function applyRestore() {
         } catch {}
         const reached = requestedBar > 1
             ? (currentBar > 0 && Math.abs(currentBar - requestedBar) <= 1)
-            : currentTick > 0;
+            : currentBar > 0 || currentTick > 0;
         postStatus(`restore:verify tick=${currentTick} currentBar=${currentBar} requestedBar=${requestedBar} reached=${reached} attempt=${_restoreAttempts + 1}`);
         if (reached) {
             ensureCursorInView();
@@ -482,24 +502,15 @@ function initAlphaTab() {
                 window.Android.onDetectedTempo(_metronomeBpm);
             }
             setTimeout(() => runFullAnalysis(score), 400);
-            if (_pendingScale != null) {
+            if (_pendingScale != null && api.settings.display.scale !== _pendingScale) {
                 api.settings.display.scale = _pendingScale;
                 api.updateSettings();
             }
-            api.settings.player.enableCursor = true;
-            api.settings.player.enableAnimatedBeatCursor = true;
-            api.updateSettings();
         });
         api.renderFinished.on(() => {
             _scoreLoadedFired = true;
-            if (window.Android?.onScoreLoaded) {
-                const totalMeasures = api.score && api.score.masterBars ? api.score.masterBars.length : 0;
-                window.Android.onScoreLoaded(totalMeasures);
-            }
             if (_restoreTick != null) applyRestore();
-            api.settings.player.enableCursor = true;
-            api.settings.player.enableAnimatedBeatCursor = true;
-            api.updateSettings();
+            scheduleScoreLoadedNotification();
         });
         api.playerPositionChanged.on(args => {
             if (args?.currentBeat) sendForBeat(args.currentBeat);
@@ -613,6 +624,7 @@ window.loadTab = (path) => {
         _pendingTabPath = path;
         return;
     }
+    clearRenderSettledNotifyTimer();
     _scoreLoadedFired = false;
     api.load(path.startsWith('/') ? `file://${path}` : path);
 };
@@ -623,6 +635,7 @@ window.loadTabFromBase64 = (base64) => {
         _pendingTabBase64 = base64;
         return;
     }
+    clearRenderSettledNotifyTimer();
     _scoreLoadedFired = false;
     const bytes = base64ToUint8Array(base64);
     api.load(bytes);

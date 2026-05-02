@@ -165,7 +165,7 @@ class TabViewerViewModel @Inject constructor(
 
             val savedBar = savedProgress?.lastBarIndex ?: 0
             val savedTick = savedProgress?.lastTick ?: 0L
-            val shouldRestore = savedBar > 1 || savedTick > 1L
+            val shouldRestore = savedProgress != null && (savedBar > 0 || savedTick > 0L)
 
             activeLessonId = id
             lastSavedBarIndex = savedBar.takeIf { it > 0 } ?: -1
@@ -329,7 +329,7 @@ class TabViewerViewModel @Inject constructor(
             val targetBar = if (expectedBar > 0) expectedBar else requestedBarIndex
             val reached = when {
                 targetBar > 1 -> tick > 0L && abs(currentBarIndex - targetBar) <= 1
-                else -> tick > 0L
+                else -> currentBarIndex > 0 || tick > 0L
             }
             perfLog(
                 RESTORE_TAG,
