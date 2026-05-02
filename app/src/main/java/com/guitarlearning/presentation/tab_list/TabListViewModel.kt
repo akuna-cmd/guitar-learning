@@ -107,7 +107,7 @@ data class TabListUiState(
                     .thenBy { it.name.lowercase() }
             )
             UserTabsSortMode.DATE_ADDED_DESC -> filtered.sortedWith(
-                compareByDescending<TabItem> { it.updatedAt }
+                compareByDescending<TabItem> { it.createdAt }
                     .thenByDescending { it.lastOpenedAt }
                     .thenBy { it.name.lowercase() }
             )

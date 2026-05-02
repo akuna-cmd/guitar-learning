@@ -354,6 +354,10 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             folder = newer.folder.takeIf { it.isNotBlank() } ?: older.folder,
             openCount = maxOf(local.openCount, remote.openCount),
             lastOpenedAt = maxOf(local.lastOpenedAt, remote.lastOpenedAt),
+            createdAt = listOf(local.createdAt, remote.createdAt)
+                .filter { it > 0L }
+                .minOrNull()
+                ?: 0L,
             updatedAt = maxOf(local.updatedAt, remote.updatedAt),
             offlineReady = local.offlineReady || remote.offlineReady
         )
@@ -419,6 +423,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             "folder" to normalizeTabFolder(folder),
             "openCount" to openCount,
             "lastOpenedAt" to lastOpenedAt,
+            "createdAt" to createdAt,
             "updatedAt" to updatedAt,
             "offlineReady" to offlineReady
         )
@@ -544,6 +549,10 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
                 folder = normalizeTabFolder(getString("folder") ?: DEFAULT_TAB_FOLDER_KEY),
                 openCount = getLong("openCount")?.toInt() ?: 0,
                 lastOpenedAt = getLong("lastOpenedAt") ?: 0L,
+                createdAt = getLong("createdAt")
+                    ?: getLong("updatedAt")
+                    ?: getLong("lastOpenedAt")
+                    ?: 0L,
                 updatedAt = getLong("updatedAt") ?: 0L,
                 offlineReady = getBoolean("offlineReady") ?: false
             )

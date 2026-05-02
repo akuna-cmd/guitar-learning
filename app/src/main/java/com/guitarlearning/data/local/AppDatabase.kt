@@ -20,7 +20,7 @@ import java.util.UUID
         TabItem::class,
         Goal::class
     ],
-    version = 14
+    version = 15
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -29,6 +29,22 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun sessionDao(): SessionDao
     abstract fun tabDao(): TabDao
     abstract fun goalDao(): GoalDao
+}
+
+val Migration14To15 = object : Migration(14, 15) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL("ALTER TABLE tabs ADD COLUMN createdAt INTEGER NOT NULL DEFAULT 0")
+        database.execSQL(
+            """
+            UPDATE tabs
+            SET createdAt = CASE
+                WHEN updatedAt > 0 THEN updatedAt
+                WHEN lastOpenedAt > 0 THEN lastOpenedAt
+                ELSE 0
+            END
+            """.trimIndent()
+        )
+    }
 }
 
 val Migration13To14 = object : Migration(13, 14) {

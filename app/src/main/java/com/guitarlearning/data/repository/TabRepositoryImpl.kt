@@ -207,6 +207,7 @@ class TabRepositoryImpl @Inject constructor(
 
         val asciiTabs = context.getString(R.string.user_tab_ascii_placeholder, fileName)
 
+        val createdAt = System.currentTimeMillis()
         val tabItem = TabItem(
             id = UUID.randomUUID().toString(),
             name = fileName,
@@ -219,7 +220,8 @@ class TabRepositoryImpl @Inject constructor(
             asciiTabs = asciiTabs,
             tagsCsv = "custom,user",
             folder = DEFAULT_TAB_FOLDER_KEY,
-            updatedAt = System.currentTimeMillis()
+            createdAt = createdAt,
+            updatedAt = createdAt
         )
         tabDao.insertTab(tabItem)
     }
