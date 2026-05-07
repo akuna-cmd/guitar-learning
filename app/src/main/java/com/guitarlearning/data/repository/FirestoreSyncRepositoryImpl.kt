@@ -27,6 +27,7 @@ import com.guitarlearning.domain.repository.TabRepository
 import com.guitarlearning.presentation.main.AiProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.Timestamp
@@ -58,8 +59,9 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
 ) : SyncRepository {
     private companion object {
         const val LogTag = "CloudSync"
+        const val MaxFirestoreBatchOps = 450
         const val MaxInlineUserTabBytes = 512 * 1024L
-        const val MaxInlineAudioNoteBytes = 1024 * 1024L
+        const val MaxInlineAudioNoteBytes = 512 * 1024L
     }
 
     private data class CloudTabFilePayload(
@@ -110,8 +112,14 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             Log.d(LogTag, "syncData:start uid=${user.uid} email=${user.email.orEmpty()}")
             val userRef = firestore.collection("users").document(user.uid)
             val previousOwnerUid = appSettingsRepository.getSyncOwnerUid()
-            val pendingDeletedUserTabIds = appSettingsRepository.getPendingDeletedUserTabIds()
+            val storedPendingDeletedUserTabIds = appSettingsRepository.getPendingDeletedUserTabIds()
             val isAccountSwitch = !previousOwnerUid.isNullOrBlank() && previousOwnerUid != user.uid
+            val preferRemoteState = previousOwnerUid.isNullOrBlank() || isAccountSwitch
+            val pendingDeletedUserTabIds = if (preferRemoteState) {
+                emptySet()
+            } else {
+                storedPendingDeletedUserTabIds
+            }
 
             Log.d(
                 LogTag,
@@ -210,7 +218,11 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             )
 
             val localSettings = appSettingsRepository.getSettings()
-            val mergedSettings = mergeSettings(localSettings, remoteSettings)
+            val mergedSettings = mergeSettings(
+                local = localSettings,
+                remote = remoteSettings,
+                preferRemote = preferRemoteState
+            )
             appSettingsRepository.replaceSettings(mergedSettings)
 
             val localTabs = tabRepository.getAllTabsSync()
@@ -236,7 +248,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             progressRepository.replaceAll(mergedProgress)
 
             val localTextNotes = textNoteDao.getAllTextNotes()
-            val useRemoteNotesAsSourceOfTruth = previousOwnerUid.isNullOrBlank() || isAccountSwitch
+            val useRemoteNotesAsSourceOfTruth = preferRemoteState
             val mergedTextNotes = if (useRemoteNotesAsSourceOfTruth) {
                 mergeTextNotes(localTextNotes, remoteTextNotes)
             } else {
@@ -305,63 +317,66 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
                 )
             }
 
-            val batch = firestore.batch()
+            var batch = firestore.batch()
+            var batchOperationCount = 0
+
+            suspend fun commitBatchIfNeeded(force: Boolean = false) {
+                if (batchOperationCount == 0) return
+                if (!force && batchOperationCount < MaxFirestoreBatchOps) return
+                batch.commit().await()
+                batch = firestore.batch()
+                batchOperationCount = 0
+            }
+
+            suspend fun queueSet(
+                document: com.google.firebase.firestore.DocumentReference,
+                data: Map<String, Any?>,
+                merge: Boolean = true
+            ) {
+                if (merge) {
+                    batch.set(document, data, SetOptions.merge())
+                } else {
+                    batch.set(document, data)
+                }
+                batchOperationCount += 1
+                commitBatchIfNeeded()
+            }
+
+            suspend fun queueDelete(document: com.google.firebase.firestore.DocumentReference) {
+                batch.delete(document)
+                batchOperationCount += 1
+                commitBatchIfNeeded()
+            }
+
+            suspend fun queueDeleteStaleDocuments(
+                parent: com.google.firebase.firestore.CollectionReference,
+                remoteIds: Set<String>,
+                localIds: Set<String>
+            ) {
+                (remoteIds - localIds).forEach { staleId ->
+                    queueDelete(parent.document(staleId))
+                }
+            }
 
             val settingsRef = userRef.collection("settings").document("app")
-            batch.set(
+            queueSet(
                 settingsRef,
-                finalLocalSettings.toFirestoreMap().toMutableMap<String, Any?>().apply {
-                    put(
-                        "sessionBackups",
-                        if (remoteSessionsImport.unresolvedRemoteIds.isNotEmpty() && settingsSessionBackups.isNotEmpty()) {
-                            settingsSessionBackups.map { it.toFirestoreMap() }
-                        } else {
-                            finalLocalSessions.map { it.toFirestoreMap() }
-                        }
-                    )
-                    put(
-                        "textNoteBackups",
-                        if (remoteTextNotesImport.unresolvedRemoteIds.isNotEmpty() && settingsTextNoteBackups.isNotEmpty()) {
-                            settingsTextNoteBackups.map { it.toFirestoreMap() }
-                        } else {
-                            finalLocalTextNotes.map { it.toFirestoreMap() }
-                        }
-                    )
-                    put(
-                        "audioNoteBackups",
-                        if (remoteAudioNotesImport.unresolvedRemoteIds.isNotEmpty() && settingsAudioNoteBackups.isNotEmpty()) {
-                            settingsAudioNoteBackups.map { audioNote ->
-                                val documentId = audioNoteDocumentId(audioNote)
-                                audioNote.toFirestoreBackupMap(
-                                    documentId = documentId,
-                                    filePayload = uploadedAudioStoragePaths[documentId]
-                                )
-                            }
-                        } else {
-                            finalLocalAudioNotes.map { audioNote ->
-                                val documentId = audioNoteDocumentId(audioNote)
-                                audioNote.toFirestoreBackupMap(
-                                    documentId = documentId,
-                                    filePayload = uploadedAudioStoragePaths[documentId]
-                                )
-                            }
-                        }
-                    )
-                },
-                SetOptions.merge()
+                finalLocalSettings.toFirestoreMap() + mapOf(
+                    "sessionBackups" to FieldValue.delete(),
+                    "textNoteBackups" to FieldValue.delete(),
+                    "audioNoteBackups" to FieldValue.delete()
+                )
             )
 
             finalLocalTabs.forEach { tab ->
                 val tabRef = userRef.collection("tabs").document(tab.id)
-                batch.set(
+                queueSet(
                     tabRef,
-                    tab.toFirestoreMap(uploadedStoragePaths[tab.id]),
-                    SetOptions.merge()
+                    tab.toFirestoreMap(uploadedStoragePaths[tab.id])
                 )
             }
             deleteStaleUserTabFiles(user.uid, remoteUserTabIds, finalLocalUserTabIds)
-            deleteStaleDocuments(
-                batch = batch,
+            queueDeleteStaleDocuments(
                 parent = userRef.collection("tabs"),
                 remoteIds = remoteTabIds,
                 localIds = finalLocalTabIds
@@ -369,10 +384,9 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
 
             finalLocalSessions.forEach { session ->
                 val sessionRef = userRef.collection("sessions").document(sessionDocumentId(session))
-                batch.set(sessionRef, session.toFirestoreMap(), SetOptions.merge())
+                queueSet(sessionRef, session.toFirestoreMap())
             }
-            deleteStaleDocuments(
-                batch = batch,
+            queueDeleteStaleDocuments(
                 parent = userRef.collection("sessions"),
                 remoteIds = remoteSessionsSnapshot.documents.map { it.id }.toSet(),
                 localIds = finalLocalSessionIds
@@ -380,10 +394,9 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
 
             finalLocalGoals.forEach { goal ->
                 val goalRef = userRef.collection("goals").document(goal.syncId)
-                batch.set(goalRef, goal.toFirestoreMap(), SetOptions.merge())
+                queueSet(goalRef, goal.toFirestoreMap())
             }
-            deleteStaleDocuments(
-                batch = batch,
+            queueDeleteStaleDocuments(
                 parent = userRef.collection("goals"),
                 remoteIds = remoteGoalsSnapshot.documents.map { it.id }.toSet(),
                 localIds = finalLocalGoals.map { it.syncId }.toSet()
@@ -391,10 +404,9 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
 
             finalLocalProgress.forEach { progress ->
                 val progressRef = userRef.collection("progress").document(progress.tabId)
-                batch.set(progressRef, progress.toFirestoreMap(), SetOptions.merge())
+                queueSet(progressRef, progress.toFirestoreMap())
             }
-            deleteStaleDocuments(
-                batch = batch,
+            queueDeleteStaleDocuments(
                 parent = userRef.collection("progress"),
                 remoteIds = remoteProgressSnapshot.documents.map { it.id }.toSet(),
                 localIds = finalLocalProgress.map { it.tabId }.toSet()
@@ -403,10 +415,9 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             finalLocalTextNotes.forEach { textNote ->
                 val documentId = textNoteDocumentId(textNote)
                 val textNoteRef = userRef.collection("text_notes").document(documentId)
-                batch.set(textNoteRef, textNote.toFirestoreMap(), SetOptions.merge())
+                queueSet(textNoteRef, textNote.toFirestoreMap())
             }
-            deleteStaleDocuments(
-                batch = batch,
+            queueDeleteStaleDocuments(
                 parent = userRef.collection("text_notes"),
                 remoteIds = remoteTextNotesSnapshot.documents.map { it.id }.toSet(),
                 localIds = finalLocalTextNoteIds
@@ -415,15 +426,13 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             finalLocalAudioNotes.forEach { audioNote ->
                 val documentId = audioNoteDocumentId(audioNote)
                 val audioNoteRef = userRef.collection("audio_notes").document(documentId)
-                batch.set(
+                queueSet(
                     audioNoteRef,
-                    audioNote.toFirestoreMap(uploadedAudioStoragePaths[documentId]),
-                    SetOptions.merge()
+                    audioNote.toFirestoreMap(uploadedAudioStoragePaths[documentId])
                 )
             }
             deleteStaleAudioNoteFiles(user.uid, remoteAudioNoteIds, finalLocalAudioNoteIds, remoteAudioStoragePathsById)
-            deleteStaleDocuments(
-                batch = batch,
+            queueDeleteStaleDocuments(
                 parent = userRef.collection("audio_notes"),
                 remoteIds = remoteAudioNoteIds,
                 localIds = finalLocalAudioNoteIds
@@ -436,10 +445,14 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
                     "backupSessions=${finalLocalSessions.size} backupTextNotes=${finalLocalTextNotes.size} backupAudioNotes=${finalLocalAudioNotes.size}"
             )
 
-            batch.commit().await()
+            commitBatchIfNeeded(force = true)
 
             val syncTimestamp = System.currentTimeMillis()
-            appSettingsRepository.clearPendingDeletedUserTabIds(pendingDeletedUserTabIds)
+            if (preferRemoteState) {
+                appSettingsRepository.clearAllPendingDeletedUserTabIds()
+            } else {
+                appSettingsRepository.clearPendingDeletedUserTabIds(pendingDeletedUserTabIds)
+            }
             appSettingsRepository.setSyncOwnerUid(user.uid)
             appSettingsRepository.setLastCloudSyncAt(syncTimestamp)
             Log.d(LogTag, "syncData:success uid=${user.uid} syncedAt=$syncTimestamp")
@@ -506,9 +519,11 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
 
     private fun mergeSettings(
         local: AppSettingsSnapshot,
-        remote: AppSettingsSnapshot?
+        remote: AppSettingsSnapshot?,
+        preferRemote: Boolean
     ): AppSettingsSnapshot {
         if (remote == null) return local
+        if (preferRemote) return remote
         return if (remote.updatedAt > local.updatedAt) remote else local
     }
 

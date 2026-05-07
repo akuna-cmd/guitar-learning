@@ -12,6 +12,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.guitarlearning.data.settings.AppSettingsRepository
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
@@ -33,7 +34,8 @@ data class AuthUiState(
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val appSettingsRepository: AppSettingsRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState(user = auth.currentUser))
@@ -137,9 +139,14 @@ class AuthViewModel @Inject constructor(
     }
 
     fun signOut(context: Context? = null, onSuccess: () -> Unit = {}) {
-        auth.signOut()
-        _uiState.value = _uiState.value.copy(user = null)
-        onSuccess()
+        viewModelScope.launch {
+            appSettingsRepository.setSyncOwnerUid(null)
+            appSettingsRepository.setLastCloudSyncAt(null)
+            appSettingsRepository.clearAllPendingDeletedUserTabIds()
+            auth.signOut()
+            _uiState.value = _uiState.value.copy(user = null)
+            onSuccess()
+        }
     }
 
     fun setLoading(loading: Boolean) {
