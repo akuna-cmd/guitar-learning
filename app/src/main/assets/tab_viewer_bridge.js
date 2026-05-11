@@ -29,6 +29,34 @@ let _currentDisplayMode = null;
 let _currentPracticeLayout = null;
 let _renderSettledNotifyTimer = null;
 
+function applyScoreHeaderVisibility() {
+    if (!api?.settings?.notation?.elements || !window.alphaTab?.NotationElement) return;
+    const elements = api.settings.notation.elements;
+    const hiddenElements = [
+        window.alphaTab.NotationElement.ScoreTitle,
+        window.alphaTab.NotationElement.ScoreSubTitle,
+        window.alphaTab.NotationElement.ScoreArtist,
+        window.alphaTab.NotationElement.ScoreAlbum,
+        window.alphaTab.NotationElement.ScoreWords,
+        window.alphaTab.NotationElement.ScoreMusic,
+        window.alphaTab.NotationElement.ScoreWordsAndMusic,
+        window.alphaTab.NotationElement.ScoreCopyright
+    ];
+    hiddenElements.forEach(element => elements.set(element, false));
+}
+
+function sanitizeScoreMetadata(score) {
+    if (!score) return false;
+    let changed = false;
+    ['title', 'subTitle', 'artist', 'album', 'words', 'music', 'copyright'].forEach(key => {
+        if (score[key]) {
+            score[key] = '';
+            changed = true;
+        }
+    });
+    return changed;
+}
+
 function applyCanvasTheme() {
     document.querySelectorAll('#alphaTab canvas, #alphaTab svg').forEach(c => {
         c.style.filter = _isDark ? 'invert(1) brightness(0.88)' : 'none';
@@ -445,7 +473,7 @@ function initAlphaTab() {
             display: {
                 layoutMode: 0,
                 staveProfile: 'Tab',
-                padding: [4, 64, 4, 8]
+                padding: [4, 36, 4, 8]
             },
             player: {
                 enablePlayer: true,
@@ -459,6 +487,7 @@ function initAlphaTab() {
                 outputMode: 1
             }
         });
+        applyScoreHeaderVisibility();
         api.settings.player.enableCursor = true;
         api.settings.player.enableAnimatedBeatCursor = true;
         api.updateSettings();
@@ -495,11 +524,22 @@ function initAlphaTab() {
         }
         api.playerStateChanged.on(args => { postStatus(`playerState:${args?.state}`); });
         api.scoreLoaded.on(score => {
+            applyScoreHeaderVisibility();
+            const metadataChanged = sanitizeScoreMetadata(score);
             normalizeScoreLoudness(score);
             const detectedTempo = detectScoreTempo(score);
             _metronomeBpm = Math.max(40, Math.min(240, detectedTempo));
             if (window.Android?.onDetectedTempo) {
                 window.Android.onDetectedTempo(_metronomeBpm);
+            }
+            if (metadataChanged) {
+                setTimeout(() => {
+                    try {
+                        applyScoreHeaderVisibility();
+                        api.updateSettings();
+                        api.render();
+                    } catch {}
+                }, 0);
             }
             setTimeout(() => runFullAnalysis(score), 400);
             if (_pendingScale != null && api.settings.display.scale !== _pendingScale) {
@@ -624,6 +664,7 @@ window.loadTab = (path) => {
         _pendingTabPath = path;
         return;
     }
+    applyScoreHeaderVisibility();
     clearRenderSettledNotifyTimer();
     _scoreLoadedFired = false;
     api.load(path.startsWith('/') ? `file://${path}` : path);
@@ -635,6 +676,7 @@ window.loadTabFromBase64 = (base64) => {
         _pendingTabBase64 = base64;
         return;
     }
+    applyScoreHeaderVisibility();
     clearRenderSettledNotifyTimer();
     _scoreLoadedFired = false;
     const bytes = base64ToUint8Array(base64);

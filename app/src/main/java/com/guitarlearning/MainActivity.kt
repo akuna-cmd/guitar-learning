@@ -213,7 +213,7 @@ fun MainScreen(
             startDestination = BottomNavItem.Main.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(BottomNavItem.Main.route) {
+            composable(route = BottomNavItem.Main.route) {
                 val mainUiState by mainViewModel.uiState.collectAsStateWithLifecycle()
                 HomeScreen(
                     sessions = mainUiState.sessions,
@@ -237,13 +237,13 @@ fun MainScreen(
                 navController = navController,
                 route = BottomNavItem.GuitarTabs.route
             )
-            composable(BottomNavItem.Goals.route) {
+            composable(route = BottomNavItem.Goals.route) {
                 GoalsScreen()
             }
-            composable(BottomNavItem.Settings.route) {
+            composable(route = BottomNavItem.Settings.route) {
                 SettingsScreen()
             }
-            composable("session_history") {
+            composable(route = "session_history") {
                 val mainUiState by mainViewModel.uiState.collectAsStateWithLifecycle()
                 SessionHistoryScreen(
                     sessions = mainUiState.sessions,

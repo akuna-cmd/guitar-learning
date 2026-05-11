@@ -1,5 +1,8 @@
 package com.guitarlearning.presentation.navigation
 
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
@@ -14,13 +17,19 @@ fun NavGraphBuilder.lessonsNavGraph(
     route: String
 ) {
     navigation(startDestination = "tab_list", route = route) {
-        composable("tab_list") {
+        composable(route = "tab_list") {
             TabListScreen { tabId ->
                 val encodedId = URLEncoder.encode(tabId, "UTF-8")
                 navController.navigate("lesson/$encodedId")
             }
         }
-        composable("lesson/{lessonId}") { backStackEntry ->
+        composable(
+            route = "lesson/{lessonId}",
+            enterTransition = { fadeIn(animationSpec = tween(220)) },
+            exitTransition = { fadeOut(animationSpec = tween(180)) },
+            popEnterTransition = { fadeIn(animationSpec = tween(220)) },
+            popExitTransition = { fadeOut(animationSpec = tween(180)) }
+        ) { backStackEntry ->
             val lessonId = backStackEntry.arguments?.getString("lessonId") ?: ""
             val decodedId = URLDecoder.decode(lessonId, "UTF-8")
             TabViewerScreen(
