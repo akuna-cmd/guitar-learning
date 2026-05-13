@@ -93,11 +93,10 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONTokener
 import org.json.JSONObject
-import kotlin.math.max
-
-private const val DEFAULT_LOOP_ACCELERATION_STEP = 0.05f
-private const val DEFAULT_LOOP_ACCELERATION_REPEATS = 3
-private const val DEFAULT_LOOP_ACCELERATION_END_SPEED = 1.0f
+private const val DEFAULT_LOOP_ACCELERATION_START_SPEED = 0.5f
+private const val DEFAULT_LOOP_ACCELERATION_END_SPEED = 1.5f
+private const val DEFAULT_LOOP_ACCELERATION_STEP = 0.25f
+private const val DEFAULT_LOOP_ACCELERATION_REPEATS = 1
 
 private fun clampLoopSpeed(value: Float): Float = value.coerceIn(0.1f, 2.5f)
 private fun clampLoopStep(value: Float): Float = value.coerceIn(0.05f, 1.0f)
@@ -183,8 +182,12 @@ fun TabViewerScreen(
     val tabScaleOverrides = remember { mutableStateMapOf<String, Float>() }
 
     LaunchedEffect(lessonId) {
+        totalMeasures = 1
+        loopStartMeasure = 1
+        loopEndMeasure = 1
+        isLoopEnabled = false
         isLoopAccelerationEnabled = false
-        loopAccelerationStartSpeed = themeUiState.practiceSpeed
+        loopAccelerationStartSpeed = DEFAULT_LOOP_ACCELERATION_START_SPEED
         loopAccelerationEndSpeed = DEFAULT_LOOP_ACCELERATION_END_SPEED
         loopAccelerationStep = DEFAULT_LOOP_ACCELERATION_STEP
         loopAccelerationRepeats = DEFAULT_LOOP_ACCELERATION_REPEATS
@@ -499,12 +502,8 @@ fun TabViewerScreen(
                                     if (!isLoopEnabled) return@LoopConfigurator
                                     isLoopAccelerationEnabled = enabled
                                     if (enabled) {
-                                        val defaultStartSpeed = clampLoopSpeed(currentSpeed)
-                                        loopAccelerationStartSpeed = defaultStartSpeed
-                                        loopAccelerationEndSpeed = max(
-                                            DEFAULT_LOOP_ACCELERATION_END_SPEED,
-                                            defaultStartSpeed
-                                        )
+                                        loopAccelerationStartSpeed = DEFAULT_LOOP_ACCELERATION_START_SPEED
+                                        loopAccelerationEndSpeed = DEFAULT_LOOP_ACCELERATION_END_SPEED
                                         loopAccelerationStep = DEFAULT_LOOP_ACCELERATION_STEP
                                         loopAccelerationRepeats = DEFAULT_LOOP_ACCELERATION_REPEATS
                                         resetLoopAccelerationProgress(applyStartSpeed = false)
