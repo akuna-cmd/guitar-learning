@@ -1,4 +1,5 @@
 package com.guitarlearning.presentation.settings
+import com.guitarlearning.BuildConfig
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -79,6 +80,7 @@ fun SettingsScreen() {
     val context = LocalContext.current
     var aiProviderDraft by remember(uiState.aiProvider) { mutableStateOf(uiState.aiProvider) }
     var aiServerUrlDraft by remember(uiState.localAiServerUrl) { mutableStateOf(uiState.localAiServerUrl) }
+    val isGeminiKeyMissing = BuildConfig.GEMINI_API_KEY.isBlank()
 
     LaunchedEffect(uiState.aiProvider, uiState.localAiServerUrl) {
         aiProviderDraft = uiState.aiProvider
@@ -249,6 +251,21 @@ fun SettingsScreen() {
                         onClick = { aiProviderDraft = AiProvider.LOCAL_LLAMA_CPP }
                     )
 
+                    if (aiProviderDraft == AiProvider.GEMINI && isGeminiKeyMissing) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                            shape = RoundedCornerShape(12.dp),
+                            border = appBlockBorder()
+                        ) {
+                            Text(
+                                text = stringResource(R.string.settings_ai_gemini_key_missing),
+                                modifier = Modifier.padding(12.dp),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+
                     if (aiProviderDraft == AiProvider.LOCAL_LLAMA_CPP) {
                         OutlinedTextField(
                             value = aiServerUrlDraft,
@@ -292,6 +309,8 @@ fun SettingsScreen() {
                     ) {
                         val isLocalWithoutUrl =
                             aiProviderDraft == AiProvider.LOCAL_LLAMA_CPP && aiServerUrlDraft.trim().isBlank()
+                        val isGeminiWithoutKey =
+                            aiProviderDraft == AiProvider.GEMINI && isGeminiKeyMissing
 
                         Button(
                             onClick = {
@@ -313,7 +332,7 @@ fun SettingsScreen() {
                                     localServerUrl = aiServerUrlDraft.trim()
                                 )
                             },
-                            enabled = !settingsUiState.isTestingAi && !isLocalWithoutUrl,
+                            enabled = !settingsUiState.isTestingAi && !isLocalWithoutUrl && !isGeminiWithoutKey,
                             modifier = Modifier.weight(1f)
                         ) {
                             if (settingsUiState.isTestingAi) {

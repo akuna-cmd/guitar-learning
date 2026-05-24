@@ -87,9 +87,13 @@ class AiAssistantRepositoryImpl @Inject constructor(
     }
 
     private suspend fun generateWithGemini(prompt: String): String {
+        val apiKey = com.guitarlearning.BuildConfig.GEMINI_API_KEY.trim()
+        if (apiKey.isBlank()) {
+            throw IllegalStateException(context.getString(R.string.ai_error_gemini_key_missing))
+        }
         val generativeModel = GenerativeModel(
             modelName = configProvider.getModelName(),
-            apiKey = com.guitarlearning.BuildConfig.GEMINI_API_KEY
+            apiKey = apiKey
         )
         val response = generativeModel.generateContent(prompt)
         val text = response.text?.trim().orEmpty()
