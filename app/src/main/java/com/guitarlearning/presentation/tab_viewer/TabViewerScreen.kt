@@ -81,12 +81,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.guitarlearning.R
 import com.guitarlearning.BuildConfig
+import com.guitarlearning.core.settings.FretboardDisplayMode
+import com.guitarlearning.core.settings.TabDisplayMode
+import com.guitarlearning.core.settings.ThemeMode
 import com.guitarlearning.presentation.ai_assistant.AiAssistantScreen
 import com.guitarlearning.presentation.main.MainViewModel
 import com.guitarlearning.presentation.notes.NotesScreen
 import com.guitarlearning.presentation.main.ThemeViewModel
-import com.guitarlearning.presentation.main.TabDisplayMode
-import com.guitarlearning.presentation.main.FretboardDisplayMode
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -97,11 +98,21 @@ private const val DEFAULT_LOOP_ACCELERATION_START_SPEED = 0.5f
 private const val DEFAULT_LOOP_ACCELERATION_END_SPEED = 1.5f
 private const val DEFAULT_LOOP_ACCELERATION_STEP = 0.25f
 private const val DEFAULT_LOOP_ACCELERATION_REPEATS = 1
+private const val TAB_VIEWER_DARK_BACKGROUND = "#1c1b1f"
+private const val JS_DISPLAY_MODE_SCORE = "Score"
+private const val JS_DISPLAY_MODE_TAB = "Tab"
+private const val JS_DISPLAY_MODE_SCORE_TAB = "ScoreTab"
 
 private fun clampLoopSpeed(value: Float): Float = value.coerceIn(0.1f, 2.5f)
 private fun clampLoopStep(value: Float): Float = value.coerceIn(0.05f, 1.0f)
 
 private fun clampLoopRepeatCount(value: Int): Int = value.coerceIn(1, 32)
+
+private fun TabDisplayMode.toJsMode(): String = when (this) {
+    TabDisplayMode.NOTES_ONLY -> JS_DISPLAY_MODE_SCORE
+    TabDisplayMode.TAB_ONLY -> JS_DISPLAY_MODE_TAB
+    TabDisplayMode.TAB_AND_NOTES -> JS_DISPLAY_MODE_SCORE_TAB
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -622,9 +633,9 @@ private fun TabViewer(
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val isSystemDark = isSystemInDarkTheme()
     val isDark = when (themeUiState.themeMode) {
-        com.guitarlearning.presentation.main.ThemeMode.DARK -> true
-        com.guitarlearning.presentation.main.ThemeMode.LIGHT -> false
-        com.guitarlearning.presentation.main.ThemeMode.SYSTEM -> isSystemDark
+        ThemeMode.DARK -> true
+        ThemeMode.LIGHT -> false
+        ThemeMode.SYSTEM -> isSystemDark
     }
     val languageTag = themeUiState.appLanguage.languageTag
     val jsLanguageTag = remember(languageTag) {
@@ -927,11 +938,7 @@ private fun TabViewer(
     // Load SoundFont + score only once per lesson to avoid late resets of cursor after restore.
     LaunchedEffect(fileName, tabBytesReady, soundFontReady, isReady, loadedSourceForCurrentLesson) {
         if (isReady) {
-            val modeStr = when (tabDisplayMode) {
-                TabDisplayMode.NOTES_ONLY -> "Score"
-                TabDisplayMode.TAB_ONLY -> "Tab"
-                TabDisplayMode.TAB_AND_NOTES -> "ScoreTab"
-            }
+            val modeStr = tabDisplayMode.toJsMode()
             webView.evaluateJavascript("window.initSettings($isDark, $isPracticeMode, $currentSpeed, $currentScale, '$modeStr', '$jsLanguageTag');", null)
             if (loadedSourceForCurrentLesson == null) {
                 isScoreLoaded = false
@@ -993,11 +1000,7 @@ private fun TabViewer(
     // React to settings changes explicitly in one combined effect to avoid frame spam
     LaunchedEffect(isPracticeMode, currentSpeed, currentScale, tabDisplayMode, isReady, restorePending, languageTag) {
         if (isReady && !restorePending) {
-            val modeStr = when (tabDisplayMode) {
-                TabDisplayMode.NOTES_ONLY -> "Score"
-                TabDisplayMode.TAB_ONLY -> "Tab"
-                TabDisplayMode.TAB_AND_NOTES -> "ScoreTab"
-            }
+            val modeStr = tabDisplayMode.toJsMode()
             webView.evaluateJavascript("window.initSettings($isDark, $isPracticeMode, $currentSpeed, $currentScale, '$modeStr', '$jsLanguageTag');", null)
         }
     }
@@ -1056,7 +1059,9 @@ private fun TabViewer(
     }
 
     LaunchedEffect(isDark) {
-        webView.setBackgroundColor(if (isDark) android.graphics.Color.parseColor("#1c1b1f") else android.graphics.Color.WHITE)
+        webView.setBackgroundColor(
+            if (isDark) android.graphics.Color.parseColor(TAB_VIEWER_DARK_BACKGROUND) else android.graphics.Color.WHITE
+        )
         if (isReady) {
             webView.evaluateJavascript("window.setTheme($isDark);", null)
         }
@@ -1171,7 +1176,9 @@ private fun TabViewerViewport(
                             onWebYChanged(coords.boundsInRoot().top.toInt())
                         },
                     update = { view ->
-                        view.setBackgroundColor(if (isDark) android.graphics.Color.parseColor("#1c1b1f") else android.graphics.Color.WHITE)
+                        view.setBackgroundColor(
+                            if (isDark) android.graphics.Color.parseColor(TAB_VIEWER_DARK_BACKGROUND) else android.graphics.Color.WHITE
+                        )
                         val targetVisible = !shouldShowOverlay
                         if (targetVisible) {
                             if (view.alpha != 1f) {

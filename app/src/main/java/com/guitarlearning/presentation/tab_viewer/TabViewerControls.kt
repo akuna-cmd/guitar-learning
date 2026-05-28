@@ -55,7 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.guitarlearning.R
-import com.guitarlearning.presentation.main.TabDisplayMode
+import com.guitarlearning.core.settings.TabDisplayMode
 import com.guitarlearning.presentation.ui.HoldableIconButton
 import com.guitarlearning.presentation.ui.formatScale
 import com.guitarlearning.presentation.ui.formatSpeed

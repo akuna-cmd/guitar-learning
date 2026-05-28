@@ -12,7 +12,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
-import com.guitarlearning.data.settings.AppSettingsRepository
+import com.guitarlearning.domain.repository.SyncRepository
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
@@ -35,7 +35,7 @@ data class AuthUiState(
 class AuthViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val auth: FirebaseAuth,
-    private val appSettingsRepository: AppSettingsRepository
+    private val syncRepository: SyncRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState(user = auth.currentUser))
@@ -140,11 +140,18 @@ class AuthViewModel @Inject constructor(
 
     fun signOut(context: Context? = null, onSuccess: () -> Unit = {}) {
         viewModelScope.launch {
-            appSettingsRepository.setSyncOwnerUid(null)
-            appSettingsRepository.setLastCloudSyncAt(null)
-            appSettingsRepository.clearAllPendingDeletedUserTabIds()
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            val clearLocalDataResult = syncRepository.clearLocalUserData()
+            if (clearLocalDataResult.isFailure) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = clearLocalDataResult.exceptionOrNull()?.localizedMessage
+                        ?: appContext.getString(R.string.auth_error_generic, "")
+                )
+                return@launch
+            }
             auth.signOut()
-            _uiState.value = _uiState.value.copy(user = null)
+            _uiState.value = _uiState.value.copy(user = null, isLoading = false)
             onSuccess()
         }
     }

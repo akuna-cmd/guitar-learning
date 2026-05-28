@@ -8,11 +8,11 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
-import com.guitarlearning.presentation.main.AiProvider
-import com.guitarlearning.presentation.main.AppLanguage
-import com.guitarlearning.presentation.main.FretboardDisplayMode
-import com.guitarlearning.presentation.main.TabDisplayMode
-import com.guitarlearning.presentation.main.ThemeMode
+import com.guitarlearning.core.settings.AiProvider
+import com.guitarlearning.core.settings.AppLanguage
+import com.guitarlearning.core.settings.FretboardDisplayMode
+import com.guitarlearning.core.settings.TabDisplayMode
+import com.guitarlearning.core.settings.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map

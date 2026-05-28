@@ -155,6 +155,12 @@ class FakeTabPlaybackProgressRepository(
         }
     }
 
+    override suspend fun removeByTabId(tabId: String) {
+        progressFlow.update { list ->
+            list.filterNot { it.tabId == tabId }
+        }
+    }
+
     override suspend fun replaceAll(progressList: List<TabPlaybackProgress>) {
         progressFlow.value = progressList
     }

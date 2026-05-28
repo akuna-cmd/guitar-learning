@@ -1,5 +1,6 @@
 package com.guitarlearning.di
 
+import com.guitarlearning.core.session.SessionHistoryTransfer
 import com.guitarlearning.data.repository.AiAssistantRepositoryImpl
 import com.guitarlearning.data.repository.AudioNoteRepositoryImpl
 import com.guitarlearning.data.repository.FirestoreSyncRepositoryImpl
@@ -10,6 +11,7 @@ import com.guitarlearning.data.repository.TabFileRepositoryImpl
 import com.guitarlearning.data.repository.TabPlaybackProgressRepositoryImpl
 import com.guitarlearning.data.repository.TabRepositoryImpl
 import com.guitarlearning.data.repository.TextNoteRepositoryImpl
+import com.guitarlearning.data.session.SessionHistoryTransferImpl
 import com.guitarlearning.domain.repository.AiAssistantRepository
 import com.guitarlearning.domain.repository.AudioNoteRepository
 import com.guitarlearning.domain.repository.GoalRepository
@@ -89,4 +91,10 @@ abstract class RepositoryModule {
     abstract fun bindSyncRepository(
         implementation: FirestoreSyncRepositoryImpl
     ): SyncRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSessionHistoryTransfer(
+        implementation: SessionHistoryTransferImpl
+    ): SessionHistoryTransfer
 }

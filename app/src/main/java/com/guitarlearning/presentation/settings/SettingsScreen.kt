@@ -53,11 +53,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.guitarlearning.R
 import com.guitarlearning.core.AppLocaleManager
-import com.guitarlearning.presentation.main.AiProvider
-import com.guitarlearning.presentation.main.AppLanguage
-import com.guitarlearning.presentation.main.ThemeMode
+import com.guitarlearning.core.settings.AiProvider
+import com.guitarlearning.core.settings.AppLanguage
+import com.guitarlearning.core.settings.TabDisplayMode
+import com.guitarlearning.core.settings.ThemeMode
 import com.guitarlearning.presentation.main.ThemeViewModel
-import com.guitarlearning.presentation.main.TabDisplayMode
 import com.guitarlearning.presentation.ui.HoldableIconButton
 import com.guitarlearning.presentation.ui.formatScale
 import com.guitarlearning.presentation.ui.formatSpeed

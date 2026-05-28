@@ -49,6 +49,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.guitarlearning.core.settings.ThemeMode
 import com.guitarlearning.presentation.goals.GoalsScreen
 import com.guitarlearning.presentation.main.HomeScreen
 import com.guitarlearning.presentation.main.MainViewModel
@@ -85,9 +86,9 @@ class MainActivity : ComponentActivity() {
 
             val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
             val isDarkTheme = when (themeUiState.themeMode) {
-                com.guitarlearning.presentation.main.ThemeMode.DARK -> true
-                com.guitarlearning.presentation.main.ThemeMode.LIGHT -> false
-                com.guitarlearning.presentation.main.ThemeMode.SYSTEM -> isSystemDark
+                ThemeMode.DARK -> true
+                ThemeMode.LIGHT -> false
+                ThemeMode.SYSTEM -> isSystemDark
             }
 
             GuitarLearningTheme(darkTheme = isDarkTheme) {

@@ -55,7 +55,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.res.stringResource
 import com.guitarlearning.R
-import com.guitarlearning.presentation.main.FretboardDisplayMode
+import com.guitarlearning.core.settings.FretboardDisplayMode
 import kotlinx.coroutines.launch
 import kotlin.math.max
 

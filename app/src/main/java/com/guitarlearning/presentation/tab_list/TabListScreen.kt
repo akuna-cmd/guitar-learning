@@ -59,10 +59,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.guitarlearning.R
 import com.guitarlearning.domain.model.Difficulty
 import com.guitarlearning.domain.model.TabItem
-import com.guitarlearning.domain.model.displayTabFolder
 import com.guitarlearning.domain.model.isDefaultTabFolder
 import com.guitarlearning.presentation.tab_viewer.TabLoadMetricsTracker
 import com.guitarlearning.presentation.ui.WebViewWarmup
+import com.guitarlearning.presentation.ui.displayTabFolder
 import com.guitarlearning.presentation.ui.theme.appBlockBorder
 import com.guitarlearning.presentation.ui.formatDuration
 import kotlinx.coroutines.delay

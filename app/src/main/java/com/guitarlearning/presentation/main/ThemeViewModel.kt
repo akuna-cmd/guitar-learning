@@ -2,6 +2,11 @@ package com.guitarlearning.presentation.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.guitarlearning.core.settings.AiProvider
+import com.guitarlearning.core.settings.AppLanguage
+import com.guitarlearning.core.settings.FretboardDisplayMode
+import com.guitarlearning.core.settings.TabDisplayMode
+import com.guitarlearning.core.settings.ThemeMode
 import com.guitarlearning.data.settings.AppSettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -10,12 +15,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-enum class ThemeMode { SYSTEM, LIGHT, DARK }
-enum class TabDisplayMode { TAB_ONLY, TAB_AND_NOTES, NOTES_ONLY }
-enum class FretboardDisplayMode { SIMPLE, DETAILED }
-enum class AppLanguage(val languageTag: String) { UKRAINIAN("uk"), ENGLISH("en") }
-enum class AiProvider { GEMINI, LOCAL_LLAMA_CPP }
 
 data class ThemeUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,

@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import android.util.Base64
+import com.guitarlearning.core.settings.AiProvider
 import com.guitarlearning.data.local.AudioNoteDao
 import com.guitarlearning.data.local.TextNoteDao
 import com.guitarlearning.data.settings.AppSettingsRepository
@@ -24,7 +25,6 @@ import com.guitarlearning.domain.repository.SessionRepository
 import com.guitarlearning.domain.repository.SyncRepository
 import com.guitarlearning.domain.repository.TabPlaybackProgressRepository
 import com.guitarlearning.domain.repository.TabRepository
-import com.guitarlearning.presentation.main.AiProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
