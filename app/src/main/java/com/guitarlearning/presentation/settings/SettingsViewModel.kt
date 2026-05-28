@@ -4,8 +4,8 @@ import android.content.Context
 import android.net.Uri
 import com.guitarlearning.R
 import com.guitarlearning.core.AppLocaleManager
-import com.guitarlearning.core.session.SessionHistoryTransfer
 import com.guitarlearning.core.settings.AiProvider
+import com.guitarlearning.domain.session.SessionHistoryTransfer
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.guitarlearning.domain.repository.AiAssistantRepository
@@ -54,7 +54,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isExporting = true, message = null)
             try {
-                sessionHistoryTransfer.exportHistory(uri)
+                val content = sessionHistoryTransfer.exportHistory()
+                appContext.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    outputStream.write(content.toByteArray())
+                }
                 _uiState.value = _uiState.value.copy(message = appContext.getString(R.string.settings_message_export_success))
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -70,7 +73,8 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isImporting = true, message = null)
             try {
-                sessionHistoryTransfer.importHistory(uri)
+                val content = appContext.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }.orEmpty()
+                sessionHistoryTransfer.importHistory(content)
                 _uiState.value = _uiState.value.copy(message = appContext.getString(R.string.settings_message_import_success))
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(

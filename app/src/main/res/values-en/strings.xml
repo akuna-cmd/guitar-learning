@@ -206,11 +206,6 @@ Question:
     <string name="goals_search_placeholder">Find a goal…</string>
     <string name="goals_filter_active">Active</string>
     <string name="goals_filter_completed">Completed</string>
-    <string name="goal_reminder_datetime">Reminder date and time</string>
-    <string name="goal_reminder_hint">Saving the goal will create a local reminder for this time.</string>
-    <string name="goal_reminder_channel_name">Goal reminders</string>
-    <string name="goal_reminder_channel_description">Reminders for planned music goals</string>
-    <string name="goal_reminder_notification_title">Goal reminder</string>
     <string name="notes_search_placeholder">Search notes…</string>
     <string name="favorites">Favorites</string>
     <string name="notes_filter_text">Text</string>

@@ -206,11 +206,6 @@
     <string name="goals_search_placeholder">Знайти ціль…</string>
     <string name="goals_filter_active">Активні</string>
     <string name="goals_filter_completed">Завершені</string>
-    <string name="goal_reminder_datetime">Дата і час нагадування</string>
-    <string name="goal_reminder_hint">Після збереження цілі буде створено локальне нагадування на цей час.</string>
-    <string name="goal_reminder_channel_name">Нагадування про цілі</string>
-    <string name="goal_reminder_channel_description">Нагадування про заплановані музичні цілі</string>
-    <string name="goal_reminder_notification_title">Нагадування про ціль</string>
     <string name="notes_search_placeholder">Пошук у нотатках…</string>
     <string name="favorites">Обрані</string>
     <string name="notes_filter_text">Текстові</string>

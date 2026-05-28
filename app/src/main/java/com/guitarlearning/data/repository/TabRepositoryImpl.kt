@@ -37,12 +37,6 @@ class TabRepositoryImpl @Inject constructor(
     private val appSettingsRepository: AppSettingsRepository,
     private val tabPlaybackProgressRepository: TabPlaybackProgressRepository
 ) : TabRepository {
-
-    private companion object {
-        const val DefaultUserTabFileExtension = "gp"
-        val SupportedUserTabExtensions = setOf("gp", "gp3", "gp4", "gp5", "gpx")
-    }
-
     private val lessonsFromJson: List<Lesson> by lazy {
         try {
             val inputStream = context.assets.open("lessons.json")
@@ -66,68 +60,16 @@ class TabRepositoryImpl @Inject constructor(
     }
 
     override fun getTabs(): Flow<List<TabItem>> = flow {
-        val useEnglishDescriptions = shouldUseEnglishDescriptions()
-        val tabsFromDb = tabDao.getTabs().first()
-        if (tabsFromDb.isEmpty()) {
-            val tabsToInsert = lessonsFromJson.mapIndexed { index, lesson ->
-                TabItem(
-                    id = lesson.id,
-                    name = lesson.title,
-                    description = lesson.localizedDescription(useEnglishDescriptions),
-                    difficulty = when (lesson.level) {
-                        "beginner" -> Difficulty.BEGINNER
-                        "intermediate" -> Difficulty.INTERMEDIATE
-                        "advanced" -> Difficulty.ADVANCED
-                        else -> Difficulty.BEGINNER
-                    },
-                    lessonNumber = index + 1,
-                    isCompleted = false,
-                    isUserTab = false,
-                    tagsCsv = buildString {
-                        append(lesson.level)
-                        append(",lesson")
-                    },
-                    folder = DEFAULT_TAB_FOLDER_KEY,
-                    updatedAt = 0L,
-                    offlineReady = true
-                )
-            }
-            tabDao.insertTabs(tabsToInsert)
-        }
+        seedBuiltInTabsIfNeeded()
         emitAll(
             tabDao.getTabs().map { storedTabs ->
-                val lessonDescriptionsById = localizedLessonDescriptionMap()
-                val localizedTabs = storedTabs.map { tab ->
-                    val localizedDescription = lessonDescriptionsById[tab.id] ?: return@map tab
-                    if (tab.isUserTab || tab.description == localizedDescription) {
-                        tab
-                    } else {
-                        tab.copy(description = localizedDescription)
-                    }
-                }
-                val changedTabs = localizedTabs.filterIndexed { index, tab -> tab != storedTabs[index] }
-                if (changedTabs.isNotEmpty()) {
-                    tabDao.insertTabs(changedTabs)
-                }
-                localizedTabs
+                localizeStoredBuiltInTabs(storedTabs)
             }
         )
     }
 
     override suspend fun refreshBuiltInTabLocalizations() {
-        val lessonDescriptionsById = localizedLessonDescriptionMap()
-        val tabsFromDb = tabDao.getTabs().first()
-        val changedTabs = tabsFromDb.mapNotNull { tab ->
-            val localizedDescription = lessonDescriptionsById[tab.id] ?: return@mapNotNull null
-            if (tab.description == localizedDescription) {
-                null
-            } else {
-                tab.copy(description = localizedDescription)
-            }
-        }
-        if (changedTabs.isNotEmpty()) {
-            tabDao.insertTabs(changedTabs)
-        }
+        localizeStoredBuiltInTabs(tabDao.getTabs().first())
     }
 
     override fun observeUserTabs(): Flow<List<TabItem>> = tabDao.getUserTabs()
@@ -195,35 +137,10 @@ class TabRepositoryImpl @Inject constructor(
             R.string.user_tab_default_name,
             UUID.randomUUID().toString()
         )
-        val file = File(context.filesDir, "${UUID.randomUUID()}.$extension")
-        val inputStream = context.contentResolver.openInputStream(uri)
-            ?: throw IllegalArgumentException(context.getString(R.string.user_tab_open_failed))
-
-        inputStream.use { stream ->
-            FileOutputStream(file).use { outputStream ->
-                stream.copyTo(outputStream)
-            }
-        }
+        val file = copyUserTabToInternalStorage(uri, extension)
 
         val asciiTabs = context.getString(R.string.user_tab_ascii_placeholder, fileName)
-
-        val createdAt = System.currentTimeMillis()
-        val tabItem = TabItem(
-            id = UUID.randomUUID().toString(),
-            name = fileName,
-            description = context.getString(R.string.user_tab_description),
-            difficulty = Difficulty.BEGINNER,
-            lessonNumber = 0,
-            isCompleted = false,
-            isUserTab = true,
-            filePath = file.absolutePath,
-            asciiTabs = asciiTabs,
-            tagsCsv = "custom,user",
-            folder = DEFAULT_TAB_FOLDER_KEY,
-            createdAt = createdAt,
-            updatedAt = createdAt
-        )
-        tabDao.insertTab(tabItem)
+        tabDao.insertTab(createUserTab(fileName = fileName, filePath = file.absolutePath, asciiTabs = asciiTabs))
     }
 
     override suspend fun getUserTabs(): List<TabItem> {
@@ -275,11 +192,7 @@ class TabRepositoryImpl @Inject constructor(
         val tab = tabDao.getTabById(tabId) ?: return
         tabDao.updateTab(
             tab.copy(
-                tagsCsv = tags
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                    .distinct()
-                    .joinToString(","),
+                tagsCsv = normalizeTags(tags),
                 updatedAt = System.currentTimeMillis()
             )
         )
@@ -320,18 +233,62 @@ class TabRepositoryImpl @Inject constructor(
             }
         }
         if (result == null) {
-            result = uri.path
-            val cut = result?.lastIndexOf('/')
-            if (cut != -1) {
-                if (cut != null) {
-                    result = result?.substring(cut + 1)
-                }
-            }
+            result = fallbackDisplayNameFromPath(uri.path)
         }
         return result
     }
 
     private fun getFileName(uri: Uri): String? {
         return getDisplayName(uri)?.substringBeforeLast('.')
+    }
+
+    private suspend fun seedBuiltInTabsIfNeeded() {
+        if (tabDao.getTabs().first().isNotEmpty()) return
+        tabDao.insertTabs(buildBuiltInTabs(lessonsFromJson, shouldUseEnglishDescriptions()))
+    }
+
+    private suspend fun localizeStoredBuiltInTabs(storedTabs: List<TabItem>): List<TabItem> {
+        val localizedTabs = localizeBuiltInTabs(storedTabs, localizedLessonDescriptionMap())
+        val changedTabs = localizedTabs.filterIndexed { index, tab -> tab != storedTabs[index] }
+        if (changedTabs.isNotEmpty()) {
+            tabDao.insertTabs(changedTabs)
+        }
+        return localizedTabs
+    }
+
+    private fun copyUserTabToInternalStorage(uri: Uri, extension: String): File {
+        val file = File(context.filesDir, "${UUID.randomUUID()}.$extension")
+        val inputStream = context.contentResolver.openInputStream(uri)
+            ?: throw IllegalArgumentException(context.getString(R.string.user_tab_open_failed))
+
+        inputStream.use { stream ->
+            FileOutputStream(file).use { outputStream ->
+                stream.copyTo(outputStream)
+            }
+        }
+        return file
+    }
+
+    private fun createUserTab(
+        fileName: String,
+        filePath: String,
+        asciiTabs: String
+    ): TabItem {
+        val createdAt = System.currentTimeMillis()
+        return TabItem(
+            id = UUID.randomUUID().toString(),
+            name = fileName,
+            description = context.getString(R.string.user_tab_description),
+            difficulty = Difficulty.BEGINNER,
+            lessonNumber = 0,
+            isCompleted = false,
+            isUserTab = true,
+            filePath = filePath,
+            asciiTabs = asciiTabs,
+            tagsCsv = "custom,user",
+            folder = DEFAULT_TAB_FOLDER_KEY,
+            createdAt = createdAt,
+            updatedAt = createdAt
+        )
     }
 }

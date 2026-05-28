@@ -1,44 +1,17 @@
 package com.guitarlearning.data.repository
 
 import android.util.Log
-import com.guitarlearning.core.settings.AiProvider
-import com.guitarlearning.data.settings.AppSettingsSnapshot
 import com.guitarlearning.domain.model.AudioNote
 import com.guitarlearning.domain.model.DEFAULT_TAB_FOLDER_KEY
 import com.guitarlearning.domain.model.Difficulty
 import com.guitarlearning.domain.model.Goal
 import com.guitarlearning.domain.model.GoalType
-import com.guitarlearning.domain.model.PracticedTab
-import com.guitarlearning.domain.model.Session
 import com.guitarlearning.domain.model.TabItem
 import com.guitarlearning.domain.model.TabPlaybackProgress
 import com.guitarlearning.domain.model.TextNote
 import com.guitarlearning.domain.model.normalizeTabFolder
-import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentSnapshot
 import java.io.File
-import java.security.MessageDigest
-import java.util.Date
-
-internal data class CloudTabFilePayload(
-    val storagePath: String?,
-    val fileBase64: String?
-)
-
-internal data class CloudAudioNoteFilePayload(
-    val storagePath: String?,
-    val fileBase64: String?
-)
-
-internal data class RemoteTabsImportResult(
-    val tabs: List<TabItem>,
-    val unresolvedRemoteIds: Set<String>
-)
-
-internal data class RemoteImportResult<T>(
-    val items: List<T>,
-    val unresolvedRemoteIds: Set<String>
-)
 
 internal class FirestoreSyncMapper(
     private val logTag: String,
@@ -56,20 +29,8 @@ internal class FirestoreSyncMapper(
         fileBase64: String?
     ) -> String?
 ) {
-    fun settingsToFirestoreMap(settings: AppSettingsSnapshot): Map<String, Any> {
-        return mapOf(
-            "themeMode" to settings.themeMode.name,
-            "appLanguage" to settings.appLanguage.name,
-            "aiProvider" to settings.aiProvider.name,
-            "localAiServerUrl" to settings.localAiServerUrl,
-            "normalSpeed" to settings.normalSpeed,
-            "practiceSpeed" to settings.practiceSpeed,
-            "normalTabScale" to settings.normalTabScale,
-            "practiceTabScale" to settings.practiceTabScale,
-            "tabDisplayMode" to settings.tabDisplayMode.name,
-            "fretboardDisplayMode" to settings.fretboardDisplayMode.name,
-            "updatedAt" to settings.updatedAt
-        )
+    fun settingsToFirestoreMap(settings: com.guitarlearning.data.settings.AppSettingsSnapshot): Map<String, Any> {
+        return settings.toFirestoreMap()
     }
 
     fun tabToFirestoreMap(tab: TabItem, filePayload: CloudTabFilePayload?): Map<String, Any?> {
@@ -95,22 +56,12 @@ internal class FirestoreSyncMapper(
         )
     }
 
-    fun sessionToFirestoreMap(session: Session): Map<String, Any> {
-        return mapOf(
-            "startTime" to session.startTime.time,
-            "endTime" to session.endTime.time,
-            "duration" to session.duration,
-            "practicedTabs" to session.practicedTabs.map(::practicedTabToFirestoreMap)
-        )
+    fun sessionToFirestoreMap(session: com.guitarlearning.domain.model.Session): Map<String, Any> {
+        return session.toFirestoreMap()
     }
 
     fun textNoteToFirestoreMap(textNote: TextNote): Map<String, Any> {
-        return mapOf(
-            "lessonId" to textNote.lessonId,
-            "content" to textNote.content,
-            "createdAt" to textNote.createdAt.time,
-            "isFavorite" to textNote.isFavorite
-        )
+        return textNote.toFirestoreMap()
     }
 
     fun audioNoteToFirestoreMap(audioNote: AudioNote, filePayload: CloudAudioNoteFilePayload?): Map<String, Any?> {
@@ -135,18 +86,7 @@ internal class FirestoreSyncMapper(
     }
 
     fun goalToFirestoreMap(goal: Goal): Map<String, Any> {
-        return mapOf(
-            "id" to goal.id,
-            "syncId" to goal.syncId,
-            "type" to goal.type.name,
-            "description" to goal.description,
-            "target" to goal.target,
-            "progress" to goal.progress,
-            "deadline" to goal.deadline,
-            "updatedAt" to goal.updatedAt,
-            "isCompleted" to goal.isCompleted,
-            "isOverdue" to goal.isOverdue
-        )
+        return goal.toFirestoreMap()
     }
 
     fun progressToFirestoreMap(progress: TabPlaybackProgress): Map<String, Any> {
@@ -160,80 +100,17 @@ internal class FirestoreSyncMapper(
         )
     }
 
-    fun toSettings(document: DocumentSnapshot): AppSettingsSnapshot? {
-        if (!document.exists()) return null
-        return AppSettingsSnapshot(
-            themeMode = enumValueOrDefault(document.getString("themeMode"), AppSettingsSnapshot().themeMode),
-            appLanguage = enumValueOrDefault(document.getString("appLanguage"), AppSettingsSnapshot().appLanguage),
-            aiProvider = enumValueOrDefault(document.getString("aiProvider"), AppSettingsSnapshot().aiProvider),
-            localAiServerUrl = document.getString("localAiServerUrl").orEmpty(),
-            normalSpeed = document.getDouble("normalSpeed")?.toFloat() ?: 1.0f,
-            practiceSpeed = document.getDouble("practiceSpeed")?.toFloat() ?: 0.25f,
-            normalTabScale = document.getDouble("normalTabScale")?.toFloat() ?: 1.0f,
-            practiceTabScale = document.getDouble("practiceTabScale")?.toFloat() ?: 1.0f,
-            tabDisplayMode = enumValueOrDefault(document.getString("tabDisplayMode"), AppSettingsSnapshot().tabDisplayMode),
-            fretboardDisplayMode = enumValueOrDefault(
-                document.getString("fretboardDisplayMode"),
-                AppSettingsSnapshot().fretboardDisplayMode
-            ),
-            updatedAt = document.getLong("updatedAt") ?: 0L
-        )
-    }
+    fun toSettings(document: DocumentSnapshot) = document.toSettingsOrNull()
 
-    fun toSession(document: DocumentSnapshot): Session? {
-        return runCatching {
-            val startTime = document.getDateCompat("startTime") ?: return null
-            val endTime = document.getDateCompat("endTime") ?: return null
-            val duration = document.getLongCompat("duration") ?: 0L
-            val practicedTabsRaw = document.get("practicedTabs") as? List<*> ?: emptyList<Any>()
-            val practicedTabs = practicedTabsRaw.mapNotNull { item ->
-                val map = item as? Map<*, *> ?: return@mapNotNull null
-                PracticedTab(
-                    tabId = map["tabId"]?.toString().orEmpty(),
-                    tabName = map["tabName"]?.toString().orEmpty(),
-                    duration = map.getLongCompat("duration") ?: 0L
-                )
-            }
-            Session(
-                startTime = startTime,
-                endTime = endTime,
-                duration = duration,
-                practicedTabs = practicedTabs
-            )
-        }.onFailure { error ->
-            Log.w(logTag, "toSession:unreadable docId=${document.id} data=${document.data.orEmpty()}", error)
-        }.getOrNull()
-    }
+    fun toSession(document: DocumentSnapshot) = document.decodeSessionOrNull().alsoLogFailure(document, "toSession")
 
-    fun toTextNote(document: DocumentSnapshot): TextNote? {
-        return runCatching {
-            val lessonId = document.getStringCompat("lessonId") ?: return null
-            val createdAt = document.getDateCompat("createdAt") ?: return null
-            TextNote(
-                lessonId = lessonId,
-                content = document.getStringCompat("content").orEmpty(),
-                createdAt = createdAt,
-                isFavorite = document.getBooleanCompat("isFavorite") ?: false
-            )
-        }.onFailure { error ->
-            Log.w(logTag, "toTextNote:unreadable docId=${document.id} data=${document.data.orEmpty()}", error)
-        }.getOrNull()
-    }
+    fun toTextNote(document: DocumentSnapshot) = document.decodeTextNoteOrNull().alsoLogFailure(document, "toTextNote")
 
-    fun toSessionBackups(document: DocumentSnapshot): List<Session> {
-        val rawItems = document.get("sessionBackups") as? List<*> ?: return emptyList()
-        return rawItems.mapNotNull { (it as? Map<*, *>)?.toSessionBackup() }
-    }
+    fun toSessionBackups(document: DocumentSnapshot) = document.toSessionBackups()
 
-    fun toTextNoteBackups(document: DocumentSnapshot): List<TextNote> {
-        val rawItems = document.get("textNoteBackups") as? List<*> ?: return emptyList()
-        return rawItems.mapNotNull { (it as? Map<*, *>)?.toTextNoteBackup() }
-    }
+    fun toTextNoteBackups(document: DocumentSnapshot) = document.toTextNoteBackups()
 
-    suspend fun toAudioNoteBackups(document: DocumentSnapshot): List<AudioNote> {
-        val rawItems = document.get("audioNoteBackups") as? List<*> ?: return emptyList()
-        return rawItems.mapNotNull { (it as? Map<*, *>)?.toAudioNoteBackup() }
-    }
+    suspend fun toAudioNoteBackups(document: DocumentSnapshot) = document.toAudioNoteBackups(restoreAudioNoteFile)
 
     suspend fun toAudioNote(document: DocumentSnapshot): AudioNote? {
         return runCatching {
@@ -301,20 +178,7 @@ internal class FirestoreSyncMapper(
     }
 
     fun toGoal(document: DocumentSnapshot): Goal? {
-        return runCatching {
-            Goal(
-                id = document.getLong("id")?.toInt() ?: 0,
-                syncId = document.getString("syncId") ?: document.id,
-                type = enumValueOrDefault(document.getString("type"), GoalType.CUSTOM),
-                description = document.getString("description") ?: "",
-                target = document.getLong("target")?.toInt() ?: 0,
-                progress = document.getLong("progress")?.toInt() ?: 0,
-                deadline = document.getLong("deadline") ?: 0L,
-                updatedAt = document.getLong("updatedAt") ?: 0L,
-                isCompleted = document.getBoolean("isCompleted") ?: false,
-                isOverdue = document.getBoolean("isOverdue") ?: false
-            )
-        }.getOrNull()
+        return document.decodeGoalOrNull()
     }
 
     fun toProgress(document: DocumentSnapshot): TabPlaybackProgress? {
@@ -347,13 +211,9 @@ internal class FirestoreSyncMapper(
         return RemoteTabsImportResult(tabs = tabs, unresolvedRemoteIds = unresolvedRemoteIds)
     }
 
-    fun importRemoteSessions(documents: List<DocumentSnapshot>): RemoteImportResult<Session> {
-        return importRemoteItems(documents, ::toSession)
-    }
+    fun importRemoteSessions(documents: List<DocumentSnapshot>) = importRemoteItems(documents, ::toSession)
 
-    fun importRemoteTextNotes(documents: List<DocumentSnapshot>): RemoteImportResult<TextNote> {
-        return importRemoteItems(documents, ::toTextNote)
-    }
+    fun importRemoteTextNotes(documents: List<DocumentSnapshot>) = importRemoteItems(documents, ::toTextNote)
 
     suspend fun importRemoteAudioNotes(documents: List<DocumentSnapshot>): RemoteImportResult<AudioNote> {
         val audioNotes = mutableListOf<AudioNote>()
@@ -371,197 +231,21 @@ internal class FirestoreSyncMapper(
         return RemoteImportResult(items = audioNotes, unresolvedRemoteIds = unresolvedRemoteIds)
     }
 
-    fun canonicalTabIdentity(tab: TabItem): String {
-        return if (tab.isUserTab) {
-            "${tab.isUserTab}|${tab.name.trim().lowercase().replace(Regex("\\s+"), " ")}|${tab.lessonNumber}"
-        } else {
-            "builtin:${tab.id}"
-        }
-    }
+    fun canonicalTabIdentity(tab: TabItem): String = firestoreCanonicalTabIdentity(tab)
 
-    fun mergeTags(local: String, remote: String): String {
-        return (local.split(",") + remote.split(","))
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-            .distinct()
-            .joinToString(",")
-    }
+    fun mergeTags(local: String, remote: String): String = mergeCsvTags(local, remote)
 
-    fun sessionDocumentId(session: Session): String {
-        return sha1(
-            buildString {
-                append(session.startTime.time)
-                append('|')
-                append(session.endTime.time)
-                append('|')
-                append(session.duration)
-                append('|')
-                append(session.practicedTabs.joinToString(";") { "${it.tabId}:${it.tabName}:${it.duration}" })
-            }
-        )
-    }
+    fun sessionDocumentId(session: com.guitarlearning.domain.model.Session): String = firestoreSessionDocumentId(session)
 
-    fun textNoteDocumentId(textNote: TextNote): String = sha1("${textNote.lessonId}|${textNote.createdAt.time}")
+    fun textNoteDocumentId(textNote: TextNote): String = firestoreTextNoteDocumentId(textNote)
 
-    fun audioNoteDocumentId(audioNote: AudioNote): String = sha1("${audioNote.lessonId}|${audioNote.createdAt.time}")
+    fun audioNoteDocumentId(audioNote: AudioNote): String = firestoreAudioNoteDocumentId(audioNote)
 
-    fun goalFingerprint(goal: Goal): String {
-        return sha1(
-            buildString {
-                append(goal.type.name)
-                append('|')
-                append(goal.description)
-                append('|')
-                append(goal.target)
-                append('|')
-                append(goal.deadline)
-            }
-        )
-    }
+    fun goalFingerprint(goal: Goal): String = firestoreGoalFingerprint(goal)
 
-    private fun practicedTabToFirestoreMap(practicedTab: PracticedTab): Map<String, Any> {
-        return mapOf(
-            "tabId" to practicedTab.tabId,
-            "tabName" to practicedTab.tabName,
-            "duration" to practicedTab.duration
-        )
-    }
-
-    private fun <T> importRemoteItems(
-        documents: List<DocumentSnapshot>,
-        decode: (DocumentSnapshot) -> T?
-    ): RemoteImportResult<T> {
-        val items = mutableListOf<T>()
-        val unresolvedRemoteIds = mutableSetOf<String>()
-
-        documents.forEach { document ->
-            val item = decode(document)
-            if (item != null) {
-                items += item
-            } else {
-                unresolvedRemoteIds += document.id
-            }
-        }
-
-        return RemoteImportResult(items = items, unresolvedRemoteIds = unresolvedRemoteIds)
-    }
-
-    private fun Map<*, *>.toSessionBackup(): Session? {
-        return runCatching {
-            val startTime = getDateCompat("startTime") ?: return null
-            val endTime = getDateCompat("endTime") ?: return null
-            val duration = (this["duration"] as? Number)?.toLong() ?: 0L
-            val practicedTabsRaw = this["practicedTabs"] as? List<*> ?: emptyList<Any>()
-            val practicedTabs = practicedTabsRaw.mapNotNull { item ->
-                val map = item as? Map<*, *> ?: return@mapNotNull null
-                PracticedTab(
-                    tabId = map["tabId"] as? String ?: "",
-                    tabName = map["tabName"] as? String ?: "",
-                    duration = map.getLongCompat("duration") ?: 0L
-                )
-            }
-            Session(startTime = startTime, endTime = endTime, duration = duration, practicedTabs = practicedTabs)
-        }.getOrNull()
-    }
-
-    private fun Map<*, *>.toTextNoteBackup(): TextNote? {
-        return runCatching {
-            val lessonId = this["lessonId"] as? String ?: return null
-            val createdAt = getDateCompat("createdAt") ?: return null
-            TextNote(
-                lessonId = lessonId,
-                content = this["content"] as? String ?: "",
-                createdAt = createdAt,
-                isFavorite = this["isFavorite"] as? Boolean ?: false
-            )
-        }.getOrNull()
-    }
-
-    private suspend fun Map<*, *>.toAudioNoteBackup(): AudioNote? {
-        return runCatching {
-            val lessonId = this["lessonId"] as? String ?: return null
-            val createdAt = getDateCompat("createdAt") ?: return null
-            val documentId = this["documentId"] as? String ?: audioNoteDocumentId(
-                AudioNote(lessonId = lessonId, filePath = "", createdAt = createdAt)
-            )
-            val restoredPath = restoreAudioNoteFile(
-                documentId,
-                this["fileName"] as? String,
-                this["storagePath"] as? String,
-                this["fileBase64"] as? String
-            ) ?: return null
-            AudioNote(
-                lessonId = lessonId,
-                filePath = restoredPath,
-                createdAt = createdAt,
-                isFavorite = this["isFavorite"] as? Boolean ?: false
-            )
-        }.getOrNull()
-    }
-
-    private fun DocumentSnapshot.getDateCompat(field: String): Date? {
-        return when (val value = get(field)) {
-            is Date -> value
-            is Timestamp -> value.toDate()
-            is Number -> Date(value.toLong())
-            is String -> value.toLongOrNull()?.let(::Date)
-            else -> getDate(field) ?: getLong(field)?.let(::Date)
-        }
-    }
-
-    private fun DocumentSnapshot.getLongCompat(field: String): Long? {
-        return when (val value = get(field)) {
-            is Number -> value.toLong()
-            is String -> value.toLongOrNull()
-            is Date -> value.time
-            is Timestamp -> value.toDate().time
-            else -> getLong(field)
-        }
-    }
-
-    private fun DocumentSnapshot.getStringCompat(field: String): String? {
-        return when (val value = get(field)) {
-            null -> getString(field)
-            is String -> value
-            else -> value.toString()
-        }
-    }
-
-    private fun DocumentSnapshot.getBooleanCompat(field: String): Boolean? {
-        return when (val value = get(field)) {
-            is Boolean -> value
-            is Number -> value.toInt() != 0
-            is String -> value.equals("true", ignoreCase = true) || value == "1"
-            else -> getBoolean(field)
-        }
-    }
-
-    private fun Map<*, *>.getDateCompat(field: String): Date? {
-        return when (val value = this[field]) {
-            is Date -> value
-            is Timestamp -> value.toDate()
-            is Number -> Date(value.toLong())
-            is String -> value.toLongOrNull()?.let(::Date)
-            else -> null
-        }
-    }
-
-    private fun Map<*, *>.getLongCompat(field: String): Long? {
-        return when (val value = this[field]) {
-            is Number -> value.toLong()
-            is String -> value.toLongOrNull()
-            is Date -> value.time
-            is Timestamp -> value.toDate().time
-            else -> null
-        }
-    }
-
-    private inline fun <reified T : Enum<T>> enumValueOrDefault(value: String?, fallback: T): T {
-        return value?.let { runCatching { enumValueOf<T>(it) }.getOrNull() } ?: fallback
-    }
-
-    private fun sha1(value: String): String {
-        val digest = MessageDigest.getInstance("SHA-1").digest(value.toByteArray(Charsets.UTF_8))
-        return digest.joinToString("") { "%02x".format(it) }
+    private fun <T> T?.alsoLogFailure(document: DocumentSnapshot, operation: String): T? {
+        if (this != null) return this
+        Log.w(logTag, "$operation:unreadable docId=${document.id} data=${document.data.orEmpty()}")
+        return null
     }
 }

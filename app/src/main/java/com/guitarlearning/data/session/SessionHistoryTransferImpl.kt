@@ -1,40 +1,29 @@
 package com.guitarlearning.data.session
 
-import android.content.Context
-import android.net.Uri
-import com.guitarlearning.core.session.SessionHistoryTransfer
+import com.guitarlearning.domain.session.SessionHistoryTransfer
 import com.guitarlearning.domain.model.PracticedTab
 import com.guitarlearning.domain.model.Session
 import com.guitarlearning.domain.repository.SessionRepository
-import dagger.hilt.android.qualifiers.ApplicationContext
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.InputStreamReader
 import java.util.Date
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class SessionHistoryTransferImpl @Inject constructor(
-    @ApplicationContext private val context: Context,
     private val sessionRepository: SessionRepository
 ) : SessionHistoryTransfer {
 
-    override suspend fun exportHistory(target: Uri) {
-        val payload = JSONArray().apply {
+    override suspend fun exportHistory(): String {
+        return JSONArray().apply {
             sessionRepository.getAllSessionsSync().forEach { session ->
                 put(session.toJson())
             }
-        }
-        context.contentResolver.openOutputStream(target)?.use { outputStream ->
-            outputStream.write(payload.toString(2).toByteArray())
-        }
+        }.toString(2)
     }
 
-    override suspend fun importHistory(source: Uri) {
-        val content = context.contentResolver.openInputStream(source)?.use { inputStream ->
-            InputStreamReader(inputStream).readText()
-        }.orEmpty()
+    override suspend fun importHistory(content: String) {
         sessionRepository.importHistory(JSONArray(content).toSessions())
     }
 }
