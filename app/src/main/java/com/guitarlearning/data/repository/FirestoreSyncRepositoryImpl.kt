@@ -1,19 +1,12 @@
 package com.guitarlearning.data.repository
 
 import android.content.Context
-import android.net.Uri
 import android.util.Log
-import android.util.Base64
-import com.guitarlearning.core.settings.AiProvider
 import com.guitarlearning.data.local.AudioNoteDao
 import com.guitarlearning.data.local.TextNoteDao
 import com.guitarlearning.data.settings.AppSettingsRepository
-import com.guitarlearning.data.settings.AppSettingsSnapshot
 import com.guitarlearning.domain.model.AudioNote
-import com.guitarlearning.domain.model.Difficulty
 import com.guitarlearning.domain.model.Goal
-import com.guitarlearning.domain.model.GoalType
-import com.guitarlearning.domain.model.PracticedTab
 import com.guitarlearning.domain.model.Session
 import com.guitarlearning.domain.model.DEFAULT_TAB_FOLDER_KEY
 import com.guitarlearning.domain.model.TabItem
@@ -26,11 +19,9 @@ import com.guitarlearning.domain.repository.SyncRepository
 import com.guitarlearning.domain.repository.TabPlaybackProgressRepository
 import com.guitarlearning.domain.repository.TabRepository
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
-import com.google.firebase.Timestamp
 import com.google.firebase.storage.FirebaseStorage
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -38,8 +29,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
 import java.io.File
-import java.security.MessageDigest
-import java.util.Date
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -55,36 +44,21 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
     private val appSettingsRepository: AppSettingsRepository,
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
-    private val storage: FirebaseStorage
+    storage: FirebaseStorage
 ) : SyncRepository {
     private companion object {
         const val LogTag = "CloudSync"
         const val MaxFirestoreBatchOps = 450
-        const val MaxInlineUserTabBytes = 512 * 1024L
-        const val MaxInlineAudioNoteBytes = 512 * 1024L
     }
 
-    private data class CloudTabFilePayload(
-        val storagePath: String?,
-        val fileBase64: String?
-    )
-
-    private data class RemoteTabsImportResult(
-        val tabs: List<TabItem>,
-        val unresolvedRemoteIds: Set<String>
-    )
-
-    private data class RemoteImportResult<T>(
-        val items: List<T>,
-        val unresolvedRemoteIds: Set<String>
-    )
-
-    private data class CloudAudioNoteFilePayload(
-        val storagePath: String?,
-        val fileBase64: String?
-    )
-
     private val syncingState = MutableStateFlow(false)
+    private val fileStore = FirestoreSyncFileStore(context, storage)
+    private val mapper = FirestoreSyncMapper(
+        logTag = LogTag,
+        restoreUserTabFile = fileStore::restoreUserTabFile,
+        restoreAudioNoteFile = fileStore::restoreAudioNoteFile
+    )
+    private val mergePolicy = FirestoreSyncMergePolicy(mapper)
 
     override fun isSyncing(): Flow<Boolean> = syncingState
 
@@ -99,7 +73,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
                 .document(tab.id)
                 .delete()
                 .await()
-            deleteUserTabFile(user.uid, tab.id)
+            fileStore.deleteUserTabFile(user.uid, tab.id)
             Unit
         }
     }
@@ -133,7 +107,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             }
 
             val remoteSettingsDocument = userRef.collection("settings").document("app").get().await()
-            val remoteSettings = remoteSettingsDocument.toSettings()
+            val remoteSettings = mapper.toSettings(remoteSettingsDocument)
             val remoteTabsSnapshot = userRef.collection("tabs").get().await()
             val remoteSessionsSnapshot = userRef.collection("sessions").get().await()
             val remoteGoalsSnapshot = userRef.collection("goals").get().await()
@@ -146,11 +120,11 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
                 val remoteId = document.getString("id") ?: document.id
                 document.getBoolean("isUserTab") == true && remoteId in pendingDeletedUserTabIds
             }
-            val remoteTabsImport = importRemoteTabs(filteredRemoteTabDocuments)
+            val remoteTabsImport = mapper.importRemoteTabs(filteredRemoteTabDocuments)
             val remoteTabs = remoteTabsImport.tabs
-            val settingsSessionBackups = remoteSettingsDocument.toSessionBackups()
-            val settingsTextNoteBackups = remoteSettingsDocument.toTextNoteBackups()
-            val settingsAudioNoteBackups = remoteSettingsDocument.toAudioNoteBackups()
+            val settingsSessionBackups = mapper.toSessionBackups(remoteSettingsDocument)
+            val settingsTextNoteBackups = mapper.toTextNoteBackups(remoteSettingsDocument)
+            val settingsAudioNoteBackups = mapper.toAudioNoteBackups(remoteSettingsDocument)
             val usedSessionFallback = remoteSessionsSnapshot.isEmpty
             val remoteSessionsImport = if (usedSessionFallback) {
                 RemoteImportResult(
@@ -158,7 +132,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
                     unresolvedRemoteIds = emptySet()
                 )
             } else {
-                importRemoteSessions(remoteSessionsSnapshot.documents)
+                mapper.importRemoteSessions(remoteSessionsSnapshot.documents)
             }
             val remoteSessions = if (remoteSessionsImport.items.isEmpty() &&
                 remoteSessionsImport.unresolvedRemoteIds.isNotEmpty() &&
@@ -169,8 +143,8 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             } else {
                 remoteSessionsImport.items
             }
-            val remoteGoals = remoteGoalsSnapshot.documents.mapNotNull { it.toGoal() }
-            val remoteProgress = remoteProgressSnapshot.documents.mapNotNull { it.toProgress() }
+            val remoteGoals = remoteGoalsSnapshot.documents.mapNotNull(mapper::toGoal)
+            val remoteProgress = remoteProgressSnapshot.documents.mapNotNull(mapper::toProgress)
             val usedTextNoteFallback = remoteTextNotesSnapshot.isEmpty
             val remoteTextNotesImport = if (usedTextNoteFallback) {
                 RemoteImportResult(
@@ -178,7 +152,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
                     unresolvedRemoteIds = emptySet()
                 )
             } else {
-                importRemoteTextNotes(remoteTextNotesSnapshot.documents)
+                mapper.importRemoteTextNotes(remoteTextNotesSnapshot.documents)
             }
             val remoteTextNotes = if (remoteTextNotesImport.items.isEmpty() &&
                 remoteTextNotesImport.unresolvedRemoteIds.isNotEmpty() &&
@@ -196,7 +170,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
                     unresolvedRemoteIds = emptySet()
                 )
             } else {
-                importRemoteAudioNotes(remoteAudioNotesSnapshot.documents)
+                mapper.importRemoteAudioNotes(remoteAudioNotesSnapshot.documents)
             }
             val remoteAudioNotes = if (remoteAudioNotesImport.items.isEmpty() &&
                 remoteAudioNotesImport.unresolvedRemoteIds.isNotEmpty() &&
@@ -218,7 +192,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             )
 
             val localSettings = appSettingsRepository.getSettings()
-            val mergedSettings = mergeSettings(
+            val mergedSettings = mergePolicy.mergeSettings(
                 local = localSettings,
                 remote = remoteSettings,
                 preferRemote = preferRemoteState
@@ -226,7 +200,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             appSettingsRepository.replaceSettings(mergedSettings)
 
             val localTabs = tabRepository.getAllTabsSync()
-            val mergedTabsResult = mergeTabCollections(localTabs, remoteTabs)
+            val mergedTabsResult = mergePolicy.mergeTabCollections(localTabs, remoteTabs)
             if (mergedTabsResult.tabsToDelete.isNotEmpty()) {
                 tabRepository.deleteTabs(mergedTabsResult.tabsToDelete)
             }
@@ -237,20 +211,20 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             sessionRepository.importHistory(remoteSessions)
 
             val localGoals = goalRepository.getGoalsSync()
-            val mergedGoals = mergeGoals(localGoals, remoteGoals)
+            val mergedGoals = mergePolicy.mergeGoals(localGoals, remoteGoals)
             goalRepository.clearGoals()
             if (mergedGoals.isNotEmpty()) {
                 goalRepository.upsertGoals(mergedGoals)
             }
 
             val localProgress = progressRepository.observeAll().first()
-            val mergedProgress = mergeProgress(localProgress, remoteProgress)
+            val mergedProgress = mergePolicy.mergeProgress(localProgress, remoteProgress)
             progressRepository.replaceAll(mergedProgress)
 
             val localTextNotes = textNoteDao.getAllTextNotes()
             val useRemoteNotesAsSourceOfTruth = preferRemoteState
             val mergedTextNotes = if (useRemoteNotesAsSourceOfTruth) {
-                mergeTextNotes(localTextNotes, remoteTextNotes)
+                mergePolicy.mergeTextNotes(localTextNotes, remoteTextNotes)
             } else {
                 localTextNotes.sortedByDescending { it.createdAt.time }
             }
@@ -261,7 +235,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
 
             val localAudioNotes = audioNoteDao.getAllNotes()
             val mergedAudioNotes = if (useRemoteNotesAsSourceOfTruth) {
-                mergeAudioNotes(localAudioNotes, remoteAudioNotes)
+                mergePolicy.mergeAudioNotes(localAudioNotes, remoteAudioNotes)
             } else {
                 localAudioNotes.sortedByDescending { it.createdAt.time }
             }
@@ -295,21 +269,21 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
                 .filter { it.isUserTab }
                 .map { it.id }
                 .toSet() + remoteTabsImport.unresolvedRemoteIds
-            val finalLocalSessionIds = finalLocalSessions.map(::sessionDocumentId).toSet() + remoteSessionsImport.unresolvedRemoteIds
-            val finalLocalTextNoteIds = finalLocalTextNotes.map(::textNoteDocumentId).toSet() + remoteTextNotesImport.unresolvedRemoteIds
-            val finalLocalAudioNoteIds = finalLocalAudioNotes.map(::audioNoteDocumentId).toSet() + remoteAudioNotesImport.unresolvedRemoteIds
+            val finalLocalSessionIds = finalLocalSessions.map(mapper::sessionDocumentId).toSet() + remoteSessionsImport.unresolvedRemoteIds
+            val finalLocalTextNoteIds = finalLocalTextNotes.map(mapper::textNoteDocumentId).toSet() + remoteTextNotesImport.unresolvedRemoteIds
+            val finalLocalAudioNoteIds = finalLocalAudioNotes.map(mapper::audioNoteDocumentId).toSet() + remoteAudioNotesImport.unresolvedRemoteIds
             val uploadedStoragePaths = finalLocalTabs
                 .filter { it.isUserTab }
                 .associate { tab ->
-                    tab.id to prepareCloudTabFilePayload(
+                    tab.id to fileStore.prepareCloudTabFilePayload(
                         userId = user.uid,
                         tab = tab,
                         existingStoragePath = remoteStoragePathsByTabId[tab.id]
                     )
                 }
             val uploadedAudioStoragePaths = finalLocalAudioNotes.associate { audioNote ->
-                val documentId = audioNoteDocumentId(audioNote)
-                documentId to prepareCloudAudioNoteFilePayload(
+                val documentId = mapper.audioNoteDocumentId(audioNote)
+                documentId to fileStore.prepareCloudAudioNoteFilePayload(
                     userId = user.uid,
                     documentId = documentId,
                     audioNote = audioNote,
@@ -361,7 +335,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             val settingsRef = userRef.collection("settings").document("app")
             queueSet(
                 settingsRef,
-                finalLocalSettings.toFirestoreMap() + mapOf(
+                mapper.settingsToFirestoreMap(finalLocalSettings) + mapOf(
                     "sessionBackups" to FieldValue.delete(),
                     "textNoteBackups" to FieldValue.delete(),
                     "audioNoteBackups" to FieldValue.delete()
@@ -372,10 +346,10 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
                 val tabRef = userRef.collection("tabs").document(tab.id)
                 queueSet(
                     tabRef,
-                    tab.toFirestoreMap(uploadedStoragePaths[tab.id])
+                    mapper.tabToFirestoreMap(tab, uploadedStoragePaths[tab.id])
                 )
             }
-            deleteStaleUserTabFiles(user.uid, remoteUserTabIds, finalLocalUserTabIds)
+            fileStore.deleteStaleUserTabFiles(user.uid, remoteUserTabIds, finalLocalUserTabIds)
             queueDeleteStaleDocuments(
                 parent = userRef.collection("tabs"),
                 remoteIds = remoteTabIds,
@@ -383,8 +357,8 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             )
 
             finalLocalSessions.forEach { session ->
-                val sessionRef = userRef.collection("sessions").document(sessionDocumentId(session))
-                queueSet(sessionRef, session.toFirestoreMap())
+                val sessionRef = userRef.collection("sessions").document(mapper.sessionDocumentId(session))
+                queueSet(sessionRef, mapper.sessionToFirestoreMap(session))
             }
             queueDeleteStaleDocuments(
                 parent = userRef.collection("sessions"),
@@ -394,7 +368,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
 
             finalLocalGoals.forEach { goal ->
                 val goalRef = userRef.collection("goals").document(goal.syncId)
-                queueSet(goalRef, goal.toFirestoreMap())
+                queueSet(goalRef, mapper.goalToFirestoreMap(goal))
             }
             queueDeleteStaleDocuments(
                 parent = userRef.collection("goals"),
@@ -404,7 +378,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
 
             finalLocalProgress.forEach { progress ->
                 val progressRef = userRef.collection("progress").document(progress.tabId)
-                queueSet(progressRef, progress.toFirestoreMap())
+                queueSet(progressRef, mapper.progressToFirestoreMap(progress))
             }
             queueDeleteStaleDocuments(
                 parent = userRef.collection("progress"),
@@ -413,9 +387,9 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             )
 
             finalLocalTextNotes.forEach { textNote ->
-                val documentId = textNoteDocumentId(textNote)
+                val documentId = mapper.textNoteDocumentId(textNote)
                 val textNoteRef = userRef.collection("text_notes").document(documentId)
-                queueSet(textNoteRef, textNote.toFirestoreMap())
+                queueSet(textNoteRef, mapper.textNoteToFirestoreMap(textNote))
             }
             queueDeleteStaleDocuments(
                 parent = userRef.collection("text_notes"),
@@ -424,14 +398,14 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             )
 
             finalLocalAudioNotes.forEach { audioNote ->
-                val documentId = audioNoteDocumentId(audioNote)
+                val documentId = mapper.audioNoteDocumentId(audioNote)
                 val audioNoteRef = userRef.collection("audio_notes").document(documentId)
                 queueSet(
                     audioNoteRef,
-                    audioNote.toFirestoreMap(uploadedAudioStoragePaths[documentId])
+                    mapper.audioNoteToFirestoreMap(audioNote, uploadedAudioStoragePaths[documentId])
                 )
             }
-            deleteStaleAudioNoteFiles(user.uid, remoteAudioNoteIds, finalLocalAudioNoteIds, remoteAudioStoragePathsById)
+            fileStore.deleteStaleAudioNoteFiles(user.uid, remoteAudioNoteIds, finalLocalAudioNoteIds, remoteAudioStoragePathsById)
             queueDeleteStaleDocuments(
                 parent = userRef.collection("audio_notes"),
                 remoteIds = remoteAudioNoteIds,
@@ -481,8 +455,8 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
                 batch.commit().await()
             }
             userRef.collection("settings").document("app").delete().await()
-            deleteAllUserTabFiles(user.uid)
-            deleteAllAudioNoteFiles(user.uid)
+            fileStore.deleteAllUserTabFiles(user.uid)
+            fileStore.deleteAllAudioNoteFiles(user.uid)
             Log.w(LogTag, "clearRemoteData:success uid=${user.uid}")
             Unit
         }.also {
@@ -501,7 +475,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
 
     private suspend fun clearLocalCloudScopedData() {
         Log.w(LogTag, "clearLocalCloudScopedData:start")
-        deleteLocalAudioNoteFiles(audioNoteDao.getAllNotes())
+        fileStore.deleteLocalAudioNoteFiles(audioNoteDao.getAllNotes())
         tabRepository.clearAllTabs()
         sessionRepository.clearHistory()
         goalRepository.clearGoals()
@@ -517,1025 +491,4 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
         tabRepository.getTabs().first()
     }
 
-    private fun mergeSettings(
-        local: AppSettingsSnapshot,
-        remote: AppSettingsSnapshot?,
-        preferRemote: Boolean
-    ): AppSettingsSnapshot {
-        if (remote == null) return local
-        if (preferRemote) return remote
-        return if (remote.updatedAt > local.updatedAt) remote else local
-    }
-
-    private data class MergeTabsResult(
-        val tabs: List<TabItem>,
-        val tabsToDelete: List<TabItem>
-    )
-
-    private fun mergeTabCollections(
-        localTabs: List<TabItem>,
-        remoteTabs: List<TabItem>
-    ): MergeTabsResult {
-        val mergedTabs = mutableListOf<TabItem>()
-        val localTabsToDelete = mutableListOf<TabItem>()
-        val matchedLocalIds = mutableSetOf<String>()
-
-        remoteTabs.forEach { remote ->
-            val localById = localTabs.firstOrNull { it.id == remote.id }
-            if (localById != null) {
-                matchedLocalIds += localById.id
-                mergedTabs += mergeTabs(localById, remote)
-            } else {
-                val localByKey = localTabs.firstOrNull {
-                    it.id !in matchedLocalIds && canonicalTabKey(it) == canonicalTabKey(remote)
-                }
-                if (localByKey != null) {
-                    matchedLocalIds += localByKey.id
-                    if (localByKey.id != remote.id && localByKey.isUserTab) {
-                        localTabsToDelete += localByKey
-                    }
-                    mergedTabs += mergeTabs(localByKey, remote)
-                } else {
-                    mergedTabs += remote
-                }
-            }
-        }
-
-        localTabs.forEach { local ->
-            val hasRemoteById = remoteTabs.any { it.id == local.id }
-            val hasRemoteByKey = remoteTabs.any { canonicalTabKey(it) == canonicalTabKey(local) }
-            if (!hasRemoteById && !hasRemoteByKey && local.id !in matchedLocalIds) {
-                mergedTabs += local
-            }
-        }
-
-        val deduped = mergedTabs
-            .groupBy { canonicalTabIdentity(it) }
-            .map { (_, variants) -> variants.reduce(::mergeTabs) }
-
-        return MergeTabsResult(deduped, localTabsToDelete.distinctBy { it.id })
-    }
-
-    private fun mergeTabs(local: TabItem, remote: TabItem): TabItem {
-        val newer = if (local.updatedAt >= remote.updatedAt) local else remote
-        val older = if (newer === local) remote else local
-
-        return newer.copy(
-            id = remote.id.ifBlank { local.id },
-            name = newer.name.ifBlank { older.name },
-            description = newer.description.ifBlank { older.description },
-            difficulty = newer.difficulty,
-            lessonNumber = if (newer.lessonNumber != 0) newer.lessonNumber else older.lessonNumber,
-            isCompleted = if (local.updatedAt == remote.updatedAt) {
-                local.isCompleted || remote.isCompleted
-            } else {
-                newer.isCompleted
-            },
-            isUserTab = local.isUserTab || remote.isUserTab,
-            filePath = newer.filePath ?: older.filePath,
-            asciiTabs = newer.asciiTabs ?: older.asciiTabs,
-            tagsCsv = mergeTags(local.tagsCsv, remote.tagsCsv),
-            folder = newer.folder.takeIf { it.isNotBlank() } ?: older.folder,
-            openCount = maxOf(local.openCount, remote.openCount),
-            lastOpenedAt = maxOf(local.lastOpenedAt, remote.lastOpenedAt),
-            createdAt = listOf(local.createdAt, remote.createdAt)
-                .filter { it > 0L }
-                .minOrNull()
-                ?: 0L,
-            updatedAt = maxOf(local.updatedAt, remote.updatedAt),
-            offlineReady = local.offlineReady || remote.offlineReady
-        )
-    }
-
-    private fun mergeGoals(localGoals: List<Goal>, remoteGoals: List<Goal>): List<Goal> {
-        return (localGoals + remoteGoals)
-            .groupBy { it.syncId.ifBlank { goalFingerprint(it) } }
-            .map { (_, variants) -> variants.maxByOrNull { it.updatedAt } ?: variants.first() }
-            .sortedBy { it.deadline }
-    }
-
-    private fun mergeProgress(
-        localProgress: List<TabPlaybackProgress>,
-        remoteProgress: List<TabPlaybackProgress>
-    ): List<TabPlaybackProgress> {
-        return (localProgress + remoteProgress)
-            .groupBy { it.tabId }
-            .map { (_, variants) -> variants.maxByOrNull { it.updatedAt } ?: variants.first() }
-    }
-
-    private fun mergeTextNotes(
-        localNotes: List<TextNote>,
-        remoteNotes: List<TextNote>
-    ): List<TextNote> {
-        return (localNotes + remoteNotes)
-            .groupBy(::textNoteDocumentId)
-            .map { (_, variants) ->
-                variants.reduce { current, candidate ->
-                    val preferredContent = when {
-                        current.content == candidate.content -> current.content
-                        current.content.isBlank() -> candidate.content
-                        candidate.content.isBlank() -> current.content
-                        else -> current.content
-                    }
-                    current.copy(
-                        content = preferredContent,
-                        isFavorite = current.isFavorite || candidate.isFavorite,
-                        createdAt = if (current.createdAt.time <= candidate.createdAt.time) {
-                            current.createdAt
-                        } else {
-                            candidate.createdAt
-                        }
-                    )
-                }
-            }
-            .sortedByDescending { it.createdAt.time }
-    }
-
-    private fun mergeAudioNotes(
-        localNotes: List<AudioNote>,
-        remoteNotes: List<AudioNote>
-    ): List<AudioNote> {
-        return (localNotes + remoteNotes)
-            .groupBy(::audioNoteDocumentId)
-            .map { (_, variants) ->
-                variants.reduce { current, candidate ->
-                    val currentFileExists = File(current.filePath).exists()
-                    val candidateFileExists = File(candidate.filePath).exists()
-                    current.copy(
-                        filePath = when {
-                            currentFileExists -> current.filePath
-                            candidateFileExists -> candidate.filePath
-                            current.filePath.isNotBlank() -> current.filePath
-                            else -> candidate.filePath
-                        },
-                        isFavorite = current.isFavorite || candidate.isFavorite,
-                        createdAt = if (current.createdAt.time <= candidate.createdAt.time) {
-                            current.createdAt
-                        } else {
-                            candidate.createdAt
-                        }
-                    )
-                }
-            }
-            .sortedByDescending { it.createdAt.time }
-    }
-
-    private fun deleteStaleDocuments(
-        batch: com.google.firebase.firestore.WriteBatch,
-        parent: com.google.firebase.firestore.CollectionReference,
-        remoteIds: Set<String>,
-        localIds: Set<String>
-    ) {
-        (remoteIds - localIds).forEach { staleId ->
-            batch.delete(parent.document(staleId))
-        }
-    }
-
-    private fun AppSettingsSnapshot.toFirestoreMap(): Map<String, Any> {
-        return mapOf(
-            "themeMode" to themeMode.name,
-            "appLanguage" to appLanguage.name,
-            "aiProvider" to aiProvider.name,
-            "localAiServerUrl" to localAiServerUrl,
-            "normalSpeed" to normalSpeed,
-            "practiceSpeed" to practiceSpeed,
-            "normalTabScale" to normalTabScale,
-            "practiceTabScale" to practiceTabScale,
-            "tabDisplayMode" to tabDisplayMode.name,
-            "fretboardDisplayMode" to fretboardDisplayMode.name,
-            "updatedAt" to updatedAt
-        )
-    }
-
-    private fun TabItem.toFirestoreMap(filePayload: CloudTabFilePayload?): Map<String, Any?> {
-        return mapOf(
-            "id" to id,
-            "name" to name,
-            "description" to description,
-            "difficulty" to difficulty.name,
-            "lessonNumber" to lessonNumber,
-            "isCompleted" to isCompleted,
-            "isUserTab" to isUserTab,
-            "filePath" to filePath,
-            "storagePath" to filePayload?.storagePath,
-            "fileBase64" to filePayload?.fileBase64,
-            "asciiTabs" to asciiTabs,
-            "tagsCsv" to tagsCsv,
-            "folder" to normalizeTabFolder(folder),
-            "openCount" to openCount,
-            "lastOpenedAt" to lastOpenedAt,
-            "createdAt" to createdAt,
-            "updatedAt" to updatedAt,
-            "offlineReady" to offlineReady
-        )
-    }
-
-    private fun Session.toFirestoreMap(): Map<String, Any> {
-        return mapOf(
-            "startTime" to startTime.time,
-            "endTime" to endTime.time,
-            "duration" to duration,
-            "practicedTabs" to practicedTabs.map { it.toFirestoreMap() }
-        )
-    }
-
-    private fun TextNote.toFirestoreMap(): Map<String, Any> {
-        return mapOf(
-            "lessonId" to lessonId,
-            "content" to content,
-            "createdAt" to createdAt.time,
-            "isFavorite" to isFavorite
-        )
-    }
-
-    private fun AudioNote.toFirestoreMap(filePayload: CloudAudioNoteFilePayload?): Map<String, Any?> {
-        return mapOf(
-            "lessonId" to lessonId,
-            "fileName" to File(filePath).name,
-            "storagePath" to filePayload?.storagePath,
-            "fileBase64" to filePayload?.fileBase64,
-            "createdAt" to createdAt.time,
-            "isFavorite" to isFavorite
-        )
-    }
-
-    private fun AudioNote.toFirestoreBackupMap(
-        documentId: String,
-        filePayload: CloudAudioNoteFilePayload?
-    ): Map<String, Any?> {
-        return toFirestoreMap(filePayload).toMutableMap().apply {
-            put("documentId", documentId)
-        }
-    }
-
-    private fun PracticedTab.toFirestoreMap(): Map<String, Any> {
-        return mapOf(
-            "tabId" to tabId,
-            "tabName" to tabName,
-            "duration" to duration
-        )
-    }
-
-    private fun Goal.toFirestoreMap(): Map<String, Any> {
-        return mapOf(
-            "id" to id,
-            "syncId" to syncId,
-            "type" to type.name,
-            "description" to description,
-            "target" to target,
-            "progress" to progress,
-            "deadline" to deadline,
-            "updatedAt" to updatedAt,
-            "isCompleted" to isCompleted,
-            "isOverdue" to isOverdue
-        )
-    }
-
-    private fun TabPlaybackProgress.toFirestoreMap(): Map<String, Any> {
-        return mapOf(
-            "tabId" to tabId,
-            "tabName" to tabName,
-            "lastTick" to lastTick,
-            "lastBarIndex" to lastBarIndex,
-            "totalBars" to totalBars,
-            "updatedAt" to updatedAt
-        )
-    }
-
-    private fun DocumentSnapshot.toSettings(): AppSettingsSnapshot? {
-        if (!exists()) return null
-        return AppSettingsSnapshot(
-            themeMode = enumValueOrDefault(getString("themeMode"), AppSettingsSnapshot().themeMode),
-            appLanguage = enumValueOrDefault(getString("appLanguage"), AppSettingsSnapshot().appLanguage),
-            aiProvider = enumValueOrDefault(getString("aiProvider"), AppSettingsSnapshot().aiProvider),
-            localAiServerUrl = getString("localAiServerUrl").orEmpty(),
-            normalSpeed = getDouble("normalSpeed")?.toFloat() ?: 1.0f,
-            practiceSpeed = getDouble("practiceSpeed")?.toFloat() ?: 0.25f,
-            normalTabScale = getDouble("normalTabScale")?.toFloat() ?: 1.0f,
-            practiceTabScale = getDouble("practiceTabScale")?.toFloat() ?: 1.0f,
-            tabDisplayMode = enumValueOrDefault(getString("tabDisplayMode"), AppSettingsSnapshot().tabDisplayMode),
-            fretboardDisplayMode = enumValueOrDefault(
-                getString("fretboardDisplayMode"),
-                AppSettingsSnapshot().fretboardDisplayMode
-            ),
-            updatedAt = getLong("updatedAt") ?: 0L
-        )
-    }
-
-    private fun DocumentSnapshot.toSession(): Session? {
-        return runCatching {
-            val startTime = getDateCompat("startTime") ?: return null
-            val endTime = getDateCompat("endTime") ?: return null
-            val duration = getLongCompat("duration") ?: 0L
-            val practicedTabsRaw = get("practicedTabs") as? List<*> ?: emptyList<Any>()
-            val practicedTabs = practicedTabsRaw.mapNotNull { item ->
-                val map = item as? Map<*, *> ?: return@mapNotNull null
-                PracticedTab(
-                    tabId = map["tabId"]?.toString().orEmpty(),
-                    tabName = map["tabName"]?.toString().orEmpty(),
-                    duration = map.getLongCompat("duration") ?: 0L
-                )
-            }
-            Session(
-                startTime = startTime,
-                endTime = endTime,
-                duration = duration,
-                practicedTabs = practicedTabs
-            )
-        }.onFailure { error ->
-            Log.w(LogTag, "toSession:unreadable docId=$id data=${data.orEmpty()}", error)
-        }.getOrNull()
-    }
-
-    private fun DocumentSnapshot.toTextNote(): TextNote? {
-        return runCatching {
-            val lessonId = getStringCompat("lessonId") ?: return null
-            val createdAt = getDateCompat("createdAt") ?: return null
-            TextNote(
-                lessonId = lessonId,
-                content = getStringCompat("content").orEmpty(),
-                createdAt = createdAt,
-                isFavorite = getBooleanCompat("isFavorite") ?: false
-            )
-        }.onFailure { error ->
-            Log.w(LogTag, "toTextNote:unreadable docId=$id data=${data.orEmpty()}", error)
-        }.getOrNull()
-    }
-
-    private fun DocumentSnapshot.toSessionBackups(): List<Session> {
-        val rawItems = get("sessionBackups") as? List<*> ?: return emptyList()
-        return rawItems.mapNotNull { (it as? Map<*, *>)?.toSessionBackup() }
-    }
-
-    private fun DocumentSnapshot.toTextNoteBackups(): List<TextNote> {
-        val rawItems = get("textNoteBackups") as? List<*> ?: return emptyList()
-        return rawItems.mapNotNull { (it as? Map<*, *>)?.toTextNoteBackup() }
-    }
-
-    private suspend fun DocumentSnapshot.toAudioNoteBackups(): List<AudioNote> {
-        val rawItems = get("audioNoteBackups") as? List<*> ?: return emptyList()
-        return rawItems.mapNotNull { (it as? Map<*, *>)?.toAudioNoteBackup() }
-    }
-
-    private suspend fun DocumentSnapshot.toAudioNote(): AudioNote? {
-        return runCatching {
-            val lessonId = getStringCompat("lessonId") ?: return null
-            val createdAt = getDateCompat("createdAt") ?: return null
-            val restoredPath = restoreAudioNoteFile(
-                documentId = id,
-                fileName = getStringCompat("fileName"),
-                storagePath = getStringCompat("storagePath"),
-                fileBase64 = getStringCompat("fileBase64")
-            ) ?: return null
-            AudioNote(
-                lessonId = lessonId,
-                filePath = restoredPath,
-                createdAt = createdAt,
-                isFavorite = getBooleanCompat("isFavorite") ?: false
-            )
-        }.onFailure { error ->
-            Log.w(LogTag, "toAudioNote:unreadable docId=$id data=${data.orEmpty()}", error)
-        }.getOrNull()
-    }
-
-    private fun Map<*, *>.toSessionBackup(): Session? {
-        return runCatching {
-            val startTime = getDateCompat("startTime") ?: return null
-            val endTime = getDateCompat("endTime") ?: return null
-            val duration = (this["duration"] as? Number)?.toLong() ?: 0L
-            val practicedTabsRaw = this["practicedTabs"] as? List<*> ?: emptyList<Any>()
-            val practicedTabs = practicedTabsRaw.mapNotNull { item ->
-                val map = item as? Map<*, *> ?: return@mapNotNull null
-                PracticedTab(
-                    tabId = map["tabId"] as? String ?: "",
-                    tabName = map["tabName"] as? String ?: "",
-                    duration = (map["duration"] as? Number)?.toLong() ?: 0L
-                )
-            }
-            Session(
-                startTime = startTime,
-                endTime = endTime,
-                duration = duration,
-                practicedTabs = practicedTabs
-            )
-        }.getOrNull()
-    }
-
-    private fun Map<*, *>.toTextNoteBackup(): TextNote? {
-        return runCatching {
-            val lessonId = this["lessonId"] as? String ?: return null
-            val createdAt = getDateCompat("createdAt") ?: return null
-            TextNote(
-                lessonId = lessonId,
-                content = this["content"] as? String ?: "",
-                createdAt = createdAt,
-                isFavorite = this["isFavorite"] as? Boolean ?: false
-            )
-        }.getOrNull()
-    }
-
-    private suspend fun Map<*, *>.toAudioNoteBackup(): AudioNote? {
-        return runCatching {
-            val lessonId = this["lessonId"] as? String ?: return null
-            val createdAt = getDateCompat("createdAt") ?: return null
-            val documentId = this["documentId"] as? String ?: audioNoteDocumentId(
-                AudioNote(
-                    lessonId = lessonId,
-                    filePath = "",
-                    createdAt = createdAt
-                )
-            )
-            val restoredPath = restoreAudioNoteFile(
-                documentId = documentId,
-                fileName = this["fileName"] as? String,
-                storagePath = this["storagePath"] as? String,
-                fileBase64 = this["fileBase64"] as? String
-            ) ?: return null
-            AudioNote(
-                lessonId = lessonId,
-                filePath = restoredPath,
-                createdAt = createdAt,
-                isFavorite = this["isFavorite"] as? Boolean ?: false
-            )
-        }.getOrNull()
-    }
-
-    private suspend fun DocumentSnapshot.toTabItem(): TabItem? {
-        return runCatching {
-            val isUserTab = getBoolean("isUserTab") ?: false
-            val originalPath = getString("filePath")
-            val localPath = if (isUserTab) {
-                restoreUserTabFile(
-                    tabId = getString("id") ?: id,
-                    tabName = getString("name") ?: "",
-                    originalPath = originalPath,
-                    storagePath = getString("storagePath"),
-                    fileBase64 = getString("fileBase64")
-                )
-            } else {
-                originalPath
-            }
-
-            if (isUserTab && localPath.isNullOrBlank()) {
-                return null
-            }
-
-            TabItem(
-                id = getString("id") ?: id,
-                name = getString("name") ?: "",
-                description = getString("description") ?: "",
-                difficulty = enumValueOrDefault(getString("difficulty"), Difficulty.BEGINNER),
-                lessonNumber = getLong("lessonNumber")?.toInt() ?: 0,
-                isCompleted = getBoolean("isCompleted") ?: false,
-                isUserTab = isUserTab,
-                filePath = localPath,
-                asciiTabs = getString("asciiTabs"),
-                tagsCsv = getString("tagsCsv") ?: "",
-                folder = normalizeTabFolder(getString("folder") ?: DEFAULT_TAB_FOLDER_KEY),
-                openCount = getLong("openCount")?.toInt() ?: 0,
-                lastOpenedAt = getLong("lastOpenedAt") ?: 0L,
-                createdAt = getLong("createdAt")
-                    ?: getLong("updatedAt")
-                    ?: getLong("lastOpenedAt")
-                    ?: 0L,
-                updatedAt = getLong("updatedAt") ?: 0L,
-                offlineReady = getBoolean("offlineReady") ?: false
-            )
-        }.getOrNull()
-    }
-
-    private fun DocumentSnapshot.toGoal(): Goal? {
-        return runCatching {
-            Goal(
-                id = getLong("id")?.toInt() ?: 0,
-                syncId = getString("syncId") ?: id,
-                type = enumValueOrDefault(getString("type"), GoalType.CUSTOM),
-                description = getString("description") ?: "",
-                target = getLong("target")?.toInt() ?: 0,
-                progress = getLong("progress")?.toInt() ?: 0,
-                deadline = getLong("deadline") ?: 0L,
-                updatedAt = getLong("updatedAt") ?: 0L,
-                isCompleted = getBoolean("isCompleted") ?: false,
-                isOverdue = getBoolean("isOverdue") ?: false
-            )
-        }.getOrNull()
-    }
-
-    private fun DocumentSnapshot.toProgress(): TabPlaybackProgress? {
-        return runCatching {
-            TabPlaybackProgress(
-                tabId = getString("tabId") ?: id,
-                tabName = getString("tabName") ?: "",
-                lastTick = getLong("lastTick") ?: 0L,
-                lastBarIndex = getLong("lastBarIndex")?.toInt() ?: 0,
-                totalBars = getLong("totalBars")?.toInt() ?: 0,
-                updatedAt = getLong("updatedAt") ?: 0L
-            )
-        }.getOrNull()
-    }
-
-    private fun canonicalTabName(name: String): String {
-        return name.trim().lowercase().replace(Regex("\\s+"), " ")
-    }
-
-    private fun canonicalTabKey(tab: TabItem): String {
-        return "${tab.isUserTab}|${canonicalTabName(tab.name)}|${tab.lessonNumber}"
-    }
-
-    private fun canonicalTabIdentity(tab: TabItem): String {
-        return if (tab.isUserTab) canonicalTabKey(tab) else "builtin:${tab.id}"
-    }
-
-    private fun mergeTags(local: String, remote: String): String {
-        return (local.split(",") + remote.split(","))
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-            .distinct()
-            .joinToString(",")
-    }
-
-    private suspend fun importRemoteTabs(documents: List<DocumentSnapshot>): RemoteTabsImportResult {
-        val tabs = mutableListOf<TabItem>()
-        val unresolvedRemoteIds = mutableSetOf<String>()
-
-        documents.forEach { document ->
-            val remoteId = document.getString("id") ?: document.id
-            val importedTab = document.toTabItem()
-            if (importedTab != null) {
-                tabs += importedTab
-            } else if (document.getBoolean("isUserTab") == true) {
-                unresolvedRemoteIds += remoteId
-            }
-        }
-
-        return RemoteTabsImportResult(
-            tabs = tabs,
-            unresolvedRemoteIds = unresolvedRemoteIds
-        )
-    }
-
-    private fun importRemoteSessions(documents: List<DocumentSnapshot>): RemoteImportResult<Session> {
-        val sessions = mutableListOf<Session>()
-        val unresolvedRemoteIds = mutableSetOf<String>()
-
-        documents.forEach { document ->
-            val session = document.toSession()
-            if (session != null) {
-                sessions += session
-            } else {
-                unresolvedRemoteIds += document.id
-            }
-        }
-
-        return RemoteImportResult(
-            items = sessions,
-            unresolvedRemoteIds = unresolvedRemoteIds
-        )
-    }
-
-    private fun importRemoteTextNotes(documents: List<DocumentSnapshot>): RemoteImportResult<TextNote> {
-        val textNotes = mutableListOf<TextNote>()
-        val unresolvedRemoteIds = mutableSetOf<String>()
-
-        documents.forEach { document ->
-            val textNote = document.toTextNote()
-            if (textNote != null) {
-                textNotes += textNote
-            } else {
-                unresolvedRemoteIds += document.id
-            }
-        }
-
-        return RemoteImportResult(
-            items = textNotes,
-            unresolvedRemoteIds = unresolvedRemoteIds
-        )
-    }
-
-    private suspend fun importRemoteAudioNotes(documents: List<DocumentSnapshot>): RemoteImportResult<AudioNote> {
-        val audioNotes = mutableListOf<AudioNote>()
-        val unresolvedRemoteIds = mutableSetOf<String>()
-
-        documents.forEach { document ->
-            val audioNote = document.toAudioNote()
-            if (audioNote != null) {
-                audioNotes += audioNote
-            } else {
-                unresolvedRemoteIds += document.id
-            }
-        }
-
-        return RemoteImportResult(
-            items = audioNotes,
-            unresolvedRemoteIds = unresolvedRemoteIds
-        )
-    }
-
-    private suspend fun restoreUserTabFile(
-        tabId: String,
-        tabName: String,
-        originalPath: String?,
-        storagePath: String?,
-        fileBase64: String?
-    ): String? {
-        val existing = originalPath?.takeIf { path ->
-            runCatching { File(path).exists() }.getOrDefault(false)
-        }
-        if (existing != null) return existing
-
-        val safeName = tabName
-            .ifBlank { tabId }
-            .replace(Regex("[^A-Za-z0-9._-]"), "_")
-            .take(48)
-        val targetDir = File(context.filesDir, "synced_tabs").apply { mkdirs() }
-        val targetFile = File(targetDir, "${tabId}_$safeName.gp")
-
-        if (!storagePath.isNullOrBlank()) {
-            val restoredFromStorage = runCatching {
-                if (!targetFile.exists() || targetFile.length() == 0L) {
-                    storage.reference.child(storagePath).getFile(targetFile).await()
-                }
-                targetFile.absolutePath
-            }.getOrNull()
-            if (restoredFromStorage != null) return restoredFromStorage
-        }
-
-        if (fileBase64.isNullOrBlank()) return null
-
-        return runCatching {
-            if (!targetFile.exists() || targetFile.length() == 0L) {
-                targetFile.writeBytes(Base64.decode(fileBase64, Base64.DEFAULT))
-            }
-            targetFile.absolutePath
-        }.getOrNull()
-    }
-
-    private suspend fun restoreAudioNoteFile(
-        documentId: String,
-        fileName: String?,
-        storagePath: String?,
-        fileBase64: String?
-    ): String? {
-        val safeName = fileName
-            ?.ifBlank { null }
-            ?.replace(Regex("[^A-Za-z0-9._-]"), "_")
-            ?.take(64)
-            ?: documentId
-        val extension = safeName.substringAfterLast('.', "").takeIf { it.isNotBlank() }
-        val targetDir = File(context.filesDir, "synced_audio_notes").apply { mkdirs() }
-        val targetFile = if (extension != null) {
-            File(targetDir, "${documentId}_$safeName")
-        } else {
-            File(targetDir, documentId)
-        }
-
-        if (!storagePath.isNullOrBlank()) {
-            val restoredFromStorage = runCatching {
-                if (!targetFile.exists() || targetFile.length() == 0L) {
-                    storage.reference.child(storagePath).getFile(targetFile).await()
-                }
-                targetFile.absolutePath
-            }.getOrNull()
-            if (restoredFromStorage != null) return restoredFromStorage
-        }
-
-        if (fileBase64.isNullOrBlank()) return null
-
-        return runCatching {
-            if (!targetFile.exists() || targetFile.length() == 0L) {
-                targetFile.writeBytes(Base64.decode(fileBase64, Base64.DEFAULT))
-            }
-            targetFile.absolutePath
-        }.getOrNull()
-    }
-
-    private suspend fun uploadUserTabFile(userId: String, tab: TabItem): String? {
-        if (!tab.isUserTab) return null
-        val path = tab.filePath ?: return null
-        val file = File(path)
-        if (!file.exists() || !file.isFile) return null
-
-        val storagePath = storagePathForTab(userId, tab.id)
-        return runCatching {
-            storage.reference.child(storagePath)
-                .putFile(Uri.fromFile(file))
-                .await()
-            storagePath
-        }.getOrNull()
-    }
-
-    private suspend fun prepareCloudTabFilePayload(
-        userId: String,
-        tab: TabItem,
-        existingStoragePath: String?
-    ): CloudTabFilePayload {
-        if (!tab.isUserTab) return CloudTabFilePayload(storagePath = null, fileBase64 = null)
-
-        val uploadedStoragePath = uploadUserTabFile(userId, tab)
-        if (!uploadedStoragePath.isNullOrBlank()) {
-            return CloudTabFilePayload(
-                storagePath = uploadedStoragePath,
-                fileBase64 = null
-            )
-        }
-
-        val verifiedExistingStoragePath = existingStoragePath?.takeIf { path ->
-            path.isNotBlank() && isStorageObjectAvailable(path)
-        }
-        val inlineFileBase64 = exportUserTabFileBase64(tab)
-
-        if (!inlineFileBase64.isNullOrBlank()) {
-            return CloudTabFilePayload(
-                storagePath = verifiedExistingStoragePath,
-                fileBase64 = inlineFileBase64
-            )
-        }
-
-        if (!verifiedExistingStoragePath.isNullOrBlank()) {
-            return CloudTabFilePayload(
-                storagePath = verifiedExistingStoragePath,
-                fileBase64 = null
-            )
-        }
-
-        throw IllegalStateException(
-            context.getString(com.guitarlearning.R.string.sync_error_tab_file_failed, tab.name)
-        )
-    }
-
-    private suspend fun uploadAudioNoteFile(
-        userId: String,
-        documentId: String,
-        audioNote: AudioNote
-    ): String? {
-        val file = File(audioNote.filePath)
-        if (!file.exists() || !file.isFile) return null
-
-        val storagePath = storagePathForAudioNote(
-            userId = userId,
-            documentId = documentId,
-            extension = file.extension
-        )
-        return runCatching {
-            storage.reference.child(storagePath)
-                .putFile(Uri.fromFile(file))
-                .await()
-            storagePath
-        }.getOrNull()
-    }
-
-    private suspend fun prepareCloudAudioNoteFilePayload(
-        userId: String,
-        documentId: String,
-        audioNote: AudioNote,
-        existingStoragePath: String?
-    ): CloudAudioNoteFilePayload {
-        val uploadedStoragePath = uploadAudioNoteFile(userId, documentId, audioNote)
-        if (!uploadedStoragePath.isNullOrBlank()) {
-            return CloudAudioNoteFilePayload(
-                storagePath = uploadedStoragePath,
-                fileBase64 = null
-            )
-        }
-
-        val verifiedExistingStoragePath = existingStoragePath?.takeIf { path ->
-            path.isNotBlank() && isStorageObjectAvailable(path)
-        }
-        val inlineFileBase64 = exportAudioNoteFileBase64(audioNote)
-
-        if (!inlineFileBase64.isNullOrBlank()) {
-            return CloudAudioNoteFilePayload(
-                storagePath = verifiedExistingStoragePath,
-                fileBase64 = inlineFileBase64
-            )
-        }
-
-        if (!verifiedExistingStoragePath.isNullOrBlank()) {
-            return CloudAudioNoteFilePayload(
-                storagePath = verifiedExistingStoragePath,
-                fileBase64 = null
-            )
-        }
-
-        throw IllegalStateException("Failed to sync audio note file for lesson ${audioNote.lessonId}")
-    }
-
-    private fun exportUserTabFileBase64(tab: TabItem): String? {
-        if (!tab.isUserTab) return null
-        val path = tab.filePath ?: return null
-        val file = File(path)
-        if (!file.exists() || !file.isFile) return null
-        if (file.length() > MaxInlineUserTabBytes) return null
-        return runCatching {
-            Base64.encodeToString(file.readBytes(), Base64.NO_WRAP)
-        }.getOrNull()
-    }
-
-    private fun exportAudioNoteFileBase64(audioNote: AudioNote): String? {
-        val file = File(audioNote.filePath)
-        if (!file.exists() || !file.isFile) return null
-        if (file.length() > MaxInlineAudioNoteBytes) return null
-        return runCatching {
-            Base64.encodeToString(file.readBytes(), Base64.NO_WRAP)
-        }.getOrNull()
-    }
-
-    private suspend fun isStorageObjectAvailable(storagePath: String): Boolean {
-        return runCatching {
-            storage.reference.child(storagePath).metadata.await()
-            true
-        }.getOrDefault(false)
-    }
-
-    private suspend fun deleteUserTabFile(userId: String, tabId: String) {
-        runCatching {
-            storage.reference.child(storagePathForTab(userId, tabId)).delete().await()
-        }
-    }
-
-    private suspend fun deleteAudioNoteFile(storagePath: String?) {
-        if (storagePath.isNullOrBlank()) return
-        runCatching {
-            storage.reference.child(storagePath).delete().await()
-        }
-    }
-
-    private suspend fun deleteStaleUserTabFiles(
-        userId: String,
-        remoteIds: Set<String>,
-        localIds: Set<String>
-    ) {
-        (remoteIds - localIds).forEach { staleId ->
-            deleteUserTabFile(userId, staleId)
-        }
-    }
-
-    private suspend fun deleteStaleAudioNoteFiles(
-        userId: String,
-        remoteIds: Set<String>,
-        localIds: Set<String>,
-        remoteStoragePathsById: Map<String, String?>
-    ) {
-        (remoteIds - localIds).forEach { staleId ->
-            val storagePath = remoteStoragePathsById[staleId]
-                ?: storagePathForAudioNote(userId, staleId, extension = null)
-            deleteAudioNoteFile(storagePath)
-        }
-    }
-
-    private suspend fun deleteAllUserTabFiles(userId: String) {
-        runCatching {
-            val listResult = storage.reference.child("users/$userId/tabs").listAll().await()
-            listResult.items.forEach { item ->
-                runCatching { item.delete().await() }
-            }
-        }
-    }
-
-    private suspend fun deleteAllAudioNoteFiles(userId: String) {
-        runCatching {
-            val listResult = storage.reference.child("users/$userId/audio_notes").listAll().await()
-            listResult.items.forEach { item ->
-                runCatching { item.delete().await() }
-            }
-        }
-    }
-
-    private fun deleteLocalAudioNoteFiles(audioNotes: List<AudioNote>) {
-        audioNotes.forEach { audioNote ->
-            runCatching {
-                File(audioNote.filePath).takeIf { it.exists() }?.delete()
-            }
-        }
-        runCatching {
-            File(context.filesDir, "synced_audio_notes")
-                .takeIf { it.exists() }
-                ?.listFiles()
-                ?.forEach { it.delete() }
-        }
-    }
-
-    private fun sessionDocumentId(session: Session): String {
-        return sha1(
-            buildString {
-                append(session.startTime.time)
-                append('|')
-                append(session.endTime.time)
-                append('|')
-                append(session.duration)
-                append('|')
-                append(
-                    session.practicedTabs.joinToString(";") {
-                        "${it.tabId}:${it.tabName}:${it.duration}"
-                    }
-                )
-            }
-        )
-    }
-
-    private fun textNoteDocumentId(textNote: TextNote): String {
-        return sha1("${textNote.lessonId}|${textNote.createdAt.time}")
-    }
-
-    private fun audioNoteDocumentId(audioNote: AudioNote): String {
-        return sha1("${audioNote.lessonId}|${audioNote.createdAt.time}")
-    }
-
-    private fun goalFingerprint(goal: Goal): String {
-        return sha1(
-            buildString {
-                append(goal.type.name)
-                append('|')
-                append(goal.description)
-                append('|')
-                append(goal.target)
-                append('|')
-                append(goal.deadline)
-            }
-        )
-    }
-
-    private fun sha1(value: String): String {
-        val digest = MessageDigest.getInstance("SHA-1").digest(value.toByteArray(Charsets.UTF_8))
-        return digest.joinToString("") { "%02x".format(it) }
-    }
-
-    private fun storagePathForTab(userId: String, tabId: String): String {
-        return "users/$userId/tabs/$tabId.gp"
-    }
-
-    private fun storagePathForAudioNote(
-        userId: String,
-        documentId: String,
-        extension: String?
-    ): String {
-        val normalizedExtension = extension
-            ?.trim()
-            ?.trimStart('.')
-            ?.takeIf { it.isNotBlank() }
-            ?.let { ".$it" }
-            .orEmpty()
-        return "users/$userId/audio_notes/$documentId$normalizedExtension"
-    }
-
-    private fun DocumentSnapshot.getDateCompat(field: String): Date? {
-        return when (val value = get(field)) {
-            is Date -> value
-            is Timestamp -> value.toDate()
-            is Number -> Date(value.toLong())
-            is String -> value.toLongOrNull()?.let(::Date)
-            else -> getDate(field) ?: getLong(field)?.let(::Date)
-        }
-    }
-
-    private fun DocumentSnapshot.getLongCompat(field: String): Long? {
-        return when (val value = get(field)) {
-            is Number -> value.toLong()
-            is String -> value.toLongOrNull()
-            is Date -> value.time
-            is Timestamp -> value.toDate().time
-            else -> getLong(field)
-        }
-    }
-
-    private fun DocumentSnapshot.getStringCompat(field: String): String? {
-        return when (val value = get(field)) {
-            null -> getString(field)
-            is String -> value
-            else -> value.toString()
-        }
-    }
-
-    private fun DocumentSnapshot.getBooleanCompat(field: String): Boolean? {
-        return when (val value = get(field)) {
-            is Boolean -> value
-            is Number -> value.toInt() != 0
-            is String -> value.equals("true", ignoreCase = true) || value == "1"
-            else -> getBoolean(field)
-        }
-    }
-
-    private fun Map<*, *>.getDateCompat(field: String): Date? {
-        return when (val value = this[field]) {
-            is Date -> value
-            is Timestamp -> value.toDate()
-            is Number -> Date(value.toLong())
-            is String -> value.toLongOrNull()?.let(::Date)
-            else -> null
-        }
-    }
-
-    private fun Map<*, *>.getLongCompat(field: String): Long? {
-        return when (val value = this[field]) {
-            is Number -> value.toLong()
-            is String -> value.toLongOrNull()
-            is Date -> value.time
-            is Timestamp -> value.toDate().time
-            else -> null
-        }
-    }
-
-    private inline fun <reified T : Enum<T>> enumValueOrDefault(value: String?, fallback: T): T {
-        return value?.let { runCatching { enumValueOf<T>(it) }.getOrNull() } ?: fallback
-    }
 }
