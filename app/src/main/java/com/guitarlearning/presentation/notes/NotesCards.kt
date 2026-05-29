@@ -39,7 +39,7 @@ import androidx.compose.ui.unit.dp
 import com.guitarlearning.R
 import com.guitarlearning.domain.model.AudioNote
 import com.guitarlearning.domain.model.TextNote
-import com.guitarlearning.presentation.audio_notes.PlayerState
+import com.guitarlearning.infrastructure.media.PlayerState
 import com.guitarlearning.presentation.ui.formatDurationShort
 import com.guitarlearning.presentation.ui.theme.appBlockBorder
 import java.io.File

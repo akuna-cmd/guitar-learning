@@ -36,7 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.guitarlearning.R
 import com.guitarlearning.domain.model.AudioNote
 import com.guitarlearning.domain.model.TextNote
-import com.guitarlearning.presentation.audio_notes.PlayerState
+import com.guitarlearning.infrastructure.media.PlayerState
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState

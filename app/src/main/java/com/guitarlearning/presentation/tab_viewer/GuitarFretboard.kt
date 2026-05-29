@@ -55,7 +55,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.res.stringResource
 import com.guitarlearning.R
-import com.guitarlearning.core.preferences.FretboardDisplayMode
 import kotlinx.coroutines.launch
 import kotlin.math.max
 
@@ -86,17 +85,12 @@ private data class FretNote(
 fun GuitarFretboard(
     analysis: TabAnalysis?,
     isPlaying: Boolean = true,
-    displayMode: FretboardDisplayMode = FretboardDisplayMode.DETAILED,
     modifier: Modifier = Modifier
 ) {
     val textMeasurer = rememberTextMeasurer()
     val scheme = MaterialTheme.colorScheme
     val rawInstructions = analysis?.instructions?.filter { it.isNotBlank() } ?: emptyList()
-    val allInstructions = if (displayMode == FretboardDisplayMode.SIMPLE) {
-        rawInstructions.take(4)
-    } else {
-        rawInstructions
-    }
+    val allInstructions = rawInstructions
     val hintListState = rememberLazyListState()
     val hintScope = rememberCoroutineScope()
     val hiddenHintCount by remember(allInstructions.size) {
@@ -157,14 +151,11 @@ fun GuitarFretboard(
     val hintTextColor = scheme.onSurface
     val hintAccent = scheme.primary
     val boardHeight = when {
-        allInstructions.isNotEmpty() && displayMode == FretboardDisplayMode.DETAILED -> 150.dp
-        allInstructions.isNotEmpty() -> 136.dp
-        displayMode == FretboardDisplayMode.DETAILED -> 185.dp
-        else -> 170.dp
+        allInstructions.isNotEmpty() -> 150.dp
+        else -> 185.dp
     }
     val instructionsHeight = when {
-        allInstructions.isNotEmpty() && displayMode == FretboardDisplayMode.DETAILED -> 170.dp
-        allInstructions.isNotEmpty() -> 150.dp
+        allInstructions.isNotEmpty() -> 170.dp
         else -> 0.dp
     }
 
@@ -377,7 +368,7 @@ fun GuitarFretboard(
                 }
             }
 
-            analysis?.contextHint?.takeIf { it.isNotBlank() && displayMode == FretboardDisplayMode.DETAILED }?.let { hint ->
+            analysis?.contextHint?.takeIf { it.isNotBlank() }?.let { hint ->
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)

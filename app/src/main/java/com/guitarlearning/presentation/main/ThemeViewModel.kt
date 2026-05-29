@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.guitarlearning.core.preferences.AiProvider
 import com.guitarlearning.core.preferences.AppLanguage
-import com.guitarlearning.core.preferences.FretboardDisplayMode
 import com.guitarlearning.core.preferences.TabDisplayMode
 import com.guitarlearning.core.preferences.ThemeMode
 import com.guitarlearning.domain.repository.AppSettingsRepository
@@ -26,7 +25,6 @@ data class ThemeUiState(
     val normalTabScale: Float = 1.0f,
     val practiceTabScale: Float = 1.0f,
     val tabDisplayMode: TabDisplayMode = TabDisplayMode.TAB_AND_NOTES,
-    val fretboardDisplayMode: FretboardDisplayMode = FretboardDisplayMode.DETAILED,
     val isLoading: Boolean = true
 )
 
@@ -47,7 +45,6 @@ class ThemeViewModel @Inject constructor(
                 normalTabScale = settings.normalTabScale,
                 practiceTabScale = settings.practiceTabScale,
                 tabDisplayMode = settings.tabDisplayMode,
-                fretboardDisplayMode = settings.fretboardDisplayMode,
                 isLoading = false
             )
         }
@@ -117,9 +114,4 @@ class ThemeViewModel @Inject constructor(
         }
     }
 
-    fun setFretboardDisplayMode(mode: FretboardDisplayMode) {
-        viewModelScope.launch {
-            appSettingsRepository.setFretboardDisplayMode(mode)
-        }
-    }
 }

@@ -1,4 +1,4 @@
-package com.guitarlearning.data.repository
+package com.guitarlearning.data.tabs
 
 import com.guitarlearning.data.model.LessonDto
 import com.guitarlearning.domain.model.DEFAULT_TAB_FOLDER_KEY

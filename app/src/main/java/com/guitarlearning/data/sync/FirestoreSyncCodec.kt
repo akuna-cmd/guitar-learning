@@ -1,4 +1,4 @@
-package com.guitarlearning.data.repository
+package com.guitarlearning.data.sync
 
 import com.guitarlearning.core.preferences.AiProvider
 import com.guitarlearning.core.preferences.AppSettingsSnapshot
@@ -47,7 +47,6 @@ internal fun AppSettingsSnapshot.toFirestoreMap(): Map<String, Any> {
         "normalTabScale" to normalTabScale,
         "practiceTabScale" to practiceTabScale,
         "tabDisplayMode" to tabDisplayMode.name,
-        "fretboardDisplayMode" to fretboardDisplayMode.name,
         "updatedAt" to updatedAt
     )
 }
@@ -165,7 +164,6 @@ internal fun DocumentSnapshot.toSettingsOrNull(): AppSettingsSnapshot? {
         normalTabScale = getDouble("normalTabScale")?.toFloat() ?: 1.0f,
         practiceTabScale = getDouble("practiceTabScale")?.toFloat() ?: 1.0f,
         tabDisplayMode = enumValueOrDefault(getString("tabDisplayMode"), defaults.tabDisplayMode),
-        fretboardDisplayMode = enumValueOrDefault(getString("fretboardDisplayMode"), defaults.fretboardDisplayMode),
         updatedAt = getLong("updatedAt") ?: 0L
     )
 }

@@ -10,6 +10,12 @@ import com.guitarlearning.data.local.entity.toDomain
 import com.guitarlearning.data.local.entity.toEntity
 import com.guitarlearning.data.model.LessonDto
 import com.guitarlearning.data.model.toDomain
+import com.guitarlearning.data.tabs.DefaultUserTabFileExtension
+import com.guitarlearning.data.tabs.SupportedUserTabExtensions
+import com.guitarlearning.data.tabs.buildBuiltInTabs
+import com.guitarlearning.data.tabs.fallbackDisplayNameFromPath
+import com.guitarlearning.data.tabs.localizeBuiltInTabs
+import com.guitarlearning.data.tabs.normalizeTags
 import com.guitarlearning.domain.model.Difficulty
 import com.guitarlearning.domain.model.DEFAULT_TAB_FOLDER_KEY
 import com.guitarlearning.domain.model.Lesson as DomainLesson

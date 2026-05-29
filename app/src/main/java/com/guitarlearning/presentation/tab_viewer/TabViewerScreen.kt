@@ -63,7 +63,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.guitarlearning.R
-import com.guitarlearning.core.preferences.FretboardDisplayMode
 import com.guitarlearning.presentation.ai_assistant.AiAssistantScreen
 import com.guitarlearning.presentation.main.MainViewModel
 import com.guitarlearning.presentation.notes.NotesScreen
@@ -379,7 +378,6 @@ fun TabViewerScreen(
                             GuitarFretboard(
                                 analysis = uiState.tabAnalysis,
                                 isPlaying = isPlayingState,
-                                displayMode = themeUiState.fretboardDisplayMode,
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .padding(horizontal = 8.dp)

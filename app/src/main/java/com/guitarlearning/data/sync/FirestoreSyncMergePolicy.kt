@@ -1,4 +1,4 @@
-package com.guitarlearning.data.repository
+package com.guitarlearning.data.sync
 
 import com.guitarlearning.core.preferences.AppSettingsSnapshot
 import com.guitarlearning.domain.model.AudioNote

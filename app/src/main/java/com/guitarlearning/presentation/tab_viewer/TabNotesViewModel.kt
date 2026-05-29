@@ -8,8 +8,8 @@ import com.guitarlearning.domain.model.AudioNote
 import com.guitarlearning.domain.model.TextNote
 import com.guitarlearning.domain.repository.AudioNoteRepository
 import com.guitarlearning.domain.repository.TextNoteRepository
-import com.guitarlearning.presentation.audio_notes.AudioNoteMediaController
-import com.guitarlearning.presentation.audio_notes.PlayerState
+import com.guitarlearning.infrastructure.media.AudioNoteMediaController
+import com.guitarlearning.infrastructure.media.PlayerState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow

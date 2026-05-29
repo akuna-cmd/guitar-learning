@@ -2,7 +2,6 @@ package com.guitarlearning.di
 
 import com.guitarlearning.data.repository.AiAssistantRepositoryImpl
 import com.guitarlearning.data.repository.AudioNoteRepositoryImpl
-import com.guitarlearning.data.repository.FirestoreSyncRepositoryImpl
 import com.guitarlearning.data.repository.GoalRepositoryImpl
 import com.guitarlearning.data.repository.SessionRepositoryImpl
 import com.guitarlearning.data.repository.SoundFontRepositoryImpl
@@ -10,9 +9,12 @@ import com.guitarlearning.data.repository.TabFileRepositoryImpl
 import com.guitarlearning.data.repository.TabPlaybackProgressRepositoryImpl
 import com.guitarlearning.data.repository.TabRepositoryImpl
 import com.guitarlearning.data.repository.TextNoteRepositoryImpl
+import com.guitarlearning.data.settings.DataStoreAppSettingsRepository
 import com.guitarlearning.data.session.SessionHistoryTransferImpl
+import com.guitarlearning.data.sync.FirestoreSyncRepositoryImpl
 import com.guitarlearning.domain.session.SessionHistoryTransfer
 import com.guitarlearning.domain.repository.AiAssistantRepository
+import com.guitarlearning.domain.repository.AppSettingsRepository
 import com.guitarlearning.domain.repository.AudioNoteRepository
 import com.guitarlearning.domain.repository.GoalRepository
 import com.guitarlearning.domain.repository.SessionRepository
@@ -31,6 +33,12 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
+
+    @Binds
+    @Singleton
+    abstract fun bindAppSettingsRepository(
+        implementation: DataStoreAppSettingsRepository
+    ): AppSettingsRepository
 
     @Binds
     @Singleton

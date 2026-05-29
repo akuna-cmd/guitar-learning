@@ -1,4 +1,4 @@
-package com.guitarlearning.presentation.audio_notes
+package com.guitarlearning.infrastructure.media
 
 import android.content.Context
 import android.media.MediaPlayer

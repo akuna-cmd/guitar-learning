@@ -1,4 +1,4 @@
-package com.guitarlearning.data.repository
+package com.guitarlearning.data.sync
 
 import android.util.Log
 import com.guitarlearning.core.preferences.AppSettingsSnapshot

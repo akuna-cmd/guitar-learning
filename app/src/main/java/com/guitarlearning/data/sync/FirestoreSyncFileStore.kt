@@ -1,4 +1,4 @@
-package com.guitarlearning.data.repository
+package com.guitarlearning.data.sync
 
 import android.content.Context
 import android.net.Uri
