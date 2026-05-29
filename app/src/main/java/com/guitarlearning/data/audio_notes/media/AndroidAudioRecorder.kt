@@ -1,4 +1,4 @@
-package com.guitarlearning.infrastructure.media
+package com.guitarlearning.data.audio_notes.media
 
 import android.content.Context
 import android.media.MediaRecorder
@@ -6,7 +6,7 @@ import android.os.Build
 import java.io.File
 import java.io.FileOutputStream
 
-class AudioRecorder(private val context: Context) {
+class AndroidAudioRecorder(private val context: Context) {
 
     private var recorder: MediaRecorder? = null
 

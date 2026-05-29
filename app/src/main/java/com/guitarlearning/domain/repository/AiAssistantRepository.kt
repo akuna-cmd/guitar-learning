@@ -1,7 +1,7 @@
 package com.guitarlearning.domain.repository
 
 import com.guitarlearning.domain.model.AiAssistantRequest
-import com.guitarlearning.core.preferences.AiProvider
+import com.guitarlearning.domain.settings.AiProvider
 
 data class AiAnswerResult(
     val text: String,

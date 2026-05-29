@@ -4,7 +4,7 @@ import android.content.Context
 import android.net.Uri
 import com.guitarlearning.R
 import com.guitarlearning.core.locale.AppLocaleManager
-import com.guitarlearning.core.preferences.AiProvider
+import com.guitarlearning.domain.settings.AiProvider
 import com.guitarlearning.domain.session.SessionHistoryTransfer
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

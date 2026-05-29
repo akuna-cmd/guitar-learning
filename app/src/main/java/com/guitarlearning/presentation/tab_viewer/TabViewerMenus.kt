@@ -29,7 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.guitarlearning.R
-import com.guitarlearning.core.preferences.TabDisplayMode
+import com.guitarlearning.domain.settings.TabDisplayMode
 import com.guitarlearning.presentation.ui.HoldableIconButton
 
 @Composable

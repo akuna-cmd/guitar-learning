@@ -1,4 +1,4 @@
-package com.guitarlearning.core.preferences
+package com.guitarlearning.domain.settings
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 

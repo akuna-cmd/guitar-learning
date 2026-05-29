@@ -1,7 +1,7 @@
 package com.guitarlearning.data.sync
 
-import com.guitarlearning.core.preferences.AiProvider
-import com.guitarlearning.core.preferences.AppSettingsSnapshot
+import com.guitarlearning.domain.settings.AiProvider
+import com.guitarlearning.domain.settings.AppSettingsSnapshot
 import com.guitarlearning.domain.model.AudioNote
 import com.guitarlearning.domain.model.Goal
 import com.guitarlearning.domain.model.GoalType

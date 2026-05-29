@@ -2,10 +2,10 @@ package com.guitarlearning.presentation.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.guitarlearning.core.preferences.AiProvider
-import com.guitarlearning.core.preferences.AppLanguage
-import com.guitarlearning.core.preferences.TabDisplayMode
-import com.guitarlearning.core.preferences.ThemeMode
+import com.guitarlearning.domain.settings.AiProvider
+import com.guitarlearning.domain.settings.AppLanguage
+import com.guitarlearning.domain.settings.TabDisplayMode
+import com.guitarlearning.domain.settings.ThemeMode
 import com.guitarlearning.domain.repository.AppSettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted

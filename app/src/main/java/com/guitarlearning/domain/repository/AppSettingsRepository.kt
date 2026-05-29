@@ -1,10 +1,10 @@
 package com.guitarlearning.domain.repository
 
-import com.guitarlearning.core.preferences.AiProvider
-import com.guitarlearning.core.preferences.AppLanguage
-import com.guitarlearning.core.preferences.AppSettingsSnapshot
-import com.guitarlearning.core.preferences.TabDisplayMode
-import com.guitarlearning.core.preferences.ThemeMode
+import com.guitarlearning.domain.settings.AiProvider
+import com.guitarlearning.domain.settings.AppLanguage
+import com.guitarlearning.domain.settings.AppSettingsSnapshot
+import com.guitarlearning.domain.settings.TabDisplayMode
+import com.guitarlearning.domain.settings.ThemeMode
 import kotlinx.coroutines.flow.Flow
 
 interface AppSettingsRepository {

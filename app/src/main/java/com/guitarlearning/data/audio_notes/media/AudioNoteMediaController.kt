@@ -1,4 +1,4 @@
-package com.guitarlearning.infrastructure.media
+package com.guitarlearning.data.audio_notes.media
 
 import android.content.Context
 import android.net.Uri
@@ -13,8 +13,8 @@ class AudioNoteMediaController @Inject constructor(
     @ApplicationContext private val context: Context,
     private val dispatchers: AppDispatchers
 ) {
-    private val audioRecorder = AudioRecorder(context)
-    private val audioPlayer = AudioPlayer(context, dispatchers.main)
+    private val audioRecorder = AndroidAudioRecorder(context)
+    private val audioPlayer = AndroidAudioPlayer(context, dispatchers.main)
     private var recordingFile: File? = null
 
     val playerState: StateFlow<PlayerState> = audioPlayer.playerState

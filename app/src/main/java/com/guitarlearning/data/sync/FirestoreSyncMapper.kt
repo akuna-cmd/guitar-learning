@@ -1,7 +1,7 @@
 package com.guitarlearning.data.sync
 
 import android.util.Log
-import com.guitarlearning.core.preferences.AppSettingsSnapshot
+import com.guitarlearning.domain.settings.AppSettingsSnapshot
 import com.guitarlearning.domain.model.AudioNote
 import com.guitarlearning.domain.model.DEFAULT_TAB_FOLDER_KEY
 import com.guitarlearning.domain.model.Difficulty

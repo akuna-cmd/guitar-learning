@@ -12,7 +12,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.webkit.WebViewAssetLoader
 import com.guitarlearning.BuildConfig
-import com.guitarlearning.core.preferences.TabDisplayMode
+import com.guitarlearning.domain.settings.TabDisplayMode
 import com.guitarlearning.presentation.main.ThemeUiState
 
 internal const val ENABLE_TAB_PERF_TRACE = false

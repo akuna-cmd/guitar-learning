@@ -3,7 +3,7 @@ package com.guitarlearning.data.repository
 import android.content.Context
 import android.util.Log
 import com.guitarlearning.R
-import com.guitarlearning.core.preferences.AiProvider
+import com.guitarlearning.domain.settings.AiProvider
 import com.guitarlearning.data.remote.AiAssistantPromptBuilder
 import com.guitarlearning.data.remote.AiAssistantConfigProvider
 import com.guitarlearning.domain.model.AiAssistantRequest

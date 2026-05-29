@@ -23,8 +23,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.guitarlearning.core.preferences.TabDisplayMode
-import com.guitarlearning.core.preferences.ThemeMode
+import com.guitarlearning.domain.settings.TabDisplayMode
+import com.guitarlearning.domain.settings.ThemeMode
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
