@@ -2,7 +2,7 @@ package com.guitarlearning.data.model
 
 import com.google.gson.annotations.SerializedName
 
-data class Lesson(
+data class LessonDto(
     val id: String,
     val level: String,
     val order: Int,

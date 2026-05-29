@@ -36,9 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.guitarlearning.R
-import com.guitarlearning.presentation.ui.WebViewWarmup
 import com.guitarlearning.presentation.ui.theme.appBlockBorder
-import kotlinx.coroutines.delay
 
 private val TabMimeTypes = arrayOf("application/octet-stream", "text/plain", "*/*")
 
@@ -58,11 +56,6 @@ fun TabListScreen(
             uri?.let(viewModel::addUserTab)
         }
     )
-
-    LaunchedEffect(Unit) {
-        delay(350)
-        WebViewWarmup.warm(context)
-    }
 
     LaunchedEffect(localeTag) {
         viewModel.refreshBuiltInTabLocalizations()

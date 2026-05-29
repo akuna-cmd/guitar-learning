@@ -49,7 +49,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.guitarlearning.core.settings.ThemeMode
+import com.guitarlearning.core.preferences.ThemeMode
+import com.guitarlearning.core.web.WebViewWarmup
 import com.guitarlearning.presentation.goals.GoalsScreen
 import com.guitarlearning.presentation.main.HomeScreen
 import com.guitarlearning.presentation.main.MainViewModel
@@ -58,9 +59,8 @@ import com.guitarlearning.presentation.navigation.BottomNavItem
 import com.guitarlearning.presentation.navigation.lessonsNavGraph
 import com.guitarlearning.presentation.settings.SettingsScreen
 import com.guitarlearning.presentation.ui.AppBar
-import com.guitarlearning.presentation.ui.WebViewWarmup
 import com.guitarlearning.presentation.ui.theme.GuitarLearningTheme
-import com.guitarlearning.core.AppLocaleManager
+import com.guitarlearning.core.locale.AppLocaleManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 

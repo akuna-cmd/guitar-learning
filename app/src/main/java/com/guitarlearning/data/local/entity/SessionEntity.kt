@@ -1,4 +1,4 @@
-package com.guitarlearning.data.local
+package com.guitarlearning.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.ForeignKey

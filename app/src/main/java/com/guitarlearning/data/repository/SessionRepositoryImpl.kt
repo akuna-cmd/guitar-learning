@@ -1,9 +1,9 @@
 package com.guitarlearning.data.repository
 
-import com.guitarlearning.data.local.PracticedTabEntity
-import com.guitarlearning.data.local.SessionEntity
-import com.guitarlearning.data.local.SessionWithPracticedTabs
-import com.guitarlearning.data.local.SessionDao
+import com.guitarlearning.data.local.dao.SessionDao
+import com.guitarlearning.data.local.entity.PracticedTabEntity
+import com.guitarlearning.data.local.entity.SessionEntity
+import com.guitarlearning.data.local.entity.SessionWithPracticedTabs
 import com.guitarlearning.domain.model.PracticedTab
 import com.guitarlearning.domain.model.Session
 import com.guitarlearning.domain.repository.SessionRepository

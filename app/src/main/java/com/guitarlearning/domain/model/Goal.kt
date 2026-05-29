@@ -1,9 +1,6 @@
 package com.guitarlearning.domain.model
 
 import androidx.compose.runtime.Immutable
-import androidx.room.Entity
-import androidx.room.Index
-import androidx.room.PrimaryKey
 import java.util.UUID
 
 enum class GoalType {
@@ -13,12 +10,7 @@ enum class GoalType {
 }
 
 @Immutable
-@Entity(
-    tableName = "goals",
-    indices = [Index(value = ["syncId"], unique = true)]
-)
 data class Goal(
-    @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
     val syncId: String = UUID.randomUUID().toString(),
     val type: GoalType,

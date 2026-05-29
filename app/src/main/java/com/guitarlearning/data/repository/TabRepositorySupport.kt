@@ -1,6 +1,6 @@
 package com.guitarlearning.data.repository
 
-import com.guitarlearning.data.model.Lesson
+import com.guitarlearning.data.model.LessonDto
 import com.guitarlearning.domain.model.DEFAULT_TAB_FOLDER_KEY
 import com.guitarlearning.domain.model.Difficulty
 import com.guitarlearning.domain.model.TabItem
@@ -9,7 +9,7 @@ internal const val DefaultUserTabFileExtension = "gp"
 internal val SupportedUserTabExtensions = setOf("gp", "gp3", "gp4", "gp5", "gpx")
 
 internal fun buildBuiltInTabs(
-    lessons: List<Lesson>,
+    lessons: List<LessonDto>,
     useEnglishDescriptions: Boolean
 ): List<TabItem> {
     return lessons.mapIndexed { index, lesson ->

@@ -1,9 +1,9 @@
 package com.guitarlearning.data.model
 
-import com.guitarlearning.domain.model.Lesson as DomainLesson
+import com.guitarlearning.domain.model.Lesson
 
-fun Lesson.toDomain(useEnglishDescription: Boolean): DomainLesson {
-    return DomainLesson(
+fun LessonDto.toDomain(useEnglishDescription: Boolean): Lesson {
+    return Lesson(
         id = id,
         level = level,
         order = order,

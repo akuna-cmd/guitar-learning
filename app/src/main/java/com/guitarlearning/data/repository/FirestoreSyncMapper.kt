@@ -1,6 +1,7 @@
 package com.guitarlearning.data.repository
 
 import android.util.Log
+import com.guitarlearning.core.preferences.AppSettingsSnapshot
 import com.guitarlearning.domain.model.AudioNote
 import com.guitarlearning.domain.model.DEFAULT_TAB_FOLDER_KEY
 import com.guitarlearning.domain.model.Difficulty
@@ -29,7 +30,7 @@ internal class FirestoreSyncMapper(
         fileBase64: String?
     ) -> String?
 ) {
-    fun settingsToFirestoreMap(settings: com.guitarlearning.data.settings.AppSettingsSnapshot): Map<String, Any> {
+    fun settingsToFirestoreMap(settings: AppSettingsSnapshot): Map<String, Any> {
         return settings.toFirestoreMap()
     }
 

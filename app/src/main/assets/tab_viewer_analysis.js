@@ -1,20 +1,15 @@
-const BIOMECH = {
-    1:{1:8,2:1,3:2,4:4}, 2:{1:1,2:8,3:1,4:2},
-    3:{1:3,2:1,3:8,4:1}, 4:{1:6,2:3,3:1,4:8}
-};
-
-const biomechCost = (f, t) => (BIOMECH[f] || {})[t] || 5;
-const transCost = (p1, p2, d) => ((p2 - p1) ** 2) / Math.max(d, .125);
-
-function normalizeStringIndex(s) {
-    if (typeof s !== 'number') return s;
-    if (s < 1 || s > 6) return s;
-    return 7 - s;
+function normalizeStringIndex(stringIndex) {
+    if (typeof stringIndex !== 'number') return stringIndex;
+    if (stringIndex < 1 || stringIndex > 6) return stringIndex;
+    return 7 - stringIndex;
 }
 
 function ensureBody() {
     if (!document.body) {
-        const body = document.getElementsByTagName('body')[0] || document.documentElement || document.createElement('body');
+        const body =
+            document.getElementsByTagName('body')[0] ||
+            document.documentElement ||
+            document.createElement('body');
         document.body = body;
         if (document.documentElement && !body.parentNode) {
             document.documentElement.appendChild(body);
@@ -25,369 +20,360 @@ function ensureBody() {
     }
 }
 
-function configCost(frets, pos) {
-    const pr = frets.filter(f => f > 0);
-    if (!pr.length) return 0;
-    let c = 0;
-    const span = Math.max(...pr) - Math.min(...pr);
-    if (span > 4) c += (span - 4) ** 2 * 3;
-    for (const f of pr) {
-        const r = f - pos;
-        if (r < 0) c += 50;
-        else if (r > 4) c += (r - 4) ** 2 * 2;
-    }
-    return c;
+function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+}
+
+function positiveFrets(notes) {
+    return notes.map(note => note.fret).filter(fret => fret > 0);
 }
 
 function detectBarre(notes) {
-    const pr = notes.filter(n => n.fret > 0);
-    if (!pr.length) return null;
-    const mn = Math.min(...pr.map(n => n.fret));
-    const on = pr.filter(n => n.fret === mn);
-    if (on.length >= 3) {
-        const sortedStrings = on.map(n => n.string).sort((a, b) => a - b);
-        const span = sortedStrings[sortedStrings.length - 1] - sortedStrings[0];
-        const hasConsecutive = sortedStrings.some((s, i) => i > 0 && (s - sortedStrings[i - 1]) === 1);
-        if (span >= 2 && hasConsecutive) return mn;
+    const fretted = notes.filter(note => note.fret > 0 && !note.isDead);
+    if (fretted.length < 3) return null;
+
+    const minFret = Math.min(...fretted.map(note => note.fret));
+    const barreCandidates = fretted
+        .filter(note => note.fret === minFret)
+        .map(note => note.string)
+        .sort((a, b) => a - b);
+
+    if (barreCandidates.length < 3) return null;
+
+    let longestRun = 1;
+    let currentRun = 1;
+    for (let i = 1; i < barreCandidates.length; i++) {
+        if (barreCandidates[i] === barreCandidates[i - 1] + 1) {
+            currentRun += 1;
+            longestRun = Math.max(longestRun, currentRun);
+        } else {
+            currentRun = 1;
+        }
     }
+
+    return longestRun >= 3 ? minFret : null;
+}
+
+function chooseLeftHandPosition(notes) {
+    const frets = positiveFrets(notes);
+    if (!frets.length) return 1;
+    return Math.max(1, Math.min(...frets));
+}
+
+function assignLeftHand(notes, position, barreFret) {
+    const leftHand = {};
+    const placement = {};
+
+    for (const note of notes) {
+        const key = `${note.string}_${note.fret}`;
+        if (note.fret === 0) {
+            leftHand[key] = '-';
+            continue;
+        }
+        if (note.isDead) {
+            leftHand[key] = t('deadLabel');
+            continue;
+        }
+        if (barreFret !== null && note.fret === barreFret) {
+            leftHand[key] = `${leftHandName(1)} (${t('possibleBarre', { fret: barreFret })})`;
+            placement[note.string] = { fret: note.fret, finger: 1 };
+            continue;
+        }
+
+        const relativeFinger = clamp(note.fret - position + 1, 1, 4);
+        leftHand[key] = leftHandName(relativeFinger);
+        placement[note.string] = { fret: note.fret, finger: relativeFinger };
+    }
+
+    return { leftHand, placement };
+}
+
+class RightHandHeuristics {
+    constructor() {
+        this.lastTrebleFinger = 'm';
+    }
+
+    nextTrebleFinger() {
+        const cycle = ['i', 'm', 'a'];
+        const currentIndex = cycle.indexOf(this.lastTrebleFinger);
+        const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % cycle.length;
+        this.lastTrebleFinger = cycle[nextIndex];
+        return this.lastTrebleFinger;
+    }
+
+    assign(notes) {
+        const result = {};
+        const fullNames = {
+            p: rightHandName('p'),
+            i: rightHandName('i'),
+            m: rightHandName('m'),
+            a: rightHandName('a')
+        };
+
+        const ordered = [...notes].sort((a, b) => a.string - b.string);
+        if (ordered.length === 1) {
+            const note = ordered[0];
+            if (note.string >= 4) {
+                result[note.string] = fullNames.p;
+            } else {
+                const finger = this.nextTrebleFinger();
+                result[note.string] = fullNames[finger];
+            }
+            return result;
+        }
+
+        for (const note of ordered) {
+            if (note.string >= 4) {
+                result[note.string] = fullNames.p;
+                continue;
+            }
+            if (note.string === 3) result[note.string] = fullNames.i;
+            else if (note.string === 2) result[note.string] = fullNames.m;
+            else result[note.string] = fullNames.a;
+        }
+
+        return result;
+    }
+}
+
+function extractTechniques(rawNotes) {
+    return rawNotes.reduce((acc, note) => {
+        acc.hasBend = acc.hasBend || !!note.hasBend;
+        acc.vibrato = acc.vibrato || !!note.vibrato;
+        acc.slide = acc.slide || !!note.slideIn || !!note.slideOut;
+        acc.legato = acc.legato || !!note.isHammer || !!note.isPullOff;
+        acc.palmMute = acc.palmMute || !!note.isPalmMute;
+        acc.harmonic = acc.harmonic || !!note.hasHarmonic;
+        acc.trill = acc.trill || !!note.isTrill;
+        acc.ghost = acc.ghost || !!note.isGhost;
+        acc.dead = acc.dead || !!note.isDead;
+        acc.letRing = acc.letRing || !!note.isLetRing;
+        acc.slap = acc.slap || !!note.isSlap;
+        acc.pop = acc.pop || !!note.isPop;
+        acc.accent = acc.accent || !!note.accent;
+        return acc;
+    }, {
+        hasBend: false,
+        vibrato: false,
+        slide: false,
+        legato: false,
+        palmMute: false,
+        harmonic: false,
+        trill: false,
+        ghost: false,
+        dead: false,
+        letRing: false,
+        slap: false,
+        pop: false,
+        accent: false
+    });
+}
+
+function buildInstructions(notes, rawNotes, leftHandMap, rightHandMap, barreFret, position, isTapping) {
+    const instructions = [];
+    const techniques = extractTechniques(rawNotes);
+
+    if (isTapping) {
+        instructions.push(t('tappingInstruction'));
+        return instructions;
+    }
+
+    if (barreFret !== null) {
+        instructions.push(t('positionBarre', { fret: barreFret }));
+        instructions.push(t('barreHelp'));
+    } else if (positiveFrets(notes).length) {
+        instructions.push(t('positionAround', { fret: position }));
+    }
+
+    if (notes.length === 1) {
+        const note = notes[0];
+        const leftHandLabel = leftHandMap[`${note.string}_${note.fret}`] || '?';
+        const rightHandLabel = rightHandMap[note.string] || rightHandName(note.string >= 4 ? 'p' : 'i');
+        if (note.isDead) {
+            instructions.push(t('leftHandMuted', { string: STRING_NAMES[note.string] }));
+        } else if (note.fret === 0) {
+            instructions.push(t('leftHandOpen', { string: STRING_NAMES[note.string] }));
+        } else {
+            instructions.push(t('leftHandFinger', {
+                finger: leftHandLabel,
+                string: STRING_NAMES[note.string],
+                fret: note.fret
+            }));
+        }
+        instructions.push(t('rightHandFinger', { finger: rightHandLabel }));
+    } else {
+        instructions.push(t('chord', { count: notes.length }));
+        const summary = notes.map(note => {
+            if (note.isDead) return `${STRING_SHORT[note.string]}-${t('mutedShort')}`;
+            if (note.fret === 0) return `${STRING_SHORT[note.string]}-${t('openShort')}`;
+            return `${STRING_SHORT[note.string]}-${note.fret}(${leftHandMap[`${note.string}_${note.fret}`] || '?'})`;
+        });
+        instructions.push(t('leftHandSummary', { items: summary.join(', ') }));
+        const hasBass = notes.some(note => note.string >= 4);
+        const hasTreble = notes.some(note => note.string <= 3);
+        if (hasBass && hasTreble) {
+            instructions.push(t('rightHandArpeggio'));
+        } else {
+            instructions.push(t('rightHandPluckTogether'));
+        }
+    }
+
+    if (techniques.accent) instructions.push(t('accentInstruction'));
+    if (techniques.ghost) instructions.push(t('ghostInstruction'));
+    if (techniques.dead) instructions.push(t('deadInstruction'));
+    if (techniques.slap) instructions.push(t('slapInstruction'));
+    if (techniques.pop) instructions.push(t('popInstruction'));
+    if (techniques.letRing) instructions.push(t('letRingInstruction'));
+    if (techniques.hasBend) instructions.push(t('bendInstruction'));
+    if (techniques.vibrato) instructions.push(t('vibratoInstruction'));
+    if (techniques.slide) instructions.push(t('slideInstruction'));
+    if (techniques.legato) {
+        instructions.push(t('legatoInstruction'));
+        instructions.push(t('tieInstruction'));
+    }
+    if (techniques.palmMute) instructions.push(t('palmMuteInstruction'));
+    if (techniques.harmonic) instructions.push(t('harmonicInstruction'));
+    if (techniques.trill) instructions.push(t('trillInstruction'));
+    if (!instructions.length) instructions.push(t('plainNoteInstruction'));
+
+    return instructions;
+}
+
+function buildContextHint(notes, rawNotes, barreFret, isTapping) {
+    const techniques = extractTechniques(rawNotes);
+    const frets = positiveFrets(notes);
+    const width = frets.length ? Math.max(...frets) - Math.min(...frets) : 0;
+
+    if (techniques.harmonic) return t('techniqueHarmonic');
+    if (techniques.dead) return t('techniqueDead');
+    if (techniques.hasBend) return t('techniqueBend');
+    if (techniques.palmMute) return t('techniquePalmMute');
+    if (techniques.trill) return t('techniqueTrill');
+    if (techniques.ghost) return t('techniqueGhost');
+    if (techniques.letRing) return t('techniqueLetRing');
+    if (isTapping) return t('techniqueTapping');
+    if (techniques.slap) return t('techniqueSlap');
+    if (techniques.pop) return t('techniquePop');
+    if (techniques.legato) return t('techniqueLegato');
+    if (techniques.slide) return t('techniqueSlide');
+    if (techniques.vibrato) return t('techniqueVibrato');
+    if (barreFret !== null) return t('possibleBarre', { fret: barreFret });
+    if (width > 3) return t('wideStretch');
     return null;
 }
 
-function dpFingering(data) {
-    if (!data.length) return [];
-    const MAX = 22;
-    function cands(d) {
-        const pr = d.notes.filter(n => n.fret > 0).map(n => n.fret);
-        if (!pr.length) return Array.from({ length: MAX }, (_, i) => i + 1);
-        const mn = Math.max(1, Math.min(...pr));
-        const lo = Math.max(1, mn - 3);
-        const hi = Math.min(MAX, mn + 2);
-        return Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
-    }
-    let dp = new Map();
-    for (const pos of cands(data[0])) {
-        dp.set(pos, { cost: configCost(data[0].notes.map(n => n.fret), pos), prev: null, pos });
-    }
-    for (let i = 1; i < data.length; i++) {
-        const d = data[i];
-        const fr = d.notes.map(n => n.fret);
-        const pd = data[i - 1].duration;
-        const nd = new Map();
-        for (const pos of cands(d)) {
-            const cc = configCost(fr, pos);
-            let bc = Infinity;
-            let bp = null;
-            for (const [pp, { cost: pc }] of dp) {
-                const tCost = pc + transCost(pp, pos, pd) + cc;
-                if (tCost < bc) {
-                    bc = tCost;
-                    bp = dp.get(pp);
-                }
-            }
-            nd.set(pos, { cost: bc, prev: bp, pos });
-        }
-        dp = nd;
-    }
-    let best = null;
-    for (const v of dp.values()) if (!best || v.cost < best.cost) best = v;
-    if (!best) return [];
-    const path = [];
-    while (best) {
-        path.push(best.pos);
-        best = best.prev;
-    }
-    return path.reverse();
+function buildRightHandPayload(notes, rightHandMap) {
+    return notes.map(note => {
+        const label = rightHandMap[note.string] || (note.string >= 4 ? rightHandName('p') : rightHandName('i'));
+        const stringName = STRING_SHORT[note.string] || String(note.string);
+        return {
+            finger: label.charAt(0),
+            fingerName: label,
+            string: stringName,
+            stringIndex: note.string,
+            direction: label.charAt(0),
+            color: note.string >= 4 ? '#8B6350' : '#3678B5'
+        };
+    });
 }
 
-function assignLhFingers(notes, pos, barre, prevF, prevBeatPlacement) {
-    const sorted = [...notes].sort((a, b) => (a.fret - b.fret) || (a.string - b.string));
-    const lhMap = {};
-    const newF = {};
+function buildLeftHandPayload(notes, rawNotes, leftHandMap, isTapping) {
+    return notes.map((note, index) => {
+        const rawNote = rawNotes[index];
+        const key = `${note.string}_${note.fret}`;
+        const label = note.isDead
+            ? t('deadLabel')
+            : (note.fret === 0 ? t('openStringName') : (leftHandMap[key] || '?'));
 
-    for (const { string: s, fret: f, isDead } of sorted) {
-        if (f === 0) {
-            lhMap[`${s}_${f}`] = '-';
-            continue;
-        }
-        if (f === barre && !isDead) {
-            lhMap[`${s}_${f}`] = `${leftHandName(1)} (${t('possibleBarre', { fret: f })})`;
-            newF[s] = 1;
-        }
-    }
-
-    const toAssign = sorted.filter(n => n.fret > 0 && !n.isDead && !(barre !== null && n.fret === barre));
-    if (!toAssign.length) return { lhMap, newF };
-
-    function baseFinger(f) {
-        return Math.min(Math.max(f - pos + 1, 1), 4);
-    }
-
-    function candSet(n) {
-        const b = baseFinger(n.fret);
-        const out = [b, b - 1, b + 1, b - 2, b + 2].filter(v => v >= 1 && v <= 4);
-        if (prevF[n.string] && !out.includes(prevF[n.string])) out.push(prevF[n.string]);
-        return out;
-    }
-
-    function pairPenalty(a, b) {
-        let p = 0;
-        if (a.finger === b.finger) {
-            if (a.fret !== b.fret) p += 140;
-            else p += (Math.abs(a.string - b.string) <= 1) ? 95 : 55;
-        }
-        if (a.fret < b.fret && a.finger > b.finger) p += 8;
-        if (a.fret > b.fret && a.finger < b.finger) p += 8;
-        if (a.fret === b.fret) {
-            if (a.string > b.string && a.finger > b.finger) p += 64;
-            if (a.string < b.string && a.finger < b.finger) p += 64;
-        }
-        return p;
-    }
-
-    let bestCost = Infinity;
-    let bestAssign = null;
-    const current = [];
-
-    function dfs(i, cost) {
-        if (cost >= bestCost) return;
-        if (i >= toAssign.length) {
-            bestCost = cost;
-            bestAssign = current.slice();
-            return;
-        }
-        const n = toAssign[i];
-        const b = baseFinger(n.fret);
-        const candidates = candSet(n);
-        for (const finger of candidates) {
-            let c = cost;
-            c += Math.abs(finger - b) * 2.5;
-            if (prevF[n.string]) c += Math.abs(finger - prevF[n.string]) * 2.0;
-            const prevSameString = prevBeatPlacement?.[n.string];
-            if (prevSameString && prevSameString.fret === n.fret) {
-                if (prevSameString.finger === finger) c -= 14;
-                else c += 120;
-            }
-            const prevAdjacentLower = prevBeatPlacement?.[n.string + 1];
-            const prevAdjacentUpper = prevBeatPlacement?.[n.string - 1];
-            if (
-                (prevAdjacentLower && prevAdjacentLower.fret === n.fret && prevAdjacentLower.finger === finger) ||
-                (prevAdjacentUpper && prevAdjacentUpper.fret === n.fret && prevAdjacentUpper.finger === finger)
-            ) {
-                c += 10;
-            }
-            for (const a of current) {
-                c += pairPenalty(a, { string: n.string, fret: n.fret, finger });
-            }
-            current.push({ string: n.string, fret: n.fret, finger });
-            dfs(i + 1, c);
-            current.pop();
-        }
-    }
-
-    dfs(0, 0);
-
-    for (const item of (bestAssign || [])) {
-        lhMap[`${item.string}_${item.fret}`] = leftHandName(item.finger);
-        newF[item.string] = item.finger;
-    }
-
-    return { lhMap, newF };
-}
-
-class RightHandSM {
-    constructor() { this._last = 'm'; }
-
-    getFingers(notes) {
-        const res = {};
-        const FULL = { p: rightHandName('p'), i: rightHandName('i'), m: rightHandName('m'), a: rightHandName('a') };
-        const ordered = [...notes].sort((a, b) => a.string - b.string);
-        if (ordered.length === 1) {
-            const s = ordered[0].string;
-            if (s >= 5) return { [s]: FULL.p };
-            const nx = this._last === 'm' ? 'i' : 'm';
-            this._last = nx;
-            return { [s]: FULL[nx] };
-        }
-        const topMap = { 1: 'a', 2: 'm', 3: 'i' };
-        let thumbUsed = false;
-        for (const n of ordered) {
-            if (n.string >= 4 && !thumbUsed) {
-                res[n.string] = FULL.p;
-                thumbUsed = true;
-            } else if (n.string <= 3) {
-                res[n.string] = FULL[topMap[n.string] || 'i'];
-            } else {
-                res[n.string] = FULL.i;
-            }
-        }
-        return res;
-    }
-}
-
-function buildInstructions(notes, rawNotes, lhMap, rhMap, barre, pos, isTapping) {
-    const inst = [];
-    if (isTapping) {
-        inst.push(t('tappingInstruction'));
-        return inst;
-    }
-
-    const noteCount = notes.length;
-    if (barre !== null) {
-        inst.push(t('positionBarre', { fret: barre }));
-        inst.push(t('barreHelp'));
-    } else if (pos > 0) {
-        const pr = notes.filter(n => n.fret > 0 && !n.isDead);
-        if (pr.length > 0) {
-            const span = Math.max(...pr.map(n => n.fret)) - Math.min(...pr.map(n => n.fret));
-            inst.push(t('positionAround', { fret: pos }));
-            if (span > 3) inst.push(t('wideStretchInstruction'));
-        }
-    }
-
-    if (noteCount === 1) {
-        const { string: s, fret: f } = notes[0];
-        const lh = lhMap[`${s}_${f}`] || '?';
-        const rh = rhMap[s] || rightHandName('i');
-        if (rawNotes[0].isDead) inst.push(t('leftHandMuted', { string: STRING_NAMES[s] }));
-        else if (f === 0) inst.push(t('leftHandOpen', { string: STRING_NAMES[s] }));
-        else inst.push(t('leftHandFinger', { finger: lh, string: STRING_NAMES[s], fret: f }));
-        inst.push(t('rightHandFinger', { finger: rh, direction: s >= 4 ? t('directionDown') : t('directionUp') }));
-    } else {
-        inst.push(t('chord', { count: noteCount }));
-        const lhParts = notes.map(n => n.isDead
-            ? `${STRING_SHORT[n.string]}-${t('mutedShort')}`
-            : `${STRING_SHORT[n.string]}-${n.fret === 0 ? t('openShort') : n.fret}(${lhMap[`${n.string}_${n.fret}`] || '?'})`
-        );
-        inst.push(t('leftHandSummary', { items: lhParts.join(', ') }));
-        if (notes.some(n => n.string >= 4) && notes.some(n => n.string <= 3)) {
-            inst.push(t('rightHandArpeggio'));
-        } else {
-            const dir = notes[0].string >= 4 ? t('directionDown') : t('directionUp');
-            inst.push(t('rightHandStrum', { direction: dir }));
-        }
-    }
-
-    let bend = false, vib = false, slIn = false, slOut = false, leg = false, pm = false, harm = false, trill = false;
-    let ghost = false, dead = false, letR = false, slap = false, pop = false, acc = false;
-    for (const n of rawNotes) {
-        if (n.hasBend) bend = true;
-        if (n.vibrato) vib = true;
-        if (n.slideIn) slIn = true;
-        if (n.slideOut) slOut = true;
-        if (n.isHammer) leg = true;
-        if (n.isPalmMute) pm = true;
-        if (n.hasHarmonic) harm = true;
-        if (n.isTrill) trill = true;
-        if (n.isGhost) ghost = true;
-        if (n.isDead) dead = true;
-        if (n.isLetRing) letR = true;
-        if (n.isSlap) slap = true;
-        if (n.isPop) pop = true;
-        if (n.accent > 0) acc = true;
-    }
-
-    if (acc) inst.push(t('accentInstruction'));
-    if (ghost) inst.push(t('ghostInstruction'));
-    if (dead) inst.push(t('deadInstruction'));
-    if (slap) inst.push(t('slapInstruction'));
-    if (pop) inst.push(t('popInstruction'));
-    if (letR) inst.push(t('letRingInstruction'));
-    if (bend) inst.push(t('bendInstruction'));
-    if (vib) inst.push(t('vibratoInstruction'));
-    if (slIn || slOut) inst.push(t('slideInstruction'));
-    if (leg) {
-        inst.push(t('legatoInstruction'));
-        inst.push(t('tieInstruction'));
-    }
-    if (pm) inst.push(t('palmMuteInstruction'));
-    if (harm) inst.push(t('harmonicInstruction'));
-    if (trill) inst.push(t('trillInstruction'));
-    if (!inst.length) inst.push(t('plainNoteInstruction'));
-    return inst;
-}
-
-function buildAnalysis(barIdx, notes, rawNotes, lhMap, rhMap, barre, pos, isTapping, nextData) {
-    const LH = [];
-    const RH = [];
-    for (let i = 0; i < notes.length; i++) {
-        const n = notes[i];
-        const rn = rawNotes[i];
-        const s = n.string;
-        const f = n.fret;
-        const isDead = n.isDead;
-        const sn = STRING_SHORT[s] || String(s);
-        let lbl = lhMap[`${s}_${f}`] || '?';
-        if (isDead) lbl = t('deadLabel');
-        const open = f === 0 && !isDead;
-        LH.push({
-            finger: open ? '0' : lbl.charAt(0),
-            fingerName: open ? t('openStringName') : lbl,
-            string: sn,
-            stringIndex: s,
-            fret: String(f),
-            color: open ? '#4FC3F7' : (isDead ? '#757575' : '#D07B30'),
-            isDead: !!isDead,
-            isHammer: !!rn.isHammer,
-            isPullOff: !!rn.isPullOff,
-            isSlide: !!rn.slideIn || !!rn.slideOut,
-            isVibrato: !!rn.vibrato,
-            isGhost: !!rn.isGhost,
-            hasBend: !!rn.hasBend,
-            isPalmMute: !!rn.isPalmMute,
-            hasHarmonic: !!rn.hasHarmonic,
-            isTrill: !!rn.isTrill,
-            isLetRing: !!rn.isLetRing,
-            isSlap: !!rn.isSlap,
-            isPop: !!rn.isPop,
-            isAccent: !!rn.accent,
+        return {
+            finger: note.isDead ? 'x' : (note.fret === 0 ? '0' : label.charAt(0)),
+            fingerName: label,
+            string: STRING_SHORT[note.string] || String(note.string),
+            stringIndex: note.string,
+            fret: String(note.fret),
+            color: note.fret === 0 ? '#4FC3F7' : (note.isDead ? '#757575' : '#D07B30'),
+            isDead: !!note.isDead,
+            isHammer: !!rawNote.isHammer,
+            isPullOff: !!rawNote.isPullOff,
+            isSlide: !!rawNote.slideIn || !!rawNote.slideOut,
+            isVibrato: !!rawNote.vibrato,
+            isGhost: !!rawNote.isGhost,
+            hasBend: !!rawNote.hasBend,
+            isPalmMute: !!rawNote.isPalmMute,
+            hasHarmonic: !!rawNote.hasHarmonic,
+            isTrill: !!rawNote.isTrill,
+            isLetRing: !!rawNote.isLetRing,
+            isSlap: !!rawNote.isSlap,
+            isPop: !!rawNote.isPop,
+            isAccent: !!rawNote.accent,
             isTapping: !!isTapping
-        });
-        const rh = rhMap[s] || (s >= 4 ? rightHandName('p') : rightHandName('i'));
-        RH.push({ finger: rh.charAt(0), fingerName: rh, string: sn, stringIndex: s, direction: rh.charAt(0), color: s >= 4 ? '#8B6350' : '#3678B5' });
-    }
+        };
+    });
+}
 
-    let contextHint = null;
-    let width = 0;
-    const fretted = notes.filter(n => n.fret > 0);
-    if (fretted.length > 0) width = Math.max(...fretted.map(n => n.fret)) - Math.min(...fretted.map(n => n.fret));
+function analyzeBeat(beatData, rightHandState) {
+    const position = chooseLeftHandPosition(beatData.notes);
+    const barreFret = detectBarre(beatData.notes);
+    const leftHandResult = assignLeftHand(beatData.notes, position, barreFret);
+    const rightHandMap = rightHandState.assign(beatData.notes);
 
-    if (rawNotes.some(r => r.hasHarmonic)) contextHint = t('techniqueHarmonic');
-    else if (rawNotes.some(r => r.isDead)) contextHint = t('techniqueDead');
-    else if (rawNotes.some(r => r.hasBend)) contextHint = t('techniqueBend');
-    else if (rawNotes.some(r => r.isPalmMute)) contextHint = t('techniquePalmMute');
-    else if (rawNotes.some(r => r.isTrill)) contextHint = t('techniqueTrill');
-    else if (rawNotes.some(r => r.isGhost)) contextHint = t('techniqueGhost');
-    else if (rawNotes.some(r => r.isLetRing)) contextHint = t('techniqueLetRing');
-    else if (isTapping) contextHint = t('techniqueTapping');
-    else if (rawNotes.some(r => r.isSlap)) contextHint = t('techniqueSlap');
-    else if (rawNotes.some(r => r.isPop)) contextHint = t('techniquePop');
-    else if (rawNotes.some(r => r.isHammer || r.isPullOff)) contextHint = t('techniqueLegato');
-    else if (rawNotes.some(r => r.slideIn || r.slideOut)) contextHint = t('techniqueSlide');
-    else if (rawNotes.some(r => r.vibrato)) contextHint = t('techniqueVibrato');
-    else if (barre !== null) contextHint = t('possibleBarre', { fret: barre });
-    else if (width > 3) contextHint = t('wideStretch');
+    return {
+        ...beatData,
+        position,
+        barreFret,
+        leftHandMap: leftHandResult.leftHand,
+        leftHandPlacement: leftHandResult.placement,
+        rightHandMap
+    };
+}
 
-    const nextLH = [];
-    if (nextData && nextData.notes) {
-        for (const nextNote of nextData.notes) {
-            const nextFret = nextNote.fret;
-            const nextString = nextNote.string;
-            const nextDead = nextNote.isDead;
-            const nextLbl = nextData.lhMap?.[`${nextString}_${nextFret}`] || '?';
-            nextLH.push({
-                finger: nextDead ? 'x' : (nextFret === 0 ? '0' : nextLbl.charAt(0)),
-                fingerName: nextDead ? t('deadLabel') : (nextFret === 0 ? t('leftHandOpen', { string: STRING_NAMES[nextString] }) : nextLbl),
-                string: STRING_SHORT[nextString] || String(nextString),
-                stringIndex: nextString,
-                fret: String(nextFret),
-                color: nextFret === 0 ? '#4FC3F7' : (nextDead ? '#757575' : '#D07B30'),
-                isDead: !!nextDead
-            });
-        }
-    }
+function buildAnalysis(barIdx, analyzedBeat, nextAnalyzedBeat) {
+    const leftHand = buildLeftHandPayload(
+        analyzedBeat.notes,
+        analyzedBeat.rawNotes,
+        analyzedBeat.leftHandMap,
+        analyzedBeat.isTapping
+    );
+    const rightHand = buildRightHandPayload(analyzedBeat.notes, analyzedBeat.rightHandMap);
+    const nextLeftHand = nextAnalyzedBeat
+        ? buildLeftHandPayload(
+            nextAnalyzedBeat.notes,
+            nextAnalyzedBeat.rawNotes,
+            nextAnalyzedBeat.leftHandMap,
+            nextAnalyzedBeat.isTapping
+        ).map(note => ({
+            finger: note.finger,
+            fingerName: note.fingerName,
+            string: note.string,
+            stringIndex: note.stringIndex,
+            fret: note.fret,
+            color: note.color,
+            isDead: note.isDead
+        }))
+        : [];
 
-    const instructions = buildInstructions(notes, rawNotes, lhMap, rhMap, barre, pos, isTapping);
-    return { barIndex: barIdx + 1, leftHand: LH, rightHand: RH, instructions, barreFret: barre, contextHint, nextLeftHand: nextLH };
+    return {
+        barIndex: barIdx + 1,
+        leftHand,
+        rightHand,
+        instructions: buildInstructions(
+            analyzedBeat.notes,
+            analyzedBeat.rawNotes,
+            analyzedBeat.leftHandMap,
+            analyzedBeat.rightHandMap,
+            analyzedBeat.barreFret,
+            analyzedBeat.position,
+            analyzedBeat.isTapping
+        ),
+        barreFret: analyzedBeat.barreFret,
+        contextHint: buildContextHint(
+            analyzedBeat.notes,
+            analyzedBeat.rawNotes,
+            analyzedBeat.barreFret,
+            analyzedBeat.isTapping
+        ),
+        nextLeftHand
+    };
 }
 
 const beatMap = new Map();
@@ -396,12 +382,83 @@ let _selectedTrackIndex = 0;
 let _transposeSemitones = 0;
 
 function beatKey(beat) {
-    try { return `${beat.voice.bar.index}_${beat.index}`; } catch { return null; }
+    try {
+        return `${beat.voice.bar.index}_${beat.index}`;
+    } catch {
+        return null;
+    }
 }
 
 function getActiveTrack(score) {
     if (!score?.tracks?.length) return null;
-    return score.tracks.find(t => t.index === _selectedTrackIndex) || score.tracks[0] || null;
+    return score.tracks.find(track => track.index === _selectedTrackIndex) || score.tracks[0] || null;
+}
+
+function extractBeatData(track) {
+    const data = [];
+    for (const bar of track.staves[0].bars) {
+        for (const voice of bar.voices) {
+            if (voice.isEmpty) continue;
+            for (const beat of voice.beats) {
+                const notes = beat.notes.filter(note => note.fret != null);
+                if (!notes.length) continue;
+                const durationValue = typeof beat.duration === 'object' ? beat.duration.value : beat.duration;
+                data.push({
+                    beat,
+                    barIdx: bar.index,
+                    duration: DUR_BEATS[durationValue] ?? 1,
+                    notes: notes.map(note => ({
+                        string: normalizeStringIndex(note.string),
+                        fret: note.fret,
+                        isDead: !!note.isDead
+                    })),
+                    rawNotes: notes.map(note => ({
+                        hasBend: !!note.hasBend,
+                        vibrato: !!note.isVibrato,
+                        slideIn: !!note.slideInType && note.slideInType !== 0,
+                        slideOut: !!note.slideOutType && note.slideOutType !== 0,
+                        isHammer: !!note.isHammerPullOrigin || !!note.isHammerPullDestination,
+                        isPullOff: !!note.isHammerPullDestination,
+                        isPalmMute: !!note.isPalmMute,
+                        hasHarmonic: !!note.isHarmonic,
+                        isTrill: !!note.isTrill,
+                        isGhost: !!note.isGhost,
+                        isDead: !!note.isDead,
+                        isLetRing: !!note.isLetRing,
+                        isSlap: !!note.slap,
+                        isPop: !!note.pop,
+                        accent: note.accentuated || 0
+                    })),
+                    isTapping: notes.some(note => !!note.isTapped),
+                    isTiedBeat: notes.every(note => !!note.isTieDestination)
+                });
+            }
+        }
+    }
+    return data;
+}
+
+function buildCompactTabs(track) {
+    let compactTabs = '';
+    for (const bar of track.staves[0].bars) {
+        compactTabs += `Measure ${bar.index + 1}:\n`;
+        for (const voice of bar.voices) {
+            if (voice.isEmpty) continue;
+            let eventNumber = 1;
+            for (const beat of voice.beats) {
+                const notes = beat.notes.filter(note => note.fret != null);
+                if (!notes.length) continue;
+                const noteLabels = notes.map(note => {
+                    const stringIndex = normalizeStringIndex(note.string);
+                    const label = note.isDead ? 'x' : note.fret;
+                    return t('stringLabel', { string: stringIndex, label, fret: note.fret });
+                });
+                compactTabs += `  Event ${eventNumber} inside this measure: ${noteLabels.join(', ')}\n`;
+                eventNumber += 1;
+            }
+        }
+    }
+    return compactTabs;
 }
 
 function runFullAnalysis(score) {
@@ -410,130 +467,65 @@ function runFullAnalysis(score) {
     try {
         const track = getActiveTrack(score);
         if (!track?.staves?.length) return;
-        const data = [];
-        for (const bar of track.staves[0].bars) {
-            for (const voice of bar.voices) {
-                if (voice.isEmpty) continue;
-                for (const beat of voice.beats) {
-                    const notes = beat.notes.filter(n => n.fret != null);
-                    if (!notes.length) continue;
-                    const durVal = typeof beat.duration === 'object' ? beat.duration.value : beat.duration;
-                    data.push({
-                        beat,
-                        barIdx: bar.index,
-                        duration: DUR_BEATS[durVal] ?? 1,
-                        notes: notes.map(n => ({ string: normalizeStringIndex(n.string), fret: n.fret, isDead: !!n.isDead })),
-                        rawNotes: notes.map(n => ({
-                            hasBend: !!n.hasBend,
-                            vibrato: !!n.isVibrato,
-                            slideIn: !!n.slideInType && n.slideInType !== 0,
-                            slideOut: !!n.slideOutType && n.slideOutType !== 0,
-                            isHammer: !!n.isHammerPullOrigin || !!n.isHammerPullDestination,
-                            isPullOff: !!n.isHammerPullDestination,
-                            isPalmMute: !!n.isPalmMute,
-                            hasHarmonic: !!n.isHarmonic,
-                            isTrill: !!n.isTrill,
-                            isGhost: !!n.isGhost,
-                            isDead: !!n.isDead,
-                            isLetRing: !!n.isLetRing,
-                            isSlap: !!n.slap,
-                            isPop: !!n.pop,
-                            accent: n.accentuated || 0
-                        })),
-                        isTapping: notes.some(n => !!n.isTapped),
-                        isTiedBeat: notes.every(n => !!n.isTieDestination)
-                    });
-                }
-            }
-        }
 
-        const positions = dpFingering(data);
-        const rhSM = new RightHandSM();
-        let prevLhF = {};
-        let prevBeatPlacement = {};
-        let atkIdx = 0;
+        const beatData = extractBeatData(track);
+        const rightHandState = new RightHandHeuristics();
+        const analyzedBeats = beatData.map(data => analyzeBeat(data, rightHandState));
+
         let firstJson = null;
-
-        for (let i = 0; i < data.length; i++) {
-            const { beat, barIdx, notes, rawNotes, isTapping, isTiedBeat } = data[i];
-            let pos = 1, barre = null, lhMap = {}, newF = {}, rhMap = {};
-            if (!(isTiedBeat && atkIdx > 0)) {
-                pos = positions[atkIdx] || 1;
-                barre = detectBarre(notes);
-                const a = assignLhFingers(notes, pos, barre, prevLhF, prevBeatPlacement);
-                lhMap = a.lhMap;
-                newF = a.newF;
-                rhMap = rhSM.getFingers(notes);
-                prevLhF = newF;
-                const placement = {};
-                for (const n of notes) {
-                    const key = `${n.string}_${n.fret}`;
-                    const label = lhMap[key] || '';
-                    const parsed = parseInt(label, 10);
-                    if (Number.isFinite(parsed) && parsed > 0) placement[n.string] = { fret: n.fret, finger: parsed };
-                }
-                prevBeatPlacement = placement;
-                atkIdx++;
-            }
-
-            const nextData = data[i + 1] && !data[i + 1].isTiedBeat ? (() => {
-                const nd = data[i + 1];
-                const np = positions[atkIdx] || pos;
-                const nb = detectBarre(nd.notes);
-                const na = assignLhFingers(nd.notes, np, nb, prevLhF, prevBeatPlacement);
-                return { ...nd, lhMap: na.lhMap };
-            })() : null;
-
-            const json = JSON.stringify(buildAnalysis(barIdx, notes, rawNotes, lhMap, rhMap, barre, pos, isTapping, nextData));
-            const key = beatKey(beat);
+        for (let i = 0; i < analyzedBeats.length; i++) {
+            const current = analyzedBeats[i];
+            const next = analyzedBeats[i + 1] || null;
+            const analysis = buildAnalysis(current.barIdx, current, next);
+            const json = JSON.stringify(analysis);
+            const key = beatKey(current.beat);
             if (key) beatMap.set(key, json);
-            tickArr.push({ tick: beat.start ?? beat.absoluteDisplayStart ?? (i * 960), json });
-            if (!firstJson && !isTiedBeat) firstJson = json;
+            tickArr.push({
+                tick: current.beat.start ?? current.beat.absoluteDisplayStart ?? (i * 960),
+                json
+            });
+            if (!firstJson && !current.isTiedBeat) {
+                firstJson = json;
+            }
         }
 
         tickArr.sort((a, b) => a.tick - b.tick);
         if (firstJson) postToAndroid(firstJson);
 
-        let compactTabs = '';
-        for (const bar of track.staves[0].bars) {
-            compactTabs += `Measure ${bar.index + 1}:\n`;
-            for (const voice of bar.voices) {
-                if (voice.isEmpty) continue;
-                let eventNum = 1;
-                for (const beat of voice.beats) {
-                    const notes = beat.notes.filter(n => n.fret != null);
-                    if (!notes.length) continue;
-                    const noteLabels = notes.map(n => {
-                        const stringIndex = normalizeStringIndex(n.string);
-                        const label = n.isDead ? 'x' : n.fret;
-                        return t('stringLabel', { string: stringIndex, label, fret: n.fret });
-                    });
-                    compactTabs += `  Event ${eventNum} inside this measure: ${noteLabels.join(', ')}\n`;
-                    eventNum++;
-                }
-            }
+        const compactTabs = buildCompactTabs(track);
+        if (window.Android?.postCompactTabs) {
+            window.Android.postCompactTabs(compactTabs);
         }
-        if (window.Android?.postCompactTabs) window.Android.postCompactTabs(compactTabs);
-    } catch (e) {
-        console.error('runFullAnalysis:', e);
+    } catch (error) {
+        console.error('runFullAnalysis:', error);
     }
 }
 
 function postToAndroid(json) {
-    if (json && window.Android?.postTabAnalysis) window.Android.postTabAnalysis(json);
+    if (json && window.Android?.postTabAnalysis) {
+        window.Android.postTabAnalysis(json);
+    }
 }
 
-function sendForTick(t) {
+function sendForTick(tick) {
     if (!tickArr.length) return;
-    let lo = 0, hi = tickArr.length - 1, best = -1;
-    while (lo <= hi) {
-        const mid = (lo + hi) >> 1;
-        if (tickArr[mid].tick <= t) {
+    let low = 0;
+    let high = tickArr.length - 1;
+    let best = -1;
+
+    while (low <= high) {
+        const mid = (low + high) >> 1;
+        if (tickArr[mid].tick <= tick) {
             best = mid;
-            lo = mid + 1;
-        } else hi = mid - 1;
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
     }
-    if (best >= 0) postToAndroid(tickArr[best].json);
+
+    if (best >= 0) {
+        postToAndroid(tickArr[best].json);
+    }
 }
 
 function sendForBeat(beat) {
@@ -543,6 +535,9 @@ function sendForBeat(beat) {
         postToAndroid(beatMap.get(key));
         return;
     }
-    const tValue = beat.start ?? beat.absoluteDisplayStart;
-    if (tValue != null) sendForTick(tValue);
+
+    const tick = beat.start ?? beat.absoluteDisplayStart;
+    if (tick != null) {
+        sendForTick(tick);
+    }
 }

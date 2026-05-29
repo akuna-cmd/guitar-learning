@@ -3,8 +3,10 @@ package com.guitarlearning.data.repository
 import android.content.Context
 import android.util.Log
 import com.guitarlearning.R
-import com.guitarlearning.data.local.AudioNoteDao
-import com.guitarlearning.data.local.TextNoteDao
+import com.guitarlearning.data.local.dao.AudioNoteDao
+import com.guitarlearning.data.local.dao.TextNoteDao
+import com.guitarlearning.data.local.entity.toDomain
+import com.guitarlearning.data.local.entity.toEntity
 import com.guitarlearning.data.settings.AppSettingsRepository
 import com.guitarlearning.domain.model.TabItem
 import com.guitarlearning.domain.repository.GoalRepository
@@ -306,8 +308,8 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
         val localProgress = progressRepository.observeAll().first()
         progressRepository.replaceAll(mergePolicy.mergeProgress(localProgress, remoteState.progress))
 
-        val localTextNotes = textNoteDao.getAllTextNotes()
-        val localAudioNotes = audioNoteDao.getAllNotes()
+        val localTextNotes = textNoteDao.getAllTextNotes().map { it.toDomain() }
+        val localAudioNotes = audioNoteDao.getAllNotes().map { it.toDomain() }
         val useRemoteNotesAsSourceOfTruth = syncContext.preferRemoteState
         val mergedTextNotes = if (useRemoteNotesAsSourceOfTruth) {
             mergePolicy.mergeTextNotes(localTextNotes, remoteState.textNotes)
@@ -322,11 +324,11 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
 
         textNoteDao.clearAll()
         if (mergedTextNotes.isNotEmpty()) {
-            textNoteDao.insertAllTextNotes(mergedTextNotes.map { it.copy(id = 0) })
+            textNoteDao.insertAllTextNotes(mergedTextNotes.map { it.copy(id = 0).toEntity() })
         }
         audioNoteDao.clearAll()
         if (mergedAudioNotes.isNotEmpty()) {
-            audioNoteDao.insertAll(mergedAudioNotes.map { it.copy(id = 0) })
+            audioNoteDao.insertAll(mergedAudioNotes.map { it.copy(id = 0).toEntity() })
         }
 
         return LocalSyncState(
@@ -360,8 +362,8 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
         val finalSessions = sessionRepository.getAllSessionsSync()
         val finalGoals = goalRepository.getGoalsSync()
         val finalProgress = progressRepository.observeAll().first()
-        val finalTextNotes = textNoteDao.getAllTextNotes()
-        val finalAudioNotes = audioNoteDao.getAllNotes()
+        val finalTextNotes = textNoteDao.getAllTextNotes().map { it.toDomain() }
+        val finalAudioNotes = audioNoteDao.getAllNotes().map { it.toDomain() }
         val finalSettings = appSettingsRepository.getSettings()
 
         val finalTabIds = finalTabs.map { it.id }.toSet() + remoteState.tabsImport.unresolvedRemoteIds
@@ -431,7 +433,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
 
     private suspend fun clearLocalCloudScopedData() {
         Log.w(LogTag, "clearLocalCloudScopedData:start")
-        fileStore.deleteLocalAudioNoteFiles(audioNoteDao.getAllNotes())
+        fileStore.deleteLocalAudioNoteFiles(audioNoteDao.getAllNotes().map { it.toDomain() })
         tabRepository.clearAllTabs()
         sessionRepository.clearHistory()
         goalRepository.clearGoals()

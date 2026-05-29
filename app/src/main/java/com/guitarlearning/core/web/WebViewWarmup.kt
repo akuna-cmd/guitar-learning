@@ -1,4 +1,4 @@
-package com.guitarlearning.presentation.ui
+package com.guitarlearning.core.web
 
 import android.content.Context
 import android.webkit.WebView

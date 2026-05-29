@@ -8,30 +8,17 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
-import com.guitarlearning.core.settings.AiProvider
-import com.guitarlearning.core.settings.AppLanguage
-import com.guitarlearning.core.settings.FretboardDisplayMode
-import com.guitarlearning.core.settings.TabDisplayMode
-import com.guitarlearning.core.settings.ThemeMode
+import com.guitarlearning.core.preferences.AiProvider
+import com.guitarlearning.core.preferences.AppLanguage
+import com.guitarlearning.core.preferences.AppSettingsSnapshot
+import com.guitarlearning.core.preferences.FretboardDisplayMode
+import com.guitarlearning.core.preferences.TabDisplayMode
+import com.guitarlearning.core.preferences.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
-
-data class AppSettingsSnapshot(
-    val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val appLanguage: AppLanguage = AppLanguage.UKRAINIAN,
-    val aiProvider: AiProvider = AiProvider.GEMINI,
-    val localAiServerUrl: String = "",
-    val normalSpeed: Float = 1.0f,
-    val practiceSpeed: Float = 0.25f,
-    val normalTabScale: Float = 1.0f,
-    val practiceTabScale: Float = 1.0f,
-    val tabDisplayMode: TabDisplayMode = TabDisplayMode.TAB_AND_NOTES,
-    val fretboardDisplayMode: FretboardDisplayMode = FretboardDisplayMode.DETAILED,
-    val updatedAt: Long = 0L
-)
 
 @Singleton
 class AppSettingsRepository @Inject constructor(

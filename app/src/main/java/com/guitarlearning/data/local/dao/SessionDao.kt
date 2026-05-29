@@ -1,10 +1,13 @@
-package com.guitarlearning.data.local
+package com.guitarlearning.data.local.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import com.guitarlearning.data.local.entity.PracticedTabEntity
+import com.guitarlearning.data.local.entity.SessionEntity
+import com.guitarlearning.data.local.entity.SessionWithPracticedTabs
 import kotlinx.coroutines.flow.Flow
 import java.util.Date
 

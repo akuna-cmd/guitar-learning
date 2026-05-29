@@ -1,6 +1,6 @@
 package com.guitarlearning.data.repository
 
-import com.guitarlearning.data.model.Lesson
+import com.guitarlearning.data.model.LessonDto
 import com.guitarlearning.domain.model.Difficulty
 import com.guitarlearning.domain.model.TabItem
 import org.junit.Assert.assertEquals
@@ -66,8 +66,8 @@ class TabRepositorySupportTest {
         assertEquals(null, fallbackDisplayNameFromPath(""))
     }
 
-    private fun lesson(id: String, level: String): Lesson {
-        return Lesson(
+    private fun lesson(id: String, level: String): LessonDto {
+        return LessonDto(
             id = id,
             level = level,
             order = 1,

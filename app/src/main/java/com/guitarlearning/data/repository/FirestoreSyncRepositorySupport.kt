@@ -1,7 +1,7 @@
 package com.guitarlearning.data.repository
 
 import android.util.Log
-import com.guitarlearning.data.settings.AppSettingsSnapshot
+import com.guitarlearning.core.preferences.AppSettingsSnapshot
 import com.guitarlearning.domain.model.AudioNote
 import com.guitarlearning.domain.model.Goal
 import com.guitarlearning.domain.model.Session

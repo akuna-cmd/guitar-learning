@@ -5,20 +5,27 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import com.guitarlearning.domain.model.AudioNote
-import com.guitarlearning.domain.model.Goal
-import com.guitarlearning.domain.model.TabItem
-import com.guitarlearning.domain.model.TextNote
+import com.guitarlearning.data.local.dao.AudioNoteDao
+import com.guitarlearning.data.local.dao.GoalDao
+import com.guitarlearning.data.local.dao.SessionDao
+import com.guitarlearning.data.local.dao.TabDao
+import com.guitarlearning.data.local.dao.TextNoteDao
+import com.guitarlearning.data.local.entity.AudioNoteEntity
+import com.guitarlearning.data.local.entity.GoalEntity
+import com.guitarlearning.data.local.entity.PracticedTabEntity
+import com.guitarlearning.data.local.entity.SessionEntity
+import com.guitarlearning.data.local.entity.TabEntity
+import com.guitarlearning.data.local.entity.TextNoteEntity
 import java.util.UUID
 
 @Database(
     entities = [
-        AudioNote::class,
-        TextNote::class,
+        AudioNoteEntity::class,
+        TextNoteEntity::class,
         SessionEntity::class,
         PracticedTabEntity::class,
-        TabItem::class,
-        Goal::class
+        TabEntity::class,
+        GoalEntity::class
     ],
     version = 15
 )

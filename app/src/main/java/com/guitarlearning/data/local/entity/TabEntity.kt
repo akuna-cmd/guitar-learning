@@ -1,9 +1,13 @@
-package com.guitarlearning.domain.model
+package com.guitarlearning.data.local.entity
 
-import androidx.compose.runtime.Immutable
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+import com.guitarlearning.domain.model.DEFAULT_TAB_FOLDER_KEY
+import com.guitarlearning.domain.model.Difficulty
 
-@Immutable
-data class TabItem(
+@Entity(tableName = "tabs")
+data class TabEntity(
+    @PrimaryKey
     val id: String,
     val name: String,
     val description: String,

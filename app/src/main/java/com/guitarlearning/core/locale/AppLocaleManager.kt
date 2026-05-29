@@ -1,4 +1,4 @@
-package com.guitarlearning.core
+package com.guitarlearning.core.locale
 
 import android.content.Context
 import android.content.ContextWrapper
