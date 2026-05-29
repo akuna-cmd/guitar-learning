@@ -7,8 +7,8 @@ import com.guitarlearning.data.local.dao.AudioNoteDao
 import com.guitarlearning.data.local.dao.TextNoteDao
 import com.guitarlearning.data.local.entity.toDomain
 import com.guitarlearning.data.local.entity.toEntity
-import com.guitarlearning.data.settings.AppSettingsRepository
 import com.guitarlearning.domain.model.TabItem
+import com.guitarlearning.domain.repository.AppSettingsRepository
 import com.guitarlearning.domain.repository.GoalRepository
 import com.guitarlearning.domain.repository.SessionRepository
 import com.guitarlearning.domain.repository.SyncRepository

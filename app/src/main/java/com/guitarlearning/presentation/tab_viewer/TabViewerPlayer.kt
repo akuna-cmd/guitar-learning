@@ -333,18 +333,9 @@ internal fun TabViewer(
                         }
                         webView.evaluateJavascript("window.loadTabFromBase64('$base64');", null)
                     }
-                } else if (isAbsoluteLocalFile) {
-                    loadedSourceForCurrentLesson = "file-fallback"
-                    loadRequestAtMs = System.currentTimeMillis()
-                    TabLoadMetricsTracker.markLoadRequested(tabId, "file-fallback")
-                    if (ENABLE_TAB_PERF_TRACE) {
-                        Log.d(restoreTag, "loading score from file fallback")
-                        Log.d(loadTag, "request load file fallback path=$fileName")
-                    }
-                    webView.evaluateJavascript("window.loadTab('$fileName');", null)
                 } else {
                     if (ENABLE_TAB_PERF_TRACE) {
-                        Log.d(restoreTag, "waiting for base64 bytes, skip file fallback for bundled tab path: $fileName")
+                        Log.d(restoreTag, "waiting for base64 bytes for local tab path: $fileName")
                         Log.d(loadTag, "waiting for tab bytes file=$fileName")
                     }
                 }

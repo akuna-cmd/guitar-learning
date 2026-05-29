@@ -26,8 +26,8 @@ class AppWarmup @Inject constructor(
             runCatching { tabRepository.getUserTabs().first() }
             runCatching { progressRepository.observeAll().first() }
             runCatching { auth.currentUser }
-            runCatching { context.assets.open("tab_viewer.html").close() }
-            runCatching { context.assets.open("alphatab_local.js").close() }
+            runCatching { context.assets.open("web/tab_viewer/index.html").close() }
+            runCatching { context.assets.open("web/tab_viewer/js/alphatab_local.js").close() }
             runCatching { aiAssistantConfigProvider.prefetch() }
         }
     }

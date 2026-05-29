@@ -6,7 +6,7 @@ import com.guitarlearning.domain.model.TabItem
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class TabRepositorySupportTest {
+class TabCatalogMapperTest {
 
     @Test
     fun buildBuiltInTabs_mapsLessonLevelsAndMetadata() {

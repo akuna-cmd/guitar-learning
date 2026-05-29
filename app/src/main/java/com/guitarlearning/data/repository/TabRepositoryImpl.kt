@@ -10,11 +10,11 @@ import com.guitarlearning.data.local.entity.toDomain
 import com.guitarlearning.data.local.entity.toEntity
 import com.guitarlearning.data.model.LessonDto
 import com.guitarlearning.data.model.toDomain
-import com.guitarlearning.data.settings.AppSettingsRepository
 import com.guitarlearning.domain.model.Difficulty
 import com.guitarlearning.domain.model.DEFAULT_TAB_FOLDER_KEY
 import com.guitarlearning.domain.model.Lesson as DomainLesson
 import com.guitarlearning.domain.model.TabItem
+import com.guitarlearning.domain.repository.AppSettingsRepository
 import com.guitarlearning.domain.repository.TabPlaybackProgressRepository
 import com.guitarlearning.domain.repository.TabRepository
 import com.google.gson.Gson
@@ -41,7 +41,7 @@ class TabRepositoryImpl @Inject constructor(
 ) : TabRepository {
     private val lessonsFromJson: List<LessonDto> by lazy {
         try {
-            val inputStream = context.assets.open("lessons.json")
+            val inputStream = context.assets.open("lessons/lessons.json")
             val reader = InputStreamReader(inputStream)
             val lessonListType = object : TypeToken<List<LessonDto>>() {}.type
             Gson().fromJson(reader, lessonListType)

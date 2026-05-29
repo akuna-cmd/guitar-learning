@@ -1,4 +1,4 @@
-package com.guitarlearning.data.settings
+package com.guitarlearning.domain.repository
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences

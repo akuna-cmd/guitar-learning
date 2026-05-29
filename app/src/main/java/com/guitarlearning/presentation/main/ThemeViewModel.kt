@@ -7,7 +7,7 @@ import com.guitarlearning.core.preferences.AppLanguage
 import com.guitarlearning.core.preferences.FretboardDisplayMode
 import com.guitarlearning.core.preferences.TabDisplayMode
 import com.guitarlearning.core.preferences.ThemeMode
-import com.guitarlearning.data.settings.AppSettingsRepository
+import com.guitarlearning.domain.repository.AppSettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

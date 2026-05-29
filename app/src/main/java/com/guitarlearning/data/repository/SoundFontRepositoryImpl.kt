@@ -16,6 +16,6 @@ class SoundFontRepositoryImpl @Inject constructor(
     }
 
     private companion object {
-        const val SOUND_FONT_PATH = "sonivox.sf2"
+        const val SOUND_FONT_PATH = "soundfonts/sonivox.sf2"
     }
 }

@@ -6,10 +6,10 @@ import com.guitarlearning.R
 import com.guitarlearning.core.preferences.AiProvider
 import com.guitarlearning.data.remote.AiAssistantPromptBuilder
 import com.guitarlearning.data.remote.AiAssistantConfigProvider
-import com.guitarlearning.data.settings.AppSettingsRepository
 import com.guitarlearning.domain.model.AiAssistantRequest
 import com.guitarlearning.domain.repository.AiAnswerResult
 import com.guitarlearning.domain.repository.AiAssistantRepository
+import com.guitarlearning.domain.repository.AppSettingsRepository
 import com.google.ai.client.generativeai.GenerativeModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers

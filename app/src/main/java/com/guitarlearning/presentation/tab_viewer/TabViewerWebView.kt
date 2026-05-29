@@ -5,6 +5,8 @@ import android.util.Log
 import android.view.ViewGroup
 import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
+import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -100,10 +102,13 @@ internal fun createTabWebViewEntry(context: Context): TabWebViewEntry {
         settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-            allowFileAccess = true
-            allowContentAccess = true
-            allowFileAccessFromFileURLs = true
-            allowUniversalAccessFromFileURLs = true
+            allowFileAccess = false
+            allowContentAccess = false
+            allowFileAccessFromFileURLs = false
+            allowUniversalAccessFromFileURLs = false
+            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            javaScriptCanOpenWindowsAutomatically = false
+            setSupportMultipleWindows(false)
             mediaPlaybackRequiresUserGesture = false
         }
 
@@ -130,10 +135,15 @@ internal fun createTabWebViewEntry(context: Context): TabWebViewEntry {
         webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
                 view: WebView?,
-                request: android.webkit.WebResourceRequest?
-            ): android.webkit.WebResourceResponse? {
-                val url = request?.url ?: return null
-                return assetLoader.shouldInterceptRequest(url)
+                request: WebResourceRequest?
+            ) = request?.url?.let(assetLoader::shouldInterceptRequest)
+
+            override fun shouldOverrideUrlLoading(
+                view: WebView?,
+                request: WebResourceRequest?
+            ): Boolean {
+                val uri = request?.url ?: return true
+                return uri.scheme != "https" || uri.host != "appassets.androidplatform.net"
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {}
@@ -156,7 +166,7 @@ internal fun createTabWebViewEntry(context: Context): TabWebViewEntry {
         }
     }
     webView.addJavascriptInterface(bridge, "Android")
-    webView.loadUrl("https://appassets.androidplatform.net/assets/tab_viewer.html")
+    webView.loadUrl("https://appassets.androidplatform.net/assets/web/tab_viewer/index.html")
     entry = TabWebViewEntry(webView = webView, bridge = bridge)
     return entry
 }

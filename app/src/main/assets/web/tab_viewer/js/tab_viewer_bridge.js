@@ -466,8 +466,8 @@ function initAlphaTab() {
         api = new alphaTab.AlphaTabApi(document.querySelector('#alphaTab'), {
             core: {
                 engine: 'svg',
-                scriptFile: 'https://appassets.androidplatform.net/assets/alphatab_local.js',
-                fontDirectory: 'https://appassets.androidplatform.net/assets/alphatab_font/',
+                scriptFile: 'https://appassets.androidplatform.net/assets/web/tab_viewer/js/alphatab_local.js',
+                fontDirectory: 'https://appassets.androidplatform.net/assets/web/tab_viewer/fonts/',
                 useWorkers: false
             },
             display: {
@@ -506,7 +506,7 @@ function initAlphaTab() {
         } else if (_pendingTabPath) {
             const path = _pendingTabPath;
             _pendingTabPath = null;
-            api.load(path.startsWith('/') ? `file://${path}` : path);
+            api.load(path);
             postStatus('tabLoad:queued');
         }
         api.playerReady.on(() => {
@@ -667,7 +667,7 @@ window.loadTab = (path) => {
     applyScoreHeaderVisibility();
     clearRenderSettledNotifyTimer();
     _scoreLoadedFired = false;
-    api.load(path.startsWith('/') ? `file://${path}` : path);
+    api.load(path);
 };
 
 window.loadTabFromBase64 = (base64) => {

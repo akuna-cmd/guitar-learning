@@ -42212,11 +42212,9 @@
                 let css = `
             @font-face {
                 font-family: 'alphaTab';
-                 src: url('${fontDirectory}Bravura.eot');
-                 src: url('${fontDirectory}Bravura.eot?#iefix') format('embedded-opentype')
+                 src: url('${fontDirectory}Bravura.woff2') format('woff2')
                       , url('${fontDirectory}Bravura.woff') format('woff')
-                      , url('${fontDirectory}Bravura.otf') format('opentype')
-                      , url('${fontDirectory}Bravura.svg#Bravura') format('svg');
+                      , url('${fontDirectory}Bravura.ttf') format('truetype');
                  font-weight: normal;
                  font-style: normal;
             }
