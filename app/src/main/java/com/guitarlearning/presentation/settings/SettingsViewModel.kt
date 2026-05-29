@@ -5,12 +5,13 @@ import android.net.Uri
 import com.guitarlearning.R
 import com.guitarlearning.core.locale.AppLocaleManager
 import com.guitarlearning.domain.settings.AiProvider
-import com.guitarlearning.domain.session.SessionHistoryTransfer
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.guitarlearning.domain.repository.AiAssistantRepository
 import com.guitarlearning.domain.repository.SessionRepository
 import com.guitarlearning.domain.repository.SyncRepository
+import com.guitarlearning.domain.usecase.ExportSessionHistoryUseCase
+import com.guitarlearning.domain.usecase.ImportSessionHistoryUseCase
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +36,8 @@ data class SettingsUiState(
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
-    private val sessionHistoryTransfer: SessionHistoryTransfer,
+    private val exportSessionHistoryUseCase: ExportSessionHistoryUseCase,
+    private val importSessionHistoryUseCase: ImportSessionHistoryUseCase,
     private val sessionRepository: SessionRepository,
     private val syncRepository: SyncRepository,
     private val aiAssistantRepository: AiAssistantRepository
@@ -54,7 +56,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isExporting = true, message = null)
             try {
-                val content = sessionHistoryTransfer.exportHistory()
+                val content = exportSessionHistoryUseCase()
                 appContext.contentResolver.openOutputStream(uri)?.use { outputStream ->
                     outputStream.write(content.toByteArray())
                 }
@@ -74,7 +76,7 @@ class SettingsViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isImporting = true, message = null)
             try {
                 val content = appContext.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }.orEmpty()
-                sessionHistoryTransfer.importHistory(content)
+                importSessionHistoryUseCase(content)
                 _uiState.value = _uiState.value.copy(message = appContext.getString(R.string.settings_message_import_success))
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(

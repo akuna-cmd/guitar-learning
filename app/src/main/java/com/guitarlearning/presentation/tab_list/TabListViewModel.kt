@@ -10,10 +10,9 @@ import com.guitarlearning.domain.model.TabItem
 import com.guitarlearning.domain.model.TabPlaybackProgress
 import com.guitarlearning.domain.model.isDefaultTabFolder
 import com.guitarlearning.domain.model.normalizeTabFolder
-import com.guitarlearning.domain.repository.SoundFontRepository
-import com.guitarlearning.domain.repository.TabFileRepository
 import com.guitarlearning.domain.repository.TabPlaybackProgressRepository
 import com.guitarlearning.domain.repository.TabRepository
+import com.guitarlearning.domain.usecase.PrepareOfflineTabPackageUseCase
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import android.content.Context
@@ -121,8 +120,7 @@ class TabListViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val tabRepository: TabRepository,
     private val progressRepository: TabPlaybackProgressRepository,
-    private val tabFileRepository: TabFileRepository,
-    private val soundFontRepository: SoundFontRepository,
+    private val prepareOfflineTabPackageUseCase: PrepareOfflineTabPackageUseCase,
     private val dispatchers: AppDispatchers
 ) : ViewModel() {
 
@@ -221,13 +219,7 @@ class TabListViewModel @Inject constructor(
         viewModelScope.launch(dispatchers.io) {
             _uiState.update { it.copy(isDownloadingOfflinePackage = true) }
             runCatching {
-                tab.filePath?.takeIf { it.isNotBlank() }?.let { path ->
-                    tabFileRepository.readTabBytes(path)
-                }
-                soundFontRepository.readSoundFontBytes()
-                tabRepository.markOfflineReady(tab.id, true)
-                val existingTags = tab.tagsCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                tabRepository.updateTabTags(tab.id, (existingTags + "offline").distinct())
+                prepareOfflineTabPackageUseCase(tab)
             }
             _uiState.update { it.copy(isDownloadingOfflinePackage = false) }
         }

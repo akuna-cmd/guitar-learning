@@ -7,18 +7,17 @@ import com.guitarlearning.domain.model.PracticedTab
 import com.guitarlearning.domain.model.Session
 import com.guitarlearning.domain.model.TabPlaybackProgress
 import com.guitarlearning.domain.repository.SessionRepository
-import com.guitarlearning.domain.repository.TabPlaybackProgressRepository
-import com.guitarlearning.domain.repository.TabRepository
+import com.guitarlearning.domain.usecase.ObserveContinueLearningUseCase
+import com.guitarlearning.domain.usecase.ObserveHomeStatsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -45,32 +44,16 @@ data class MainUiState(
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
+    observeContinueLearningUseCase: ObserveContinueLearningUseCase,
     private val sessionRepository: SessionRepository,
-    private val tabRepository: TabRepository,
-    private val progressRepository: TabPlaybackProgressRepository,
+    private val observeHomeStatsUseCase: ObserveHomeStatsUseCase,
     private val dispatchers: AppDispatchers
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
 
-    val lastPlaybackProgress: StateFlow<TabPlaybackProgress?> = progressRepository.observeAll()
-        .combine(tabRepository.getTabs().combine(tabRepository.observeUserTabs()) { tabs, userTabs ->
-            tabs + userTabs
-        }) { progressList, allTabs ->
-            val latestOpenedTab = allTabs.maxByOrNull { it.lastOpenedAt }
-            latestOpenedTab?.let { tab ->
-                progressList.firstOrNull { it.tabId == tab.id } ?: TabPlaybackProgress(
-                    tabId = tab.id,
-                    tabName = tab.name,
-                    lastTick = 0L,
-                    lastBarIndex = 0,
-                    totalBars = 0,
-                    updatedAt = tab.lastOpenedAt
-                )
-            }
-        }
-        .distinctUntilChanged()
+    val lastPlaybackProgress: StateFlow<TabPlaybackProgress?> = observeContinueLearningUseCase()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -85,26 +68,20 @@ class MainViewModel @Inject constructor(
     }
 
     private fun loadData() {
-        viewModelScope.launch(dispatchers.default) {
-            combine(
-                sessionRepository.getAllSessions(),
-                tabRepository.getCompletedLessonsCount(),
-                tabRepository.getTotalLessonsCount(),
-                tabRepository.getUserTabsCount()
-            ) { sessions, lessonsCompleted, totalLessons, userTabsCount ->
-                val totalSessionTime = sessions.sumOf { it.duration }
+        observeHomeStatsUseCase()
+            .onEach { stats ->
                 _uiState.update { current ->
                     current.copy(
                         isLoading = false,
-                        sessions = sessions.toImmutableList(),
-                        lessonsCompleted = lessonsCompleted,
-                        totalLessons = totalLessons,
-                        totalSessionTime = totalSessionTime,
-                        userTabsCount = userTabsCount
+                        sessions = stats.sessions.toImmutableList(),
+                        lessonsCompleted = stats.lessonsCompleted,
+                        totalLessons = stats.totalLessons,
+                        totalSessionTime = stats.totalSessionTime,
+                        userTabsCount = stats.userTabsCount
                     )
                 }
-            }.collect {}
-        }
+            }
+            .launchIn(viewModelScope)
     }
 
     fun startSession() {
@@ -137,7 +114,7 @@ class MainViewModel @Inject constructor(
             currentPracticedTabs.add(it)
         }
 
-        viewModelScope.launch {
+        viewModelScope.launch(dispatchers.io) {
             sessionRepository.addSession(
                 Session(
                     startTime = startTime,

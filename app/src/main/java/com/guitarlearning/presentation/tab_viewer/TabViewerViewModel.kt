@@ -10,15 +10,13 @@ import com.guitarlearning.BuildConfig
 import com.guitarlearning.di.AppDispatchers
 import com.guitarlearning.domain.model.Lesson
 import com.guitarlearning.domain.model.TabPlaybackProgress
+import com.guitarlearning.domain.usecase.LoadTabViewerLessonUseCase
 import com.guitarlearning.domain.repository.SoundFontRepository
 import com.guitarlearning.domain.repository.TabFileRepository
 import com.guitarlearning.domain.repository.TabPlaybackProgressRepository
-import com.guitarlearning.domain.repository.TabRepository
 import com.google.gson.Gson
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -96,7 +94,7 @@ data class TabViewerUiState(
 @HiltViewModel
 class TabViewerViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val tabRepository: TabRepository,
+    private val loadTabViewerLessonUseCase: LoadTabViewerLessonUseCase,
     private val tabFileRepository: TabFileRepository,
     private val soundFontRepository: SoundFontRepository,
     private val tabPlaybackProgressRepository: TabPlaybackProgressRepository,
@@ -145,34 +143,20 @@ class TabViewerViewModel @Inject constructor(
         _lastTickPosition.value = null
         _lastBarIndex.value = null
 
-        viewModelScope.launch(dispatchers.io) {
-            tabRepository.markTabOpened(id)
-        }
-
         viewModelScope.launch {
-            val (lesson, tabItem, savedProgress) = withContext(dispatchers.io) {
-                coroutineScope {
-                    val lessonDeferred = async { tabRepository.getLesson(id) }
-                    val tabItemDeferred = async { tabRepository.getTabById(id) }
-                    val progressDeferred = async { tabPlaybackProgressRepository.getByTabId(id) }
-                    Triple(
-                        lessonDeferred.await(),
-                        tabItemDeferred.await(),
-                        progressDeferred.await()
-                    )
-                }
+            val loadResult = withContext(dispatchers.io) {
+                loadTabViewerLessonUseCase(id)
             }
-
-            val savedBar = savedProgress?.lastBarIndex ?: 0
-            val savedTick = savedProgress?.lastTick ?: 0L
-            val shouldRestore = savedProgress != null && (savedBar > 0 || savedTick > 0L)
+            val lesson = loadResult.lesson
+            val tabItem = loadResult.tabItem
+            val savedProgress = loadResult.savedProgress
 
             activeLessonId = id
-            lastSavedBarIndex = savedBar.takeIf { it > 0 } ?: -1
+            lastSavedBarIndex = (savedProgress?.lastBarIndex ?: 0).takeIf { it > 0 } ?: -1
 
             perfLog(
                 RESTORE_TAG,
-                "loadLesson(id=$id) savedProgress={tick=${savedProgress?.lastTick}, bar=${savedProgress?.lastBarIndex}, total=${savedProgress?.totalBars}} shouldRestore=$shouldRestore"
+                "loadLesson(id=$id) savedProgress={tick=${savedProgress?.lastTick}, bar=${savedProgress?.lastBarIndex}, total=${savedProgress?.totalBars}} shouldRestore=${loadResult.shouldRestore}"
             )
 
             _uiState.update { currentState ->
@@ -202,11 +186,11 @@ class TabViewerViewModel @Inject constructor(
                     totalBars = savedProgress?.totalBars,
                     restoreTickPosition = savedProgress?.lastTick,
                     restoreBarIndex = savedProgress?.lastBarIndex,
-                    restorePending = shouldRestore
+                    restorePending = loadResult.shouldRestore
                 )
             }
 
-            val tabPath = lesson?.tabsGpPath ?: tabItem?.filePath
+            val tabPath = loadResult.tabPath
             if (tabPath != null) {
                 loadTabBytes(tabPath)
             }
