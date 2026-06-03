@@ -13,6 +13,7 @@ const I18N = {
         rhIndex: 'i (вказівний)',
         rhMiddle: 'm (середній)',
         rhRing: 'a (безіменний)',
+        rhTap: 'T (теппінг)',
         techniqueHarmonic: 'Флажолет',
         techniqueDead: 'Мертва нота',
         techniqueBend: 'Підтяжка',
@@ -43,6 +44,11 @@ const I18N = {
         leftHandSummary: 'Ліва рука: {items}.',
         rightHandArpeggio: 'Права рука: Виконується перебором (арпеджіо).',
         rightHandPluckTogether: 'Права рука: Одночасний щипок кількох струн.',
+        rightHandAlternatingTreble: 'Права рука: Для верхнього голосу чергуйте пальці {first}/{second}.',
+        rightHandBassMelody: 'Права рука: Бас ведіть великим пальцем, а мелодію та внутрішні голоси розподіляйте між i/m/a.',
+        rightHandTrebleBlock: 'Права рука: Верхні струни беріть сусідніми пальцями без повтору одного й того ж пальця.',
+        leftHandKeepShape: 'Ліва рука: Утримуйте форму в цій позиції, не перебудовуючи аплікатуру завчасно.',
+        leftHandShiftLate: 'Ліва рука: Зсув у наступну позицію краще робити в останній зручний момент.',
         accentInstruction: 'Акцент: Ця нота виконується з підвищеною динамікою (гучніше).',
         ghostInstruction: 'Нота-привид: Виконується дуже тихо, ледь відчутно, створюючи фонову пульсацію.',
         deadInstruction: 'Мертва нота: Струна повністю приглушена лівою рукою; удар правої руки генерує перкусійний звук.',
@@ -59,6 +65,7 @@ const I18N = {
         trillInstruction: 'Трель: Швидке безперервне чергування двох нот методом Hammer-on та Pull-off.',
         plainNoteInstruction: 'Звичайна нота без додаткових артикуляцій.',
         openStringName: 'Відкрита струна',
+        tappingFinger: 'T (теппінг)',
         deadLabel: 'Глуха (x)',
         stringLabel: 'Струна {string} [{label}] (лад {fret})'
     },
@@ -71,6 +78,7 @@ const I18N = {
         rhIndex: 'i (index)',
         rhMiddle: 'm (middle)',
         rhRing: 'a (ring)',
+        rhTap: 'T (tap)',
         techniqueHarmonic: 'Harmonic',
         techniqueDead: 'Dead note',
         techniqueBend: 'Bend',
@@ -101,6 +109,11 @@ const I18N = {
         leftHandSummary: 'Left hand: {items}.',
         rightHandArpeggio: 'Right hand: Played as a picked arpeggio.',
         rightHandPluckTogether: 'Right hand: Pluck several strings together.',
+        rightHandAlternatingTreble: 'Right hand: Alternate {first}/{second} for the upper voice.',
+        rightHandBassMelody: 'Right hand: Keep the bass on the thumb and distribute melody and inner voices across i/m/a.',
+        rightHandTrebleBlock: 'Right hand: Take the upper strings with adjacent fingers without reusing the same finger.',
+        leftHandKeepShape: 'Left hand: Keep the current shape instead of rebuilding the fingering too early.',
+        leftHandShiftLate: 'Left hand: Delay the shift to the next position until the last comfortable moment.',
         accentInstruction: 'Accent: This note is played with increased emphasis and volume.',
         ghostInstruction: 'Ghost note: Played very quietly, almost imperceptibly, creating a background pulse.',
         deadInstruction: 'Dead note: The string is fully muted by the fretting hand; the picking hand produces a percussive sound.',
@@ -117,6 +130,7 @@ const I18N = {
         trillInstruction: 'Trill: Rapid continuous alternation of two notes using hammer-ons and pull-offs.',
         plainNoteInstruction: 'Regular note without additional articulation.',
         openStringName: 'Open string',
+        tappingFinger: 'T (tap)',
         deadLabel: 'Dead (x)',
         stringLabel: 'String {string} [{label}] (fret {fret})'
     }
@@ -150,7 +164,8 @@ function rightHandName(symbol) {
         p: t('rhThumb'),
         i: t('rhIndex'),
         m: t('rhMiddle'),
-        a: t('rhRing')
+        a: t('rhRing'),
+        t: t('rhTap')
     };
     return names[symbol] || symbol;
 }
