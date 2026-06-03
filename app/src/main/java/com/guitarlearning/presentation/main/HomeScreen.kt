@@ -92,7 +92,6 @@ fun HomeScreen(
                         onStartSession()
                     }
                 },
-                isSessionActive = isSessionActive,
                 isEnabled = lastPlaybackProgress != null
             )
         }
@@ -127,7 +126,6 @@ fun ContinueLearningCard(
     progressPercent: Int,
     progressValue: Float,
     onContinue: () -> Unit,
-    isSessionActive: Boolean,
     isEnabled: Boolean
 ) {
     Card(
@@ -175,7 +173,7 @@ fun ContinueLearningCard(
             )
             OutlinedButton(
                 onClick = onContinue,
-                enabled = !isSessionActive && isEnabled,
+                enabled = isEnabled,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(44.dp)
