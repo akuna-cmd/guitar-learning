@@ -10,9 +10,10 @@ import com.guitarlearning.domain.model.AiAssistantRequest
 import com.guitarlearning.domain.repository.AiAnswerResult
 import com.guitarlearning.domain.repository.AiAssistantRepository
 import com.guitarlearning.domain.repository.AppSettingsRepository
-import com.google.ai.client.generativeai.GenerativeModel
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -32,7 +33,8 @@ class AiAssistantRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val promptBuilder: AiAssistantPromptBuilder,
     private val configProvider: AiAssistantConfigProvider,
-    private val appSettingsRepository: AppSettingsRepository
+    private val appSettingsRepository: AppSettingsRepository,
+    private val firebaseAuth: FirebaseAuth
 ) : AiAssistantRepository {
 
     @Volatile
@@ -87,20 +89,49 @@ class AiAssistantRepositoryImpl @Inject constructor(
     }
 
     private suspend fun generateWithGemini(prompt: String): String {
-        val apiKey = com.guitarlearning.BuildConfig.GEMINI_API_KEY.trim()
-        if (apiKey.isBlank()) {
-            throw IllegalStateException(context.getString(R.string.ai_error_gemini_key_missing))
+        return withContext(Dispatchers.IO) {
+            val workerUrl = configProvider.getWorkerUrl()
+                .takeIf { it.isNotBlank() }
+                ?: throw IllegalStateException(context.getString(R.string.ai_error_gemini_worker_missing))
+            val currentUser = firebaseAuth.currentUser
+                ?: throw IllegalStateException(context.getString(R.string.ai_error_gemini_auth_required))
+            val idToken = currentUser.getIdToken(false).await().token
+                ?.trim()
+                .takeIf { !it.isNullOrBlank() }
+                ?: throw IllegalStateException(context.getString(R.string.ai_error_gemini_auth_required))
+            val requestedModel = configProvider.getModelName()
+            val body = JSONObject().apply {
+                put("prompt", prompt)
+                put("model", requestedModel)
+            }.toString()
+
+            runCatching {
+                val responseBody = postJson(
+                    urlString = workerUrl,
+                    body = body,
+                    headers = mapOf("Authorization" to "Bearer $idToken")
+                )
+                val payload = JSONObject(responseBody)
+                val text = payload.optString("text").trim()
+                if (text.isBlank()) {
+                    throw IllegalStateException(EmptyResponseError)
+                }
+                text
+            }.getOrElse { error ->
+                throw IllegalStateException(explainGeminiWorkerError(error))
+            }
         }
-        val generativeModel = GenerativeModel(
-            modelName = configProvider.getModelName(),
-            apiKey = apiKey
-        )
-        val response = generativeModel.generateContent(prompt)
-        val text = response.text?.trim().orEmpty()
-        if (text.isBlank()) {
-            throw IllegalStateException(EmptyResponseError)
+    }
+
+    private fun explainGeminiWorkerError(error: Throwable): String {
+        val detail = error.localizedMessage?.takeIf { it.isNotBlank() }
+        return when (error) {
+            is ConnectException, is SocketTimeoutException, is SSLException -> {
+                detail ?: context.getString(R.string.ai_error_gemini_worker_unavailable)
+            }
+
+            else -> detail ?: context.getString(R.string.ai_error_gemini_worker_failed)
         }
-        return text
     }
 
     private suspend fun generateWithLocalLlama(
@@ -211,7 +242,11 @@ class AiAssistantRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun postJson(urlString: String, body: String): String {
+    private fun postJson(
+        urlString: String,
+        body: String,
+        headers: Map<String, String> = emptyMap()
+    ): String {
         val connection = (URL(urlString).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = ConnectTimeoutMs
@@ -219,6 +254,7 @@ class AiAssistantRepositoryImpl @Inject constructor(
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Accept", "application/json")
+            headers.forEach { (name, value) -> setRequestProperty(name, value) }
         }
         return try {
             connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
@@ -228,7 +264,10 @@ class AiAssistantRepositoryImpl @Inject constructor(
                 BufferedReader(InputStreamReader(input)).readText()
             }.orEmpty()
             if (responseCode !in 200..299) {
-                throw IllegalStateException("HTTP $responseCode: $responseText")
+                val message = runCatching {
+                    JSONObject(responseText).optString("error").ifBlank { responseText }
+                }.getOrDefault(responseText)
+                throw IllegalStateException("HTTP $responseCode: $message")
             }
             responseText
         } finally {

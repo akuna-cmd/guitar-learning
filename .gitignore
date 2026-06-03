@@ -13,4 +13,16 @@ build/
 local.properties
 .gradle-home/
 .env
+.env.*
 google-services.json
+**/google-services.json
+firebase-debug.log
+.firebase/
+.firebaserc
+.runtimeconfig.json
+worker/node_modules/
+worker/.wrangler/
+worker/*.log
+worker/.env
+worker/.env.*
+worker/.dev.vars*

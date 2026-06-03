@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.Room
+import com.guitarlearning.BuildConfig
 import com.guitarlearning.data.local.AppDatabase
 import com.guitarlearning.data.local.Migration12To13
 import com.guitarlearning.data.local.Migration13To14
@@ -89,11 +90,14 @@ object DataModule {
         return FirebaseRemoteConfig.getInstance().apply {
             setConfigSettingsAsync(
                 remoteConfigSettings {
-                    minimumFetchIntervalInSeconds = 21_600L
+                    minimumFetchIntervalInSeconds = if (BuildConfig.DEBUG) 0L else 21_600L
                 }
             )
             setDefaultsAsync(
-                mapOf(AiAssistantConfig.RemoteModelKey to AiAssistantConfig.DefaultModelName)
+                mapOf(
+                    AiAssistantConfig.RemoteModelKey to AiAssistantConfig.DefaultModelName,
+                    AiAssistantConfig.WorkerUrlKey to ""
+                )
             )
         }
     }

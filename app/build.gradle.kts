@@ -1,6 +1,3 @@
-import java.util.Properties
-import java.io.FileInputStream
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -8,12 +5,6 @@ plugins {
     alias(libs.plugins.ksp)
     id("com.google.dagger.hilt.android") version "2.56.2"
     id("com.google.gms.google-services")
-}
-
-val envProperties = Properties()
-val envFile = rootProject.file(".env")
-if (envFile.exists()) {
-    envProperties.load(FileInputStream(envFile))
 }
 
 android {
@@ -28,7 +19,6 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "GEMINI_API_KEY", "\"${envProperties.getProperty("GEMINI_API_KEY", "").replace("\"", "\\\"")}\"")
     }
 
     buildTypes {
@@ -91,7 +81,6 @@ dependencies {
     implementation("io.noties.markwon:ext-strikethrough:4.6.2")
     implementation("io.noties.markwon:ext-tables:4.6.2")
     implementation("io.noties.markwon:ext-tasklist:4.6.2")
-    implementation("com.google.ai.client.generativeai:generativeai:0.7.0")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.webkit:webkit:1.10.0")

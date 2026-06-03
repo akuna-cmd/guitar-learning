@@ -1,0 +1,7 @@
+name = "guitarlearning-gemini"
+main = "src/index.ts"
+compatibility_date = "2026-06-03"
+
+[vars]
+FIREBASE_PROJECT_ID = "guitar-learning-379a2"
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-lite"

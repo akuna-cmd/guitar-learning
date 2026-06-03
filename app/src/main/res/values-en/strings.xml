@@ -70,7 +70,11 @@
     <string name="user_icon_description">User icon</string>
     <string name="ai_icon_description">AI icon</string>
     <string name="ai_error_generic">An error occurred. Try again.</string>
-    <string name="ai_error_gemini_key_missing">Gemini API key is not configured. Add your key to the root .env file in the GEMINI_API_KEY=... line.</string>
+    <string name="ai_error_gemini_key_missing">Gemini is unavailable because the server-side key is not configured.</string>
+    <string name="ai_error_gemini_worker_missing">Gemini is unavailable because the service is not configured yet.</string>
+    <string name="ai_error_gemini_auth_required">Sign in to use Gemini.</string>
+    <string name="ai_error_gemini_worker_unavailable">Gemini is temporarily unavailable.</string>
+    <string name="ai_error_gemini_worker_failed">Failed to get a Gemini response.</string>
     <string name="ai_error_local_server_missing">Set the local llama.cpp server address in Settings.</string>
     <string name="ai_error_local_server_unreachable">Could not connect to the local server %1$s. %2$s</string>
     <string name="ai_error_local_server_loopback">The address %1$s is not suitable for connecting from a phone. Use your computer’s local network IP, for example 192.168.x.x:8080.</string>
@@ -117,7 +121,8 @@ Question:
     <string name="settings_ai_provider_title">AI assistant</string>
     <string name="settings_ai_provider_description">Choose which backend the AI assistant should use for answers.</string>
     <string name="settings_ai_provider_gemini">Gemini (cloud model)</string>
-    <string name="settings_ai_gemini_key_missing">Gemini is currently unavailable: the root .env file does not contain a value for GEMINI_API_KEY. To test the app, add your own key to the GEMINI_API_KEY=... line.</string>
+    <string name="settings_ai_gemini_key_missing">Gemini is currently unavailable because the server-side key or Worker is not configured yet.</string>
+    <string name="settings_ai_gemini_auth_required">Sign in inside the app before using Gemini.</string>
     <string name="settings_ai_provider_local">Local model via llama.cpp server</string>
     <string name="settings_ai_server_label">Server IP address or URL</string>
     <string name="settings_ai_server_placeholder">192.168.0.15:8080</string>

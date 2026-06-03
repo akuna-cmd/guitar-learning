@@ -25,4 +25,9 @@ class AiAssistantConfigProvider @Inject constructor(
         return remoteConfig.getString(AiAssistantConfig.RemoteModelKey)
             .ifBlank { AiAssistantConfig.DefaultModelName }
     }
+
+    suspend fun getWorkerUrl(): String {
+        prefetch()
+        return remoteConfig.getString(AiAssistantConfig.WorkerUrlKey).trim()
+    }
 }

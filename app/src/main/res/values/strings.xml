@@ -70,7 +70,11 @@
     <string name="user_icon_description">Іконка користувача</string>
     <string name="ai_icon_description">Іконка AI</string>
     <string name="ai_error_generic">Сталася помилка. Спробуйте ще раз.</string>
-    <string name="ai_error_gemini_key_missing">Gemini API-ключ не налаштований. Додай свій ключ у кореневий файл .env у рядок GEMINI_API_KEY=...</string>
+    <string name="ai_error_gemini_key_missing">Gemini недоступний: серверний ключ не налаштований.</string>
+    <string name="ai_error_gemini_worker_missing">Gemini недоступний: сервіс ще не налаштований.</string>
+    <string name="ai_error_gemini_auth_required">Щоб користуватися Gemini, увійди в акаунт.</string>
+    <string name="ai_error_gemini_worker_unavailable">Gemini тимчасово недоступний.</string>
+    <string name="ai_error_gemini_worker_failed">Не вдалося отримати відповідь від Gemini.</string>
     <string name="ai_error_local_server_missing">Вкажіть адресу локального llama.cpp сервера в налаштуваннях.</string>
     <string name="ai_error_local_server_unreachable">Не вдалося підключитися до локального сервера %1$s. %2$s</string>
     <string name="ai_error_local_server_loopback">Адреса %1$s не підходить для підключення з телефону. Вкажіть локальну IP-адресу комп’ютера в мережі, наприклад 192.168.x.x:8080.</string>
@@ -117,7 +121,8 @@
     <string name="settings_ai_provider_title">ШІ-помічник</string>
     <string name="settings_ai_provider_description">Оберіть, який рушій використовувати для відповідей AI-помічника.</string>
     <string name="settings_ai_provider_gemini">Gemini (хмарна модель)</string>
-    <string name="settings_ai_gemini_key_missing">Gemini зараз недоступний: у кореневому файлі .env немає значення для GEMINI_API_KEY. Для перевірки застосунку додай свій ключ у рядок GEMINI_API_KEY=...</string>
+    <string name="settings_ai_gemini_key_missing">Gemini зараз недоступний: серверний ключ або Worker ще не налаштовані.</string>
+    <string name="settings_ai_gemini_auth_required">Щоб використовувати Gemini, спочатку увійди в акаунт у цьому застосунку.</string>
     <string name="settings_ai_provider_local">Локальна модель через llama.cpp server</string>
     <string name="settings_ai_server_label">IP адреса або URL сервера</string>
     <string name="settings_ai_server_placeholder">192.168.0.15:8080</string>
