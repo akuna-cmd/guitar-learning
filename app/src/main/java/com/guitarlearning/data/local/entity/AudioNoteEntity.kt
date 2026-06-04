@@ -1,10 +1,14 @@
 package com.guitarlearning.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.util.Date
 
-@Entity(tableName = "audio_notes")
+@Entity(
+    tableName = "audio_notes",
+    indices = [Index("lessonId")]
+)
 data class AudioNoteEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,

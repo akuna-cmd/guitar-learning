@@ -161,7 +161,11 @@ internal class FirestoreSyncMergePolicy(
             isUserTab = local.isUserTab || remote.isUserTab,
             filePath = newer.filePath ?: older.filePath,
             asciiTabs = newer.asciiTabs ?: older.asciiTabs,
-            tagsCsv = mapper.mergeTags(local.tagsCsv, remote.tagsCsv),
+            tags = mapper.mergeTags(local.tagsCsv, remote.tagsCsv)
+                .split(',')
+                .map(String::trim)
+                .filter(String::isNotEmpty)
+                .distinct(),
             folder = newer.folder.takeIf { it.isNotBlank() } ?: older.folder,
             openCount = maxOf(local.openCount, remote.openCount),
             lastOpenedAt = maxOf(local.lastOpenedAt, remote.lastOpenedAt),

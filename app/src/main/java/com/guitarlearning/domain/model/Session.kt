@@ -8,9 +8,11 @@ data class Session(
     val id: Int = 0,
     val startTime: Date,
     val endTime: Date,
-    val duration: Long,
     val practicedTabs: List<PracticedTab> = emptyList()
-)
+) {
+    val duration: Long
+        get() = (endTime.time - startTime.time).coerceAtLeast(0L)
+}
 
 @Immutable
 data class PracticedTab(

@@ -18,7 +18,5 @@ data class GoalEntity(
     val target: Int,
     val progress: Int = 0,
     val deadline: Long,
-    val updatedAt: Long = 0L,
-    val isCompleted: Boolean = false,
-    val isOverdue: Boolean = false
+    val updatedAt: Long = 0L
 )

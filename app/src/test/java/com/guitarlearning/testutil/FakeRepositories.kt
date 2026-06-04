@@ -121,9 +121,8 @@ class FakeTabRepository(
     }
 
     override suspend fun updateTabTags(tabId: String, tags: List<String>) {
-        val updatedTags = tags.joinToString(",")
         val current = getTabById(tabId) ?: return
-        updateTab(current.copy(tagsCsv = updatedTags))
+        updateTab(current.copy(tags = tags.distinct()))
     }
 
     override suspend fun updateTabFolder(tabId: String, folder: String) {

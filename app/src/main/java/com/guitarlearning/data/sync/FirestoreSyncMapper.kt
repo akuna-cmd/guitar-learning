@@ -164,7 +164,11 @@ internal class FirestoreSyncMapper(
                 isUserTab = isUserTab,
                 filePath = localPath,
                 asciiTabs = document.getString("asciiTabs"),
-                tagsCsv = document.getString("tagsCsv") ?: "",
+                tags = (document.getString("tagsCsv") ?: "")
+                    .split(',')
+                    .map(String::trim)
+                    .filter(String::isNotEmpty)
+                    .distinct(),
                 folder = normalizeTabFolder(document.getString("folder") ?: DEFAULT_TAB_FOLDER_KEY),
                 openCount = document.getLong("openCount")?.toInt() ?: 0,
                 lastOpenedAt = document.getLong("lastOpenedAt") ?: 0L,

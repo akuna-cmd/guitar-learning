@@ -69,7 +69,9 @@ class GoalsViewModel @Inject constructor(
 
     fun toggleCustomGoal(goal: Goal) {
         viewModelScope.launch {
-            goalRepository.updateGoal(goal.copy(isCompleted = !goal.isCompleted))
+            goalRepository.updateGoal(
+                goal.copy(progress = if (goal.isCompleted) 0 else goal.target.coerceAtLeast(1))
+            )
         }
     }
 }

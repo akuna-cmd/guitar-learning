@@ -1,5 +1,7 @@
 package com.guitarlearning.presentation.main
 import com.guitarlearning.di.AppDispatchers
+import com.guitarlearning.domain.usecase.ObserveContinueLearningUseCase
+import com.guitarlearning.domain.usecase.ObserveHomeStatsUseCase
 import com.guitarlearning.testutil.FakeSessionRepository
 import com.guitarlearning.testutil.FakeTabPlaybackProgressRepository
 import com.guitarlearning.testutil.FakeTabRepository
@@ -22,10 +24,18 @@ class MainViewModelTest {
     @Test
     fun tracksPracticeAcrossTabSwitchesAndPersistsSessionSummary() = runTest {
         val sessionRepository = FakeSessionRepository()
+        val tabRepository = FakeTabRepository()
+        val progressRepository = FakeTabPlaybackProgressRepository()
         val viewModel = MainViewModel(
+            observeContinueLearningUseCase = ObserveContinueLearningUseCase(
+                progressRepository = progressRepository,
+                tabRepository = tabRepository
+            ),
             sessionRepository = sessionRepository,
-            tabRepository = FakeTabRepository(),
-            progressRepository = FakeTabPlaybackProgressRepository(),
+            observeHomeStatsUseCase = ObserveHomeStatsUseCase(
+                sessionRepository = sessionRepository,
+                tabRepository = tabRepository
+            ),
             dispatchers = AppDispatchers(
                 io = mainDispatcherRule.dispatcher,
                 default = mainDispatcherRule.dispatcher,

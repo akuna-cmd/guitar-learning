@@ -2,6 +2,7 @@ package com.guitarlearning.presentation.tab_list
 
 import android.content.Context
 import com.guitarlearning.di.AppDispatchers
+import com.guitarlearning.domain.usecase.PrepareOfflineTabPackageUseCase
 import com.guitarlearning.domain.model.TabPlaybackProgress
 import com.guitarlearning.testutil.FakeSoundFontRepository
 import com.guitarlearning.testutil.FakeTabFileRepository
@@ -81,8 +82,11 @@ class TabListViewModelTest {
             context = RuntimeEnvironment.getApplication().applicationContext as Context,
             tabRepository = tabRepository,
             progressRepository = progressRepository,
-            tabFileRepository = FakeTabFileRepository(),
-            soundFontRepository = FakeSoundFontRepository(),
+            prepareOfflineTabPackageUseCase = PrepareOfflineTabPackageUseCase(
+                tabFileRepository = FakeTabFileRepository(),
+                soundFontRepository = FakeSoundFontRepository(),
+                tabRepository = tabRepository
+            ),
             dispatchers = AppDispatchers(
                 io = mainDispatcherRule.dispatcher,
                 default = mainDispatcherRule.dispatcher,

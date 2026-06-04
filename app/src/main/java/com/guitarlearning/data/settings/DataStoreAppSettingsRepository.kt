@@ -159,7 +159,7 @@ class DataStoreAppSettingsRepository @Inject constructor(
             normalTabScale = preferences[Keys.normalTabScale] ?: 1.5f,
             practiceTabScale = preferences[Keys.practiceTabScale] ?: 1.5f,
             tabDisplayMode = TabDisplayMode.valueOf(
-                preferences[Keys.tabDisplayMode] ?: TabDisplayMode.TAB_AND_NOTES.name
+                preferences[Keys.tabDisplayMode] ?: TabDisplayMode.TAB_ONLY.name
             ),
             updatedAt = preferences[Keys.settingsUpdatedAt] ?: 0L
         )

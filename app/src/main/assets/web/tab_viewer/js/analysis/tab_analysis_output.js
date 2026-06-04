@@ -213,7 +213,7 @@ function buildPrimaryTechniqueHint(techniques, isTapping) {
     return null;
 }
 
-function buildInstructions(notes, rawNotes, beatTechniques, leftHandMap, rightHandMap, barreFret, position, isTapping, extraHints = []) {
+function buildInstructions(notes, rawNotes, beatTechniques, leftHandMap, rightHandMap, barreFret, possibleBarreFret, position, isTapping, extraHints = []) {
     const instructions = [];
     const techniques = extractTechniques(rawNotes, beatTechniques);
     const frets = activeFrets(notes);
@@ -226,6 +226,9 @@ function buildInstructions(notes, rawNotes, beatTechniques, leftHandMap, rightHa
 
     if (!allTapped && barreFret !== null) {
         instructions.push(t('positionBarre', { fret: barreFret }));
+        instructions.push(t('barreHelp'));
+    } else if (!allTapped && possibleBarreFret !== null) {
+        instructions.push(t('positionBarre', { fret: possibleBarreFret }));
         instructions.push(t('barreHelp'));
     } else if (!allTapped && activeFrets(notes).length) {
         instructions.push(t('positionAround', { fret: position }));
@@ -304,7 +307,7 @@ function buildInstructions(notes, rawNotes, beatTechniques, leftHandMap, rightHa
     return [...new Set(instructions.concat(extraHints))];
 }
 
-function buildContextHint(notes, rawNotes, beatTechniques, barreFret, isTapping) {
+function buildContextHint(notes, rawNotes, beatTechniques, barreFret, possibleBarreFret, isTapping) {
     const techniques = extractTechniques(rawNotes, beatTechniques);
     const frets = activeFrets(notes);
     const width = frets.length ? Math.max(...frets) - Math.min(...frets) : 0;
@@ -312,6 +315,7 @@ function buildContextHint(notes, rawNotes, beatTechniques, barreFret, isTapping)
     const primaryHint = buildPrimaryTechniqueHint(techniques, isTapping);
     if (primaryHint) return primaryHint;
     if (barreFret !== null) return t('possibleBarre', { fret: barreFret });
+    if (possibleBarreFret !== null) return t('possibleBarre', { fret: possibleBarreFret });
     if (width > 3) return t('wideStretch');
     return null;
 }
@@ -453,6 +457,7 @@ function buildAnalysis(barIdx, analyzedBeat, nextAnalyzedBeat) {
             analyzedBeat.leftHandMap,
             analyzedBeat.rightHandMap,
             analyzedBeat.barreFret,
+            analyzedBeat.possibleBarreFret,
             analyzedBeat.position,
             analyzedBeat.isTapping,
             analyzedBeat.performanceHints
@@ -463,6 +468,7 @@ function buildAnalysis(barIdx, analyzedBeat, nextAnalyzedBeat) {
             analyzedBeat.rawNotes,
             analyzedBeat.beatTechniques,
             analyzedBeat.barreFret,
+            analyzedBeat.possibleBarreFret,
             analyzedBeat.isTapping
         ),
         nextLeftHand

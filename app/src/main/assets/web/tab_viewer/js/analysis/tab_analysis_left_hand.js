@@ -391,6 +391,7 @@ function generateLeftHandCandidates(beatData) {
             position,
             barre: null,
             barreFret: null,
+            possibleBarreFret: null,
             leftHandMap: {},
             leftHandPlacement: {},
             leftHandStateCost: 0,
@@ -407,6 +408,7 @@ function generateLeftHandCandidates(beatData) {
     }
 
     const detectedBarres = detectBarreCandidates(notes).slice(0, 3);
+    const possibleBarreFret = detectedBarres.length ? detectedBarres[0].fret : null;
     const positions = collectPositionCandidates(notes);
     const barreOptions = [null, ...detectedBarres];
     const candidates = [];
@@ -416,7 +418,10 @@ function generateLeftHandCandidates(beatData) {
             if (barre && position !== barre.fret) continue;
             const forcedVariants = buildForcedPlacementVariants(beatData, position, barre);
             for (const forcedPlacements of forcedVariants) {
-                candidates.push(buildLeftHandCandidate(beatData, position, barre, forcedPlacements));
+                candidates.push({
+                    ...buildLeftHandCandidate(beatData, position, barre, forcedPlacements),
+                    possibleBarreFret
+                });
             }
         }
     }

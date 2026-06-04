@@ -45,18 +45,15 @@ class PracticeHeatmapViewModelTest {
         repository.sessionsFlow.value = listOf(
             Session(
                 startTime = today.time,
-                endTime = Date(today.timeInMillis + 30_000L),
-                duration = 30_000L
+                endTime = Date(today.timeInMillis + 30_000L)
             ),
             Session(
                 startTime = sameDayLater.time,
-                endTime = Date(sameDayLater.timeInMillis + 61_000L),
-                duration = 61_000L
+                endTime = Date(sameDayLater.timeInMillis + 61_000L)
             ),
             Session(
                 startTime = yesterday.time,
-                endTime = Date(yesterday.timeInMillis + 10_000L),
-                duration = 10_000L
+                endTime = Date(yesterday.timeInMillis + 10_000L)
             )
         )
 

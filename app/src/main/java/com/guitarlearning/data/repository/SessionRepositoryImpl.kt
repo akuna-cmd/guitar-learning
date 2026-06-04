@@ -2,8 +2,8 @@ package com.guitarlearning.data.repository
 
 import com.guitarlearning.data.local.dao.SessionDao
 import com.guitarlearning.data.local.entity.PracticedTabEntity
+import com.guitarlearning.data.local.entity.SessionRow
 import com.guitarlearning.data.local.entity.SessionEntity
-import com.guitarlearning.data.local.entity.SessionWithPracticedTabs
 import com.guitarlearning.domain.model.PracticedTab
 import com.guitarlearning.domain.model.Session
 import com.guitarlearning.domain.repository.SessionRepository
@@ -20,15 +20,15 @@ class SessionRepositoryImpl @Inject constructor(
 ) : SessionRepository {
 
     override fun getAllSessions(): Flow<List<Session>> {
-        return sessionDao.getAllSessions().map { it.toDomain() }
+        return sessionDao.getAllSessionRows().map { it.toDomain() }
     }
 
     override suspend fun getAllSessionsSync(): List<Session> {
-        return sessionDao.getAllSessions().first().toDomain()
+        return sessionDao.getAllSessionRows().first().toDomain()
     }
 
     override fun getSessionsSince(since: Date): Flow<List<Session>> {
-        return sessionDao.getSessionsSince(since).map { it.toDomain() }
+        return sessionDao.getSessionRowsSince(since).map { it.toDomain() }
     }
 
     override suspend fun addSession(session: Session) {
@@ -36,14 +36,12 @@ class SessionRepositoryImpl @Inject constructor(
             session = SessionEntity(
                 id = session.id,
                 startTime = session.startTime,
-                endTime = session.endTime,
-                duration = session.duration
+                endTime = session.endTime
             ),
             tabs = session.practicedTabs.map {
                 PracticedTabEntity(
                     sessionId = 0,
                     tabId = it.tabId,
-                    tabName = it.tabName,
                     duration = it.duration
                 )
             }
@@ -75,22 +73,26 @@ class SessionRepositoryImpl @Inject constructor(
     }
 }
 
-private fun List<SessionWithPracticedTabs>.toDomain(): List<Session> =
-    map { relation ->
-        Session(
-            id = relation.session.id,
-            startTime = relation.session.startTime,
-            endTime = relation.session.endTime,
-            duration = relation.session.duration,
-            practicedTabs = relation.practicedTabs.map {
-                PracticedTab(
-                    tabId = it.tabId,
-                    tabName = it.tabName,
-                    duration = it.duration
-                )
-            }
-        )
-    }
+private fun List<SessionRow>.toDomain(): List<Session> =
+    groupBy(SessionRow::sessionId)
+        .values
+        .map { rows ->
+            val first = rows.first()
+            Session(
+                id = first.sessionId,
+                startTime = first.startTime,
+                endTime = first.endTime,
+                practicedTabs = rows.mapNotNull { row ->
+                    val tabId = row.tabId ?: return@mapNotNull null
+                    PracticedTab(
+                        tabId = tabId,
+                        tabName = row.tabName.orEmpty(),
+                        duration = row.practicedDuration ?: 0L
+                    )
+                }
+            )
+        }
+        .sortedByDescending { it.startTime.time }
 
 private fun Session.syncKey(): String =
     buildString {

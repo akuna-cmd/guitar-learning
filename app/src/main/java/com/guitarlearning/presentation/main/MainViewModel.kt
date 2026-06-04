@@ -107,7 +107,6 @@ class MainViewModel @Inject constructor(
 
         val endTime = Date()
         val startTime = Date(_uiState.value.sessionStartTime)
-        val duration = _uiState.value.sessionDuration
         val currentPracticedTabs = _uiState.value.practicedTabs.toMutableList()
 
         _uiState.value.currentTab?.let {
@@ -119,7 +118,6 @@ class MainViewModel @Inject constructor(
                 Session(
                     startTime = startTime,
                     endTime = endTime,
-                    duration = duration,
                     practicedTabs = currentPracticedTabs
                 )
             )

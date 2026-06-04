@@ -17,7 +17,6 @@ class PrepareOfflineTabPackageUseCase @Inject constructor(
         }
         soundFontRepository.readSoundFontBytes()
         tabRepository.markOfflineReady(tab.id, true)
-        val existingTags = tab.tagsCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        tabRepository.updateTabTags(tab.id, (existingTags + "offline").distinct())
+        tabRepository.updateTabTags(tab.id, (tab.tags + "offline").distinct())
     }
 }

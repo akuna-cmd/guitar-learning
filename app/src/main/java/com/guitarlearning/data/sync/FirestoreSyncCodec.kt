@@ -78,9 +78,7 @@ internal fun Goal.toFirestoreMap(): Map<String, Any> {
         "target" to target,
         "progress" to progress,
         "deadline" to deadline,
-        "updatedAt" to updatedAt,
-        "isCompleted" to isCompleted,
-        "isOverdue" to isOverdue
+        "updatedAt" to updatedAt
     )
 }
 
@@ -182,7 +180,7 @@ internal fun DocumentSnapshot.decodeSessionOrNull(): Session? {
                 duration = map.getLongCompat("duration") ?: 0L
             )
         }
-        Session(startTime = startTime, endTime = endTime, duration = duration, practicedTabs = practicedTabs)
+        Session(startTime = startTime, endTime = endTime, practicedTabs = practicedTabs)
     }.getOrNull()
 }
 
@@ -207,11 +205,13 @@ internal fun DocumentSnapshot.decodeGoalOrNull(): Goal? {
             type = enumValueOrDefault(getString("type"), GoalType.CUSTOM),
             description = getString("description") ?: "",
             target = getLong("target")?.toInt() ?: 0,
-            progress = getLong("progress")?.toInt() ?: 0,
+            progress = when {
+                contains("progress") -> getLong("progress")?.toInt() ?: 0
+                (getBoolean("isCompleted") ?: false) -> (getLong("target")?.toInt() ?: 1).coerceAtLeast(1)
+                else -> 0
+            },
             deadline = getLong("deadline") ?: 0L,
-            updatedAt = getLong("updatedAt") ?: 0L,
-            isCompleted = getBoolean("isCompleted") ?: false,
-            isOverdue = getBoolean("isOverdue") ?: false
+            updatedAt = getLong("updatedAt") ?: 0L
         )
     }.getOrNull()
 }
@@ -259,7 +259,7 @@ internal fun Map<*, *>.toSessionBackup(): Session? {
                 duration = map.getLongCompat("duration") ?: 0L
             )
         }
-        Session(startTime = startTime, endTime = endTime, duration = duration, practicedTabs = practicedTabs)
+        Session(startTime = startTime, endTime = endTime, practicedTabs = practicedTabs)
     }.getOrNull()
 }
 

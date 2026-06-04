@@ -59,7 +59,6 @@ private fun JSONArray.toSessions(): List<Session> =
                     id = session.optInt("id", 0),
                     startTime = Date(session.getLong("startTime")),
                     endTime = Date(session.getLong("endTime")),
-                    duration = session.getLong("duration"),
                     practicedTabs = session.optJSONArray("practicedTabs").toPracticedTabs()
                 )
             )

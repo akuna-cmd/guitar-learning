@@ -21,7 +21,7 @@ internal fun buildBuiltInTabs(
             lessonNumber = index + 1,
             isCompleted = false,
             isUserTab = false,
-            tagsCsv = "${lesson.level},lesson",
+            tags = listOf(lesson.level, "lesson"),
             folder = DEFAULT_TAB_FOLDER_KEY,
             updatedAt = 0L,
             offlineReady = true

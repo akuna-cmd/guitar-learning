@@ -50,9 +50,7 @@ fun GoalEntity.toDomain(): Goal =
         target = target,
         progress = progress,
         deadline = deadline,
-        updatedAt = updatedAt,
-        isCompleted = isCompleted,
-        isOverdue = isOverdue
+        updatedAt = updatedAt
     )
 
 fun Goal.toEntity(): GoalEntity =
@@ -64,29 +62,27 @@ fun Goal.toEntity(): GoalEntity =
         target = target,
         progress = progress,
         deadline = deadline,
-        updatedAt = updatedAt,
-        isCompleted = isCompleted,
-        isOverdue = isOverdue
+        updatedAt = updatedAt
     )
 
-fun TabEntity.toDomain(): TabItem =
+fun TabWithTags.toDomain(): TabItem =
     TabItem(
-        id = id,
-        name = name,
-        description = description,
-        difficulty = difficulty,
-        lessonNumber = lessonNumber,
-        isCompleted = isCompleted,
-        isUserTab = isUserTab,
-        filePath = filePath,
-        asciiTabs = asciiTabs,
-        tagsCsv = tagsCsv,
-        folder = folder,
-        openCount = openCount,
-        lastOpenedAt = lastOpenedAt,
-        createdAt = createdAt,
-        updatedAt = updatedAt,
-        offlineReady = offlineReady
+        id = tab.id,
+        name = tab.name,
+        description = tab.description,
+        difficulty = tab.difficulty,
+        lessonNumber = tab.lessonNumber,
+        isCompleted = tab.isCompleted,
+        isUserTab = tab.isUserTab,
+        filePath = tab.filePath,
+        asciiTabs = tab.asciiTabs,
+        tags = tags.map(TagEntity::name),
+        folder = tab.folder,
+        openCount = tab.openCount,
+        lastOpenedAt = tab.lastOpenedAt,
+        createdAt = tab.createdAt,
+        updatedAt = tab.updatedAt,
+        offlineReady = tab.offlineReady
     )
 
 fun TabItem.toEntity(): TabEntity =
@@ -100,7 +96,6 @@ fun TabItem.toEntity(): TabEntity =
         isUserTab = isUserTab,
         filePath = filePath,
         asciiTabs = asciiTabs,
-        tagsCsv = tagsCsv,
         folder = folder,
         openCount = openCount,
         lastOpenedAt = lastOpenedAt,

@@ -24,7 +24,7 @@ data class ThemeUiState(
     val practiceSpeed: Float = 0.3f,
     val normalTabScale: Float = 1.5f,
     val practiceTabScale: Float = 1.5f,
-    val tabDisplayMode: TabDisplayMode = TabDisplayMode.TAB_AND_NOTES,
+    val tabDisplayMode: TabDisplayMode = TabDisplayMode.TAB_ONLY,
     val isLoading: Boolean = true
 )
 

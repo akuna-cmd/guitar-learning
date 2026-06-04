@@ -7,6 +7,8 @@ import com.guitarlearning.data.local.dao.AudioNoteDao
 import com.guitarlearning.data.local.dao.TextNoteDao
 import com.guitarlearning.data.local.entity.toDomain
 import com.guitarlearning.data.local.entity.toEntity
+import com.guitarlearning.domain.model.PracticedTab
+import com.guitarlearning.domain.model.Session
 import com.guitarlearning.domain.model.TabItem
 import com.guitarlearning.domain.repository.AppSettingsRepository
 import com.guitarlearning.domain.repository.GoalRepository
@@ -296,7 +298,18 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             tabRepository.upsertTabs(mergedTabsResult.tabs)
         }
 
-        sessionRepository.importHistory(remoteState.sessions)
+        val availableTabIds = tabRepository.getAllTabsSync().mapTo(mutableSetOf()) { it.id }
+        val sanitizedSessions = remoteState.sessions.sanitizeForAvailableTabs(availableTabIds)
+        val droppedSessions = remoteState.sessions.size - sanitizedSessions.size
+        val droppedPracticedTabs = remoteState.sessions.sumOf { it.practicedTabs.size } -
+            sanitizedSessions.sumOf { it.practicedTabs.size }
+        if (droppedSessions > 0 || droppedPracticedTabs > 0) {
+            Log.w(
+                LogTag,
+                "syncData:sanitizedSessions droppedSessions=$droppedSessions droppedPracticedTabs=$droppedPracticedTabs availableTabs=${availableTabIds.size}"
+            )
+        }
+        sessionRepository.importHistory(sanitizedSessions)
 
         val localGoals = goalRepository.getGoalsSync()
         val mergedGoals = mergePolicy.mergeGoals(localGoals, remoteState.goals)
@@ -462,6 +475,19 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             backups
         } else {
             imported.items
+        }
+    }
+}
+
+private fun List<Session>.sanitizeForAvailableTabs(availableTabIds: Set<String>): List<Session> {
+    return mapNotNull { session ->
+        val validPracticedTabs = session.practicedTabs.filter { practicedTab ->
+            practicedTab.tabId in availableTabIds
+        }
+        when {
+            validPracticedTabs.isEmpty() && session.practicedTabs.isNotEmpty() -> null
+            validPracticedTabs.size == session.practicedTabs.size -> session
+            else -> session.copy(practicedTabs = validPracticedTabs)
         }
     }
 }

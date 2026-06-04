@@ -3,6 +3,7 @@ package com.guitarlearning.presentation.tab_viewer
 import android.content.Context
 import com.guitarlearning.di.AppDispatchers
 import com.guitarlearning.domain.model.TabPlaybackProgress
+import com.guitarlearning.domain.usecase.LoadTabViewerLessonUseCase
 import com.guitarlearning.testutil.FakeSoundFontRepository
 import com.guitarlearning.testutil.FakeTabFileRepository
 import com.guitarlearning.testutil.FakeTabPlaybackProgressRepository
@@ -104,7 +105,10 @@ class TabViewerViewModelTest {
     ): TabViewerViewModel {
         return TabViewerViewModel(
             context = RuntimeEnvironment.getApplication().applicationContext as Context,
-            tabRepository = tabRepository,
+            loadTabViewerLessonUseCase = LoadTabViewerLessonUseCase(
+                tabRepository = tabRepository,
+                tabPlaybackProgressRepository = progressRepository
+            ),
             tabFileRepository = FakeTabFileRepository(),
             soundFontRepository = FakeSoundFontRepository(),
             tabPlaybackProgressRepository = progressRepository,

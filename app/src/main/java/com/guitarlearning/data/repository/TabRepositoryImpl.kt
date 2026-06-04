@@ -111,16 +111,21 @@ class TabRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateTab(tab: TabItem) {
-        tabDao.updateTab(tab.copy(updatedAt = System.currentTimeMillis()).toEntity())
+        val updatedTab = tab.copy(updatedAt = System.currentTimeMillis())
+        tabDao.updateTab(updatedTab.toEntity())
+        tabDao.replaceTags(updatedTab.id, normalizeTagList(updatedTab.tags))
     }
 
     override suspend fun upsertTabs(tabs: List<TabItem>) {
         if (tabs.isEmpty()) return
         tabDao.insertTabs(tabs.map { it.toEntity() })
+        tabs.forEach { tab ->
+            tabDao.replaceTags(tab.id, normalizeTagList(tab.tags))
+        }
     }
 
     override fun getCompletedLessonsCount(): Flow<Int> {
-        return tabDao.getTabs().map { tabs -> tabs.count { it.isCompleted } }
+        return tabDao.getTabs().map { tabs -> tabs.count { it.tab.isCompleted } }
     }
 
     override fun getTotalLessonsCount(): Flow<Int> {
@@ -150,9 +155,9 @@ class TabRepositoryImpl @Inject constructor(
         val file = copyUserTabToInternalStorage(uri, extension)
 
         val asciiTabs = context.getString(R.string.user_tab_ascii_placeholder, fileName)
-        tabDao.insertTab(
-            createUserTab(fileName = fileName, filePath = file.absolutePath, asciiTabs = asciiTabs).toEntity()
-        )
+        val tab = createUserTab(fileName = fileName, filePath = file.absolutePath, asciiTabs = asciiTabs)
+        tabDao.insertTab(tab.toEntity())
+        tabDao.replaceTags(tab.id, normalizeTagList(tab.tags))
     }
 
     override suspend fun getUserTabs(): List<TabItem> {
@@ -183,6 +188,7 @@ class TabRepositoryImpl @Inject constructor(
     override suspend fun renameUserTab(tab: TabItem, newName: String) {
         val updatedTab = tab.copy(name = newName, updatedAt = System.currentTimeMillis())
         tabDao.updateTab(updatedTab.toEntity())
+        tabDao.replaceTags(updatedTab.id, normalizeTagList(updatedTab.tags))
     }
 
     override suspend fun getTabById(id: String): TabItem? {
@@ -202,12 +208,12 @@ class TabRepositoryImpl @Inject constructor(
 
     override suspend fun updateTabTags(tabId: String, tags: List<String>) {
         val tab = tabDao.getTabById(tabId)?.toDomain() ?: return
-        tabDao.updateTab(
-            tab.copy(
-                tagsCsv = normalizeTags(tags),
-                updatedAt = System.currentTimeMillis()
-            ).toEntity()
+        val updatedTab = tab.copy(
+            tags = normalizeTagList(tags),
+            updatedAt = System.currentTimeMillis()
         )
+        tabDao.updateTab(updatedTab.toEntity())
+        tabDao.replaceTags(tabId, updatedTab.tags)
     }
 
     override suspend fun updateTabFolder(tabId: String, folder: String) {
@@ -256,16 +262,14 @@ class TabRepositoryImpl @Inject constructor(
 
     private suspend fun seedBuiltInTabsIfNeeded() {
         if (tabDao.getTabs().first().isNotEmpty()) return
-        tabDao.insertTabs(
-            buildBuiltInTabs(lessonsFromJson, shouldUseEnglishDescriptions()).map { it.toEntity() }
-        )
+        upsertTabs(buildBuiltInTabs(lessonsFromJson, shouldUseEnglishDescriptions()))
     }
 
     private suspend fun localizeStoredBuiltInTabs(storedTabs: List<TabItem>): List<TabItem> {
         val localizedTabs = localizeBuiltInTabs(storedTabs, localizedLessonDescriptionMap())
         val changedTabs = localizedTabs.filterIndexed { index, tab -> tab != storedTabs[index] }
         if (changedTabs.isNotEmpty()) {
-            tabDao.insertTabs(changedTabs.map { it.toEntity() })
+            upsertTabs(changedTabs)
         }
         return localizedTabs
     }
@@ -299,10 +303,16 @@ class TabRepositoryImpl @Inject constructor(
             isUserTab = true,
             filePath = filePath,
             asciiTabs = asciiTabs,
-            tagsCsv = "custom,user",
+            tags = listOf("custom", "user"),
             folder = DEFAULT_TAB_FOLDER_KEY,
             createdAt = createdAt,
             updatedAt = createdAt
         )
+    }
+
+    private fun normalizeTagList(tags: List<String>): List<String> {
+        return normalizeTags(tags)
+            .split(',')
+            .filter { it.isNotBlank() }
     }
 }

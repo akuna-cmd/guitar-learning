@@ -1,6 +1,10 @@
 package com.guitarlearning.data.repository
 
 import com.guitarlearning.data.model.LessonDto
+import com.guitarlearning.data.tabs.buildBuiltInTabs
+import com.guitarlearning.data.tabs.fallbackDisplayNameFromPath
+import com.guitarlearning.data.tabs.localizeBuiltInTabs
+import com.guitarlearning.data.tabs.normalizeTags
 import com.guitarlearning.domain.model.Difficulty
 import com.guitarlearning.domain.model.TabItem
 import org.junit.Assert.assertEquals
@@ -29,7 +33,10 @@ class TabCatalogMapperTest {
             tabs.map(TabItem::difficulty)
         )
         assertEquals(listOf(1, 2, 3, 4), tabs.map(TabItem::lessonNumber))
-        assertEquals(listOf("beginner,lesson", "intermediate,lesson", "advanced,lesson", "unknown,lesson"), tabs.map(TabItem::tagsCsv))
+        assertEquals(
+            listOf("beginner,lesson", "intermediate,lesson", "advanced,lesson", "unknown,lesson"),
+            tabs.map(TabItem::tagsCsv)
+        )
         assertEquals(listOf("EN-b", "EN-i", "EN-a", "EN-u"), tabs.map(TabItem::description))
     }
 

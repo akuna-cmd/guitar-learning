@@ -6,21 +6,50 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import com.guitarlearning.data.local.entity.PracticedTabEntity
+import com.guitarlearning.data.local.entity.SessionRow
 import com.guitarlearning.data.local.entity.SessionEntity
-import com.guitarlearning.data.local.entity.SessionWithPracticedTabs
 import kotlinx.coroutines.flow.Flow
 import java.util.Date
 
 @Dao
 interface SessionDao {
 
-    @Transaction
-    @Query("SELECT * FROM sessions ORDER BY startTime DESC")
-    fun getAllSessions(): Flow<List<SessionWithPracticedTabs>>
+    @Query(
+        """
+        SELECT
+            sessions.id AS sessionId,
+            sessions.startTime AS startTime,
+            sessions.endTime AS endTime,
+            practiced_tabs.id AS practicedTabEntryId,
+            practiced_tabs.tabId AS tabId,
+            tabs.name AS tabName,
+            practiced_tabs.duration AS practicedDuration
+        FROM sessions
+        LEFT JOIN practiced_tabs ON practiced_tabs.sessionId = sessions.id
+        LEFT JOIN tabs ON tabs.id = practiced_tabs.tabId
+        ORDER BY sessions.startTime DESC, practiced_tabs.id ASC
+        """
+    )
+    fun getAllSessionRows(): Flow<List<SessionRow>>
 
-    @Transaction
-    @Query("SELECT * FROM sessions WHERE startTime >= :since")
-    fun getSessionsSince(since: Date): Flow<List<SessionWithPracticedTabs>>
+    @Query(
+        """
+        SELECT
+            sessions.id AS sessionId,
+            sessions.startTime AS startTime,
+            sessions.endTime AS endTime,
+            practiced_tabs.id AS practicedTabEntryId,
+            practiced_tabs.tabId AS tabId,
+            tabs.name AS tabName,
+            practiced_tabs.duration AS practicedDuration
+        FROM sessions
+        LEFT JOIN practiced_tabs ON practiced_tabs.sessionId = sessions.id
+        LEFT JOIN tabs ON tabs.id = practiced_tabs.tabId
+        WHERE sessions.startTime >= :since
+        ORDER BY sessions.startTime DESC, practiced_tabs.id ASC
+        """
+    )
+    fun getSessionRowsSince(since: Date): Flow<List<SessionRow>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSession(session: SessionEntity): Long
