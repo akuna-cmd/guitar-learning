@@ -256,6 +256,8 @@ Question:
     <string name="empty_goals_title">No goals</string>
     <string name="empty_goals_subtitle">Create your first goal to track practice progress.</string>
     <string name="add_first_goal">Add first goal</string>
+    <string name="empty_sessions_title">No practice session history yet</string>
+    <string name="empty_sessions_subtitle">Go to the home screen, tap “Start practice”, and start playing songs. Then the song titles and the time spent playing them during the practice session will be recorded.</string>
     <string name="metronome">Metronome</string>
     <string name="metronome_bpm">%1$d BPM</string>
     <string name="metronome_increase">Increase BPM</string>

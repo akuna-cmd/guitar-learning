@@ -256,6 +256,8 @@
     <string name="empty_goals_title">Немає цілей</string>
     <string name="empty_goals_subtitle">Створи першу ціль, щоб відстежувати прогрес у практиці.</string>
     <string name="add_first_goal">Додати першу ціль</string>
+    <string name="empty_sessions_title">Ще немає історії сесій практики</string>
+    <string name="empty_sessions_subtitle">Перейдіть на головну сторінку, натисніть «Почати практику» і почніть грати пісні. Тоді під час сесії будуть фіксуватися назви пісень і тривалість їх гри.</string>
     <string name="metronome">Метроном</string>
     <string name="metronome_bpm">%1$d BPM</string>
     <string name="metronome_increase">Збільшити BPM</string>
