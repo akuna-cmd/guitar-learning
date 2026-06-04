@@ -17,7 +17,8 @@ function applyTappedLetters(letters, notes) {
 }
 
 function buildRightHandLetters(notes, options = {}) {
-    const playable = notes.filter(note => !note.isTapped);
+    const sourceNotes = attackedNotes(notes);
+    const playable = sourceNotes.filter(note => !note.isTapped);
     const bass = [...playable].filter(note => note.string >= 4).sort((a, b) => b.string - a.string);
     const treble = [...playable].filter(note => note.string <= 3).sort((a, b) => b.string - a.string);
     const letters = {};
@@ -47,12 +48,13 @@ function buildRightHandLetters(notes, options = {}) {
         letters[treble[i].string] = trebleSequence[i] || trebleSequence[trebleSequence.length - 1];
     }
 
-    return applyTappedLetters(letters, notes);
+    return applyTappedLetters(letters, sourceNotes);
 }
 
 function buildRightHandCandidate(notes, options) {
+    const sourceNotes = attackedNotes(notes);
     const letters = buildRightHandLetters(notes, options);
-    const nonTappedNotes = notes.filter(note => !note.isTapped);
+    const nonTappedNotes = sourceNotes.filter(note => !note.isTapped);
     const singleTrebleNote = nonTappedNotes.length === 1 && nonTappedNotes[0].string <= 3;
     const trebleNotes = nonTappedNotes.filter(note => note.string <= 3).sort((a, b) => a.string - b.string);
     const bassNotes = nonTappedNotes.filter(note => note.string >= 4).sort((a, b) => a.string - b.string);
@@ -74,7 +76,7 @@ function buildRightHandCandidate(notes, options) {
 }
 
 function generateRightHandCandidates(beatData) {
-    const notes = beatData.notes;
+    const notes = attackedNotes(beatData.notes);
     if (!notes.length) {
         return [buildRightHandCandidate(notes, { pattern: 'empty', baseCost: 0 })];
     }

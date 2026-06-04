@@ -109,6 +109,7 @@ function computeTransitionCost(prevCandidate, candidate) {
         barreChange: 0,
         commonShape: 0,
         letRing: 0,
+        heldTie: 0,
         slide: 0,
         legato: 0,
         sameFretStringMove: 0,
@@ -140,6 +141,36 @@ function computeTransitionCost(prevCandidate, candidate) {
     if (prevCandidate.rawNotes.some(note => note.isLetRing) || candidate.rawNotes.some(note => note.isLetRing)) {
         breakdown.letRing -= Math.min(0.8, commonPairs * 0.4);
         cost += breakdown.letRing;
+    }
+
+    const prevPairToFinger = new Map();
+    for (const note of prevCandidate.notes) {
+        const finger = prevCandidate.leftHandPlacement[note.string]?.finger;
+        if (finger != null) {
+            prevPairToFinger.set(`${note.string}:${note.fret}`, finger);
+        }
+    }
+    for (const note of candidate.notes) {
+        if (!note.isTieDestination || note.isDead || note.isTapped || note.fret <= 0) continue;
+        const key = `${note.string}:${note.fret}`;
+        if (!prevPairToFinger.has(key)) continue;
+        const previousFinger = prevPairToFinger.get(key);
+        const currentFinger = candidate.leftHandPlacement[note.string]?.finger;
+        if (currentFinger == null) continue;
+
+        if (currentFinger === previousFinger) {
+            breakdown.heldTie -= 3.2;
+            cost -= 3.2;
+        } else {
+            const delta = 4.2 + Math.abs(currentFinger - previousFinger) * 1.1;
+            breakdown.heldTie += delta;
+            cost += delta;
+        }
+
+        if (candidate.position === prevCandidate.position) {
+            breakdown.heldTie -= 0.6;
+            cost -= 0.6;
+        }
     }
 
     if (isSingleSameStringMovement(prevCandidate, candidate)) {
@@ -192,6 +223,22 @@ function computeTransitionCost(prevCandidate, candidate) {
         if (!slideLike && !tiedLike && sameFret && stringDelta === 1 && prevFinger !== nextFinger) {
             breakdown.sameFretStringMove -= 1.1;
             cost -= 1.1;
+
+            const movingToHigherString = prevNote.string > nextNote.string;
+            const expectedFinger = movingToHigherString ? prevFinger + 1 : prevFinger - 1;
+            const fingerDelta = nextFinger - prevFinger;
+
+            if (nextFinger === expectedFinger) {
+                breakdown.sameFretStringMove -= 1.35;
+                cost -= 1.35;
+            } else if ((movingToHigherString && fingerDelta < 0) || (!movingToHigherString && fingerDelta > 0)) {
+                breakdown.sameFretStringMove += 2.4;
+                cost += 2.4;
+            } else if (Math.abs(fingerDelta) > 1) {
+                const delta = 0.9 + (Math.abs(fingerDelta) - 1) * 0.7;
+                breakdown.sameFretStringMove += delta;
+                cost += delta;
+            }
         }
     }
 
@@ -208,7 +255,154 @@ function computeTransitionCost(prevCandidate, candidate) {
     return { cost, breakdown };
 }
 
+function annotateArpeggioShapeHints(beatData) {
+    function playableSingleNote(event) {
+        if (!event || event.notes.length !== 1 || event.isTapping) return null;
+        const note = event.notes[0];
+        if (!note || note.isDead || note.isTapped || note.fret <= 0) return null;
+        return note;
+    }
+
+    for (let start = 0; start < beatData.length; start++) {
+        const firstNote = playableSingleNote(beatData[start]);
+        if (!firstNote) continue;
+
+        const runEvents = [];
+        const shapeNotes = [];
+        const shapeKeys = new Set();
+        let minFret = firstNote.fret;
+        let maxFret = firstNote.fret;
+
+        for (let index = start; index < beatData.length; index++) {
+            const event = beatData[index];
+            const note = playableSingleNote(event);
+            if (!note || event.barIdx !== beatData[start].barIdx) break;
+
+            const nextMin = Math.min(minFret, note.fret);
+            const nextMax = Math.max(maxFret, note.fret);
+            if (nextMax - nextMin > 2) break;
+
+            if (runEvents.length > 0) {
+                const prevNote = runEvents[runEvents.length - 1].notes[0];
+                if (Math.abs(prevNote.string - note.string) > 1) break;
+            }
+
+            const noteKey = `${note.string}:${note.fret}`;
+            if (shapeKeys.has(noteKey)) {
+                runEvents.push(event);
+                minFret = nextMin;
+                maxFret = nextMax;
+                continue;
+            }
+
+            if (shapeNotes.some(shapeNote => shapeNote.string === note.string && shapeNote.fret !== note.fret)) {
+                break;
+            }
+
+            runEvents.push(event);
+            shapeNotes.push(note);
+            shapeKeys.add(noteKey);
+            minFret = nextMin;
+            maxFret = nextMax;
+        }
+
+        if (runEvents.length < 2 || shapeNotes.length < 2) continue;
+
+        const shapeBeat = {
+            notes: shapeNotes,
+            rawNotes: shapeNotes.map(() => ({}))
+        };
+        const bestShape = generateLeftHandCandidates(shapeBeat)[0];
+        if (!bestShape?.leftHandPlacement) continue;
+
+        const fingerByKey = {};
+        for (const note of shapeNotes) {
+            const finger = bestShape.leftHandPlacement[note.string]?.finger;
+            if (finger != null) {
+                fingerByKey[`${note.string}:${note.fret}`] = finger;
+            }
+        }
+
+        if (!Object.keys(fingerByKey).length) continue;
+
+        for (const event of runEvents) {
+            if ((event.arpeggioHint?.length || 0) > runEvents.length) {
+                continue;
+            }
+            event.arpeggioHint = {
+                position: bestShape.position,
+                fingerByKey,
+                length: runEvents.length
+            };
+        }
+    }
+}
+
+function stabilizeSingleNoteFingering(selected) {
+    function attackedPlayableNotes(candidate) {
+        return attackedNotes(candidate.notes).filter(note => !note.isDead && !note.isTapped && note.fret > 0);
+    }
+
+    function candidateRichness(candidate) {
+        let score = activeFrets(candidate.notes).length;
+        if (candidate.notes.some(note => note.isTieDestination)) score += 2;
+        if (candidate.notes.length > 1) score += 1;
+        return score;
+    }
+
+    for (let index = 0; index < selected.length; index++) {
+        const candidate = selected[index];
+        const attacked = attackedPlayableNotes(candidate);
+        if (attacked.length !== 1) continue;
+
+        const note = attacked[0];
+        const currentFinger = candidate.leftHandPlacement[note.string]?.finger;
+        if (currentFinger == null) continue;
+
+        let preferredFinger = currentFinger;
+        let bestSource = null;
+        let bestScore = candidateRichness(candidate);
+
+        for (let offset = 1; offset <= 2; offset++) {
+            for (const neighborIndex of [index - offset, index + offset]) {
+                const neighbor = selected[neighborIndex];
+                if (!neighbor || neighbor.barIdx !== candidate.barIdx) continue;
+                const neighborFinger = neighbor.leftHandPlacement[note.string]?.finger;
+                const hasSameNote = neighbor.notes.some(other =>
+                    other.string === note.string &&
+                    other.fret === note.fret &&
+                    !other.isDead &&
+                    !other.isTapped
+                );
+                if (!hasSameNote || neighborFinger == null) continue;
+
+                const richness = candidateRichness(neighbor);
+                if (richness <= bestScore) continue;
+                bestScore = richness;
+                preferredFinger = neighborFinger;
+                bestSource = neighbor;
+            }
+        }
+
+        if (!bestSource || preferredFinger === currentFinger) continue;
+
+        candidate.leftHandPlacement = {
+            ...candidate.leftHandPlacement,
+            [note.string]: {
+                fret: note.fret,
+                finger: preferredFinger
+            }
+        };
+        candidate.leftHandMap = {
+            ...candidate.leftHandMap,
+            [`${note.string}_${note.fret}`]: leftHandName(preferredFinger)
+        };
+        candidate.position = Math.max(1, note.fret - preferredFinger + 1);
+    }
+}
+
 function optimizeBeatSequence(beatData) {
+    annotateArpeggioShapeHints(beatData);
     const candidateMatrix = beatData.map(data => buildBeatCandidates(data));
     if (!candidateMatrix.length) return [];
 
@@ -262,6 +456,8 @@ function optimizeBeatSequence(beatData) {
         bestIndex = backPointers[beatIndex][bestIndex];
         if (bestIndex < 0) break;
     }
+
+    stabilizeSingleNoteFingering(selected);
 
     return selected.map((candidate, index) => ({
         ...candidate,

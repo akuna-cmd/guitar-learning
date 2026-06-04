@@ -54,6 +54,41 @@ import com.guitarlearning.presentation.ui.theme.appBlockBorder
 
 private const val MeasurePrefix = "Measure "
 
+private fun sliceCompactTabs(compactTabs: String, selectedRange: IntRange?): String {
+    if (selectedRange == null) return compactTabs
+    return compactTabs.split(MeasurePrefix)
+        .filter { it.isNotBlank() }
+        .filter {
+            val idx = it.substringBefore(":").toIntOrNull()
+            idx != null && idx in selectedRange
+        }
+        .map { "$MeasurePrefix$it" }
+        .joinToString("")
+}
+
+private fun buildAiTabsContext(
+    asciiTab: String?,
+    fallbackAscii: String?,
+    compactTabs: String?,
+    selectedRange: IntRange?,
+    isFullContext: Boolean
+): String {
+    val rawAscii = asciiTab ?: fallbackAscii
+    val compactSlice = compactTabs?.let {
+        if (isFullContext) it else sliceCompactTabs(it, selectedRange)
+    }?.trim().orEmpty()
+
+    val sections = mutableListOf<String>()
+    if (compactSlice.isNotBlank()) {
+        sections += "Structured measure context:\n$compactSlice"
+    }
+    if (rawAscii != null && (compactSlice.isBlank() || isFullContext)) {
+        sections += "Raw ASCII tab:\n$rawAscii"
+    }
+
+    return sections.joinToString("\n\n").ifBlank { rawAscii.orEmpty() }
+}
+
 @Composable
 fun AiAssistantScreen(
     lesson: Lesson,
@@ -196,19 +231,13 @@ fun AiAssistantScreen(
                             measureRange.start.toInt()..measureRange.endInclusive.toInt()
                         }
 
-                        val tabsToSend = if (isFullContext || compactTabs == null) {
-                            asciiTab ?: lesson.tabsAscii
-                        } else {
-                            val sliced = compactTabs.split(MeasurePrefix)
-                                .filter { it.isNotBlank() }
-                                .filter {
-                                    val idx = it.substringBefore(":").toIntOrNull()
-                                    idx != null && idx in selectedRange!!
-                                }
-                                .map { "$MeasurePrefix$it" }
-                                .joinToString("")
-                            if (sliced.isBlank()) asciiTab ?: lesson.tabsAscii else sliced
-                        }
+                        val tabsToSend = buildAiTabsContext(
+                            asciiTab = asciiTab,
+                            fallbackAscii = lesson.tabsAscii,
+                            compactTabs = compactTabs,
+                            selectedRange = selectedRange,
+                            isFullContext = isFullContext
+                        )
 
                         viewModel.askQuestion(
                             question = question,

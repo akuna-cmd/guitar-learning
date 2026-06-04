@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.res.stringResource
+import android.util.Log
 import com.guitarlearning.R
 import kotlinx.coroutines.launch
 import kotlin.math.max
@@ -144,9 +145,24 @@ fun GuitarFretboard(
         }
     }
 
+    if (analysis != null) {
+        val left = analysis.leftHand.joinToString("|") { "${it.string}:${it.fret}:${it.finger}" }
+        val right = analysis.rightHand.joinToString("|") { "${it.string}:${it.finger}" }
+        Log.d("TabAnalysisDebug", "GuitarFretboard bar=${analysis.barIndex} left=$left right=$right")
+    }
+
     val fretted = notes.mapNotNull { it.fret }.filter { it > 0 }
     val startFret = if (fretted.isEmpty()) 0 else max(0, (fretted.minOrNull() ?: 1) - 1)
     val endFret = max(startFret + 5, (fretted.maxOrNull() ?: 0) + 1)
+    val boardOverlayTitle = remember(analysis) {
+        analysis?.contextHint?.takeIf { it.isNotBlank() }
+            ?: analysis?.instructions?.firstOrNull { it.isNotBlank() }
+    }
+    val boardOverlayBody = remember(analysis, boardOverlayTitle) {
+        analysis?.instructions
+            ?.firstOrNull { it.isNotBlank() && it != boardOverlayTitle }
+    }
+    val showBoardOverlay = notes.isEmpty() && (boardOverlayTitle != null || boardOverlayBody != null)
     val hintBackground = scheme.surfaceContainerHighest
     val hintTextColor = scheme.onSurface
     val hintAccent = scheme.primary
@@ -273,22 +289,22 @@ fun GuitarFretboard(
                         }
                         drawCircle(
                             color = scheme.surfaceBright,
-                            radius = 12.5f,
+                            radius = 15f,
                             center = Offset(x, y),
-                            style = Stroke(width = 2.2f)
+                            style = Stroke(width = 2.6f)
                         )
                         drawLine(
                             color = scheme.error,
-                            start = Offset(x - 6f, y - 6f),
-                            end = Offset(x + 6f, y + 6f),
-                            strokeWidth = 2.4f,
+                            start = Offset(x - 7f, y - 7f),
+                            end = Offset(x + 7f, y + 7f),
+                            strokeWidth = 2.8f,
                             cap = StrokeCap.Round
                         )
                         drawLine(
                             color = scheme.error,
-                            start = Offset(x - 6f, y + 6f),
-                            end = Offset(x + 6f, y - 6f),
-                            strokeWidth = 2.4f,
+                            start = Offset(x - 7f, y + 7f),
+                            end = Offset(x + 7f, y - 7f),
+                            strokeWidth = 2.8f,
                             cap = StrokeCap.Round
                         )
                         return@forEach
@@ -299,13 +315,13 @@ fun GuitarFretboard(
                         val x = nutX + 10f
                         drawCircle(
                             color = scheme.primary,
-                            radius = 12.5f,
+                            radius = 15f,
                             center = Offset(x, y),
-                            style = Stroke(width = 2.8f)
+                            style = Stroke(width = 3.2f)
                         )
                         val txt = textMeasurer.measure(
                             text = "0",
-                            style = TextStyle(color = scheme.onPrimary, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                            style = TextStyle(color = scheme.onPrimary, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
                         )
                         drawText(txt, topLeft = Offset(x - txt.size.width / 2f, y - txt.size.height / 2f))
                         return@forEach
@@ -320,7 +336,7 @@ fun GuitarFretboard(
                     }
                     drawCircle(
                         color = fillColor,
-                        radius = 15f,
+                        radius = 18f,
                         center = Offset(x, y)
                     )
                     drawCircle(
@@ -329,23 +345,23 @@ fun GuitarFretboard(
                             note.isGhost -> note.color.copy(alpha = 0.65f)
                             else -> Color.Black.copy(alpha = 0.28f)
                         },
-                        radius = 15f,
+                        radius = 18f,
                         center = Offset(x, y),
-                        style = Stroke(width = 1.8f)
+                        style = Stroke(width = 2.1f)
                     )
                     if (note.hasHarmonic) {
                         drawCircle(
                             color = scheme.tertiary,
-                            radius = 10.5f,
+                            radius = 13f,
                             center = Offset(x, y),
-                            style = Stroke(width = 1.6f)
+                            style = Stroke(width = 1.9f)
                         )
                     }
                     val txt = textMeasurer.measure(
                         text = note.finger,
                         style = TextStyle(
                             color = if (note.hasHarmonic) scheme.onSurface else Color.White,
-                            fontSize = 12.sp,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.ExtraBold
                         )
                     )
@@ -353,17 +369,17 @@ fun GuitarFretboard(
 
                     val fretText = textMeasurer.measure(
                         text = "L$fret",
-                        style = TextStyle(color = scheme.onPrimaryContainer, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        style = TextStyle(color = scheme.onPrimaryContainer, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                     )
-                    val badgeX = x + 13f
-                    val badgeY = y - 20f
+                    val badgeX = x + 15f
+                    val badgeY = y - 24f
                     drawRoundRect(
                         color = scheme.primaryContainer,
                         topLeft = Offset(badgeX - 2f, badgeY - 1f),
-                        size = Size(fretText.size.width + 6f, fretText.size.height + 4f),
-                        cornerRadius = CornerRadius(6f, 6f)
+                        size = Size(fretText.size.width + 8f, fretText.size.height + 6f),
+                        cornerRadius = CornerRadius(7f, 7f)
                     )
-                    drawText(fretText, topLeft = Offset(badgeX + 1f, badgeY + 1f))
+                    drawText(fretText, topLeft = Offset(badgeX + 2f, badgeY + 2f))
 
                 }
             }
@@ -383,6 +399,44 @@ fun GuitarFretboard(
                         fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold
                     )
+                }
+            }
+
+            if (showBoardOverlay) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(horizontal = 20.dp)
+                        .background(
+                            scheme.surface.copy(alpha = 0.94f),
+                            RoundedCornerShape(14.dp)
+                        )
+                        .border(1.dp, scheme.outlineVariant, RoundedCornerShape(14.dp))
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        boardOverlayTitle?.let { title ->
+                            Text(
+                                text = title,
+                                color = scheme.primary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                        boardOverlayBody?.let { body ->
+                            Text(
+                                text = body,
+                                color = scheme.onSurfaceVariant,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -28,6 +28,11 @@ let _currentTabScale = null;
 let _currentDisplayMode = null;
 let _currentPracticeLayout = null;
 let _renderSettledNotifyTimer = null;
+let _manualAnalysisSuppressUntil = 0;
+
+function shouldSuppressAutoAnalysisDispatch() {
+    return Date.now() < _manualAnalysisSuppressUntil;
+}
 
 function applyScoreHeaderVisibility() {
     if (!api?.settings?.notation?.elements || !window.alphaTab?.NotationElement) return;
@@ -258,6 +263,7 @@ function startPoller() {
             const tValue = api.tickPosition;
             if (tValue == null || tValue === _lastTick) return;
             _lastTick = tValue;
+            if (shouldSuppressAutoAnalysisDispatch()) return;
             sendForTick(tValue);
         } catch {
             stopPoller();
@@ -553,7 +559,7 @@ function initAlphaTab() {
             scheduleScoreLoadedNotification();
         });
         api.playerPositionChanged.on(args => {
-            if (args?.currentBeat) sendForBeat(args.currentBeat);
+            if (args?.currentBeat && !shouldSuppressAutoAnalysisDispatch()) sendForBeat(args.currentBeat);
             try {
                 maybeNotifyLoopIteration(api.tickPosition ?? 0, api.playerState === 1);
                 let barIndex = args?.currentBeat?.voice?.bar?.index;
@@ -594,9 +600,11 @@ function initAlphaTab() {
         }
         api.beatMouseDown.on(beat => {
             if (!beat) return;
+            _manualAnalysisSuppressUntil = Date.now() + 350;
+            postStatus(`debugBeat:mouseDown bar=${(beat.voice?.bar?.index ?? -1) + 1} beatIndex=${beat.index ?? -1} tick=${getBeatTick(beat)} start=${beat.start ?? -1} abs=${beat.absoluteDisplayStart ?? -1}`);
             sendForBeat(beat);
             try {
-                const tValue = beat.start ?? beat.absoluteDisplayStart;
+                const tValue = getBeatTick(beat);
                 if (tValue != null) api.tickPosition = tValue;
             } catch {}
         });

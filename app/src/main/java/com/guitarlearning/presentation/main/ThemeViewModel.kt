@@ -21,9 +21,9 @@ data class ThemeUiState(
     val aiProvider: AiProvider = AiProvider.GEMINI,
     val localAiServerUrl: String = "",
     val normalSpeed: Float = 1.0f,
-    val practiceSpeed: Float = 0.25f,
-    val normalTabScale: Float = 1.0f,
-    val practiceTabScale: Float = 1.0f,
+    val practiceSpeed: Float = 0.3f,
+    val normalTabScale: Float = 1.5f,
+    val practiceTabScale: Float = 1.5f,
     val tabDisplayMode: TabDisplayMode = TabDisplayMode.TAB_AND_NOTES,
     val isLoading: Boolean = true
 )

@@ -101,3 +101,8 @@ function countCommonFrettedPairs(prevNotes, nextNotes) {
     }
     return matches;
 }
+
+function attackedNotes(notes) {
+    const fresh = notes.filter(note => !note.isTieDestination);
+    return fresh.length ? fresh : notes;
+}

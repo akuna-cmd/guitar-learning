@@ -106,7 +106,7 @@ function scorePositionCandidate(notes, position, previousPosition, barre) {
     return score;
 }
 
-function assignLeftHand(notes, position, barre) {
+function assignLeftHand(notes, position, barre, forcedPlacements = null) {
     const leftHand = {};
     const placement = {};
     const frettedNotes = notes
@@ -165,8 +165,24 @@ function assignLeftHand(notes, position, barre) {
                 if (first.fret < second.fret && firstFinger > secondFinger) {
                     cost += 3.5;
                 }
-                if (first.fret === second.fret && first.string > second.string && firstFinger < secondFinger) {
-                    cost += 1.8;
+                if (first.fret === second.fret && first.string > second.string) {
+                    const stringDelta = first.string - second.string;
+                    if (firstFinger > secondFinger) {
+                        cost += stringDelta === 1 ? 2.8 : 1.8;
+                    }
+                    if (stringDelta === 1) {
+                        const fingerGap = secondFinger - firstFinger;
+                        if (first.fret <= 3) {
+                            cost += (firstFinger - 1) * 0.45;
+                        } else if (firstFinger >= 3) {
+                            cost += (firstFinger - 2) * 0.85;
+                        }
+                        if (fingerGap === 1) {
+                            cost -= 0.35;
+                        } else if (fingerGap > 1) {
+                            cost += 0.9 + (fingerGap - 1) * 0.75;
+                        }
+                    }
                 }
             }
         }
@@ -179,6 +195,13 @@ function assignLeftHand(notes, position, barre) {
         for (const note of frettedNotes) {
             if (isCoveredByBarre(note, barre)) {
                 fixedAssignments.set(keyFor(note), 1);
+            }
+        }
+    }
+    if (forcedPlacements) {
+        for (const [key, finger] of Object.entries(forcedPlacements)) {
+            if (finger != null) {
+                fixedAssignments.set(key.replace(':', '_'), finger);
             }
         }
     }
@@ -232,7 +255,7 @@ function assignLeftHand(notes, position, barre) {
             continue;
         }
 
-        const assignedFinger = bestAssignment.get(key) ?? preferredFinger(note);
+        const assignedFinger = forcedPlacements?.[`${note.string}:${note.fret}`] ?? bestAssignment.get(key) ?? preferredFinger(note);
         leftHand[key] = leftHandName(assignedFinger);
         placement[note.string] = { fret: note.fret, finger: assignedFinger };
     }
@@ -248,8 +271,8 @@ function maxAbsFretDistance(notes, position) {
     }, 0);
 }
 
-function buildLeftHandCandidate(beatData, position, barre) {
-    const leftHandResult = assignLeftHand(beatData.notes, position, barre);
+function buildLeftHandCandidate(beatData, position, barre, forcedPlacements = null) {
+    const leftHandResult = assignLeftHand(beatData.notes, position, barre, forcedPlacements);
     const frets = activeFrets(beatData.notes);
     const positionCost = scorePositionCandidate(beatData.notes, position, null, barre);
     const stretchCost = frets.length >= 2 ? fretStretchCost(Math.min(...frets), Math.max(...frets)) : 0;
@@ -257,12 +280,38 @@ function buildLeftHandCandidate(beatData, position, barre) {
     const reachCost = maxAbsFretDistance(beatData.notes, position) * 0.75;
     const barreCost = barre ? 0.8 + Math.max(0, (barre.toString - barre.fromString) - 2) * 0.2 : 0;
     const barreCoverageCost = barre?.coverage != null ? (1 - barre.coverage) * 1.6 : 0;
-    const stateCost = positionCost + widthPenalty + reachCost + barreCost + barreCoverageCost;
+    let forcedPlacementCost = 0;
+    if (forcedPlacements) {
+        for (const note of beatData.notes) {
+            const forcedFinger = forcedPlacements[`${note.string}:${note.fret}`];
+            if (forcedFinger == null || note.fret <= 0 || note.isDead || note.isTapped) continue;
+            const preferred = clamp(note.fret - position + 1, 1, 4);
+            forcedPlacementCost += Math.abs(forcedFinger - preferred) * 0.55;
+            if (note.fret <= 3 && forcedFinger >= 3) {
+                forcedPlacementCost += 0.2;
+            }
+        }
+    }
+    let arpeggioShapeCost = 0;
+    if (beatData.arpeggioHint && beatData.notes.length === 1) {
+        const note = beatData.notes[0];
+        const hintedFinger = beatData.arpeggioHint.fingerByKey?.[`${note.string}:${note.fret}`];
+        if (hintedFinger != null) {
+            const chosenFinger = leftHandResult.placement[note.string]?.finger;
+            if (chosenFinger === hintedFinger) {
+                arpeggioShapeCost -= position === beatData.arpeggioHint.position ? 1.9 : 1.1;
+            } else {
+                arpeggioShapeCost += 2.2 + Math.abs(chosenFinger - hintedFinger) * 0.75;
+            }
+        }
+    }
+    const stateCost = positionCost + widthPenalty + reachCost + barreCost + barreCoverageCost + forcedPlacementCost + arpeggioShapeCost;
 
     return {
         position,
         barre,
         barreFret: barre?.fret ?? null,
+        forcedPlacements,
         leftHandMap: leftHandResult.leftHand,
         leftHandPlacement: leftHandResult.placement,
         leftHandStateCost: stateCost,
@@ -271,9 +320,68 @@ function buildLeftHandCandidate(beatData, position, barre) {
             widthPenalty,
             reachCost,
             barreCost,
-            barreCoverageCost
+            barreCoverageCost,
+            forcedPlacementCost,
+            arpeggioShapeCost
         }
     };
+}
+
+function buildForcedPlacementVariants(beatData, position, barre) {
+    const playableNotes = beatData.notes.filter(note => note.fret > 0 && !note.isDead && !note.isTapped);
+    const tiedNotes = playableNotes.filter(note => note.isTieDestination);
+    const singlePlayableNote = playableNotes.length === 1 ? playableNotes[0] : null;
+    const perNoteOptions = [];
+
+    if (singlePlayableNote) {
+        const preferredFinger = clamp(singlePlayableNote.fret - position + 1, 1, 4);
+        const noteKey = `${singlePlayableNote.string}:${singlePlayableNote.fret}`;
+        const fingerOptions = new Set([preferredFinger]);
+        const hintedFinger = beatData.arpeggioHint?.fingerByKey?.[noteKey];
+        if (hintedFinger != null) {
+            fingerOptions.add(hintedFinger);
+        }
+        if (preferredFinger > 1) fingerOptions.add(preferredFinger - 1);
+        if (preferredFinger < 4) fingerOptions.add(preferredFinger + 1);
+        if (singlePlayableNote.fret <= 2 && preferredFinger < 3) {
+            fingerOptions.add(preferredFinger + 2);
+        }
+        perNoteOptions.push({
+            key: noteKey,
+            options: [...fingerOptions].filter(finger => finger >= 1 && finger <= 4)
+        });
+    }
+
+    for (const note of tiedNotes) {
+        const noteKey = `${note.string}:${note.fret}`;
+        if (perNoteOptions.some(item => item.key === noteKey)) continue;
+        if (barre && isCoveredByBarre(note, barre)) {
+            perNoteOptions.push({ key: noteKey, options: [1] });
+            continue;
+        }
+        perNoteOptions.push({ key: noteKey, options: [1, 2, 3, 4] });
+    }
+
+    if (!perNoteOptions.length) {
+        return [null];
+    }
+
+    const variants = [];
+    function buildVariant(index, current) {
+        if (index >= perNoteOptions.length) {
+            variants.push({ ...current });
+            return;
+        }
+        const item = perNoteOptions[index];
+        for (const finger of item.options) {
+            current[item.key] = finger;
+            buildVariant(index + 1, current);
+        }
+        delete current[item.key];
+    }
+
+    buildVariant(0, {});
+    return variants;
 }
 
 function generateLeftHandCandidates(beatData) {
@@ -291,7 +399,9 @@ function generateLeftHandCandidates(beatData) {
                 widthPenalty: 0,
                 reachCost: 0,
                 barreCost: 0,
-                barreCoverageCost: 0
+                barreCoverageCost: 0,
+                forcedPlacementCost: 0,
+                arpeggioShapeCost: 0
             }
         }));
     }
@@ -304,7 +414,10 @@ function generateLeftHandCandidates(beatData) {
     for (const position of positions) {
         for (const barre of barreOptions) {
             if (barre && position !== barre.fret) continue;
-            candidates.push(buildLeftHandCandidate(beatData, position, barre));
+            const forcedVariants = buildForcedPlacementVariants(beatData, position, barre);
+            for (const forcedPlacements of forcedVariants) {
+                candidates.push(buildLeftHandCandidate(beatData, position, barre, forcedPlacements));
+            }
         }
     }
 

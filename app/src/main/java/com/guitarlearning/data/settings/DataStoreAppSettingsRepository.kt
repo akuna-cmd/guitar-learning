@@ -155,9 +155,9 @@ class DataStoreAppSettingsRepository @Inject constructor(
             aiProvider = AiProvider.valueOf(preferences[Keys.aiProvider] ?: AiProvider.GEMINI.name),
             localAiServerUrl = preferences[Keys.localAiServerUrl].orEmpty(),
             normalSpeed = preferences[Keys.normalSpeed] ?: 1.0f,
-            practiceSpeed = preferences[Keys.practiceSpeed] ?: 0.25f,
-            normalTabScale = preferences[Keys.normalTabScale] ?: 1.0f,
-            practiceTabScale = preferences[Keys.practiceTabScale] ?: 1.0f,
+            practiceSpeed = preferences[Keys.practiceSpeed] ?: 0.3f,
+            normalTabScale = preferences[Keys.normalTabScale] ?: 1.5f,
+            practiceTabScale = preferences[Keys.practiceTabScale] ?: 1.5f,
             tabDisplayMode = TabDisplayMode.valueOf(
                 preferences[Keys.tabDisplayMode] ?: TabDisplayMode.TAB_AND_NOTES.name
             ),

@@ -35,13 +35,14 @@ function mergeRawTechnique(target, source) {
     target.isPullOff = target.isPullOff || source.isPullOff;
     target.isPalmMute = target.isPalmMute || source.isPalmMute;
     target.hasHarmonic = target.hasHarmonic || source.hasHarmonic;
+    target.harmonicType = Math.max(target.harmonicType || 0, source.harmonicType || 0);
     target.isTrill = target.isTrill || source.isTrill;
     target.isGhost = target.isGhost || source.isGhost;
     target.isDead = target.isDead || source.isDead;
     target.isLetRing = target.isLetRing || source.isLetRing;
-    target.isSlap = target.isSlap || source.isSlap;
-    target.isPop = target.isPop || source.isPop;
+    target.isStaccato = target.isStaccato || source.isStaccato;
     target.accent = Math.max(target.accent || 0, source.accent || 0);
+    target.isTieDestination = target.isTieDestination || source.isTieDestination;
     target.legatoType = target.legatoType || source.legatoType || null;
 }
 
@@ -68,20 +69,20 @@ function dedupeEventNotes(event) {
     return event;
 }
 
-function extractTechniques(rawNotes) {
-    return rawNotes.reduce((acc, note) => {
+function extractTechniques(rawNotes, beatTechniques = null) {
+    const techniques = rawNotes.reduce((acc, note) => {
         acc.hasBend = acc.hasBend || !!note.hasBend;
         acc.vibrato = acc.vibrato || !!note.vibrato;
         acc.slide = acc.slide || !!note.slideIn || !!note.slideOut;
         acc.legato = acc.legato || !!note.isHammer || !!note.isPullOff;
         acc.palmMute = acc.palmMute || !!note.isPalmMute;
         acc.harmonic = acc.harmonic || !!note.hasHarmonic;
+        acc.harmonicType = Math.max(acc.harmonicType || 0, note.harmonicType || 0);
         acc.trill = acc.trill || !!note.isTrill;
         acc.ghost = acc.ghost || !!note.isGhost;
         acc.dead = acc.dead || !!note.isDead;
         acc.letRing = acc.letRing || !!note.isLetRing;
-        acc.slap = acc.slap || !!note.isSlap;
-        acc.pop = acc.pop || !!note.isPop;
+        acc.staccato = acc.staccato || !!note.isStaccato;
         acc.accent = acc.accent || !!note.accent;
         return acc;
     }, {
@@ -91,19 +92,130 @@ function extractTechniques(rawNotes) {
         legato: false,
         palmMute: false,
         harmonic: false,
+        harmonicType: 0,
         trill: false,
         ghost: false,
         dead: false,
         letRing: false,
+        staccato: false,
+        fadeIn: false,
+        rasgueado: false,
+        tremoloPicking: false,
+        graceOnBeat: false,
+        graceBeforeBeat: false,
+        graceBend: false,
+        whammyBar: false,
+        beatVibrato: false,
+        brushUp: false,
+        brushDown: false,
+        arpeggioUp: false,
+        arpeggioDown: false,
+        pickStrokeUp: false,
+        pickStrokeDown: false,
+        crescendo: false,
+        decrescendo: false,
         slap: false,
         pop: false,
         accent: false
     });
+
+    if (beatTechniques) {
+        techniques.fadeIn = techniques.fadeIn || !!beatTechniques.fadeIn;
+        techniques.rasgueado = techniques.rasgueado || !!beatTechniques.rasgueado;
+        techniques.tremoloPicking = techniques.tremoloPicking || !!beatTechniques.tremoloPicking;
+        techniques.graceOnBeat = techniques.graceOnBeat || !!beatTechniques.graceOnBeat;
+        techniques.graceBeforeBeat = techniques.graceBeforeBeat || !!beatTechniques.graceBeforeBeat;
+        techniques.graceBend = techniques.graceBend || !!beatTechniques.graceBend;
+        techniques.whammyBar = techniques.whammyBar || !!beatTechniques.whammyBar;
+        techniques.beatVibrato = techniques.beatVibrato || !!beatTechniques.beatVibrato;
+        techniques.brushUp = techniques.brushUp || !!beatTechniques.brushUp;
+        techniques.brushDown = techniques.brushDown || !!beatTechniques.brushDown;
+        techniques.arpeggioUp = techniques.arpeggioUp || !!beatTechniques.arpeggioUp;
+        techniques.arpeggioDown = techniques.arpeggioDown || !!beatTechniques.arpeggioDown;
+        techniques.pickStrokeUp = techniques.pickStrokeUp || !!beatTechniques.pickStrokeUp;
+        techniques.pickStrokeDown = techniques.pickStrokeDown || !!beatTechniques.pickStrokeDown;
+        techniques.crescendo = techniques.crescendo || !!beatTechniques.crescendo;
+        techniques.decrescendo = techniques.decrescendo || !!beatTechniques.decrescendo;
+        techniques.slap = techniques.slap || !!beatTechniques.slap;
+        techniques.pop = techniques.pop || !!beatTechniques.pop;
+    }
+
+    return techniques;
 }
 
-function buildInstructions(notes, rawNotes, leftHandMap, rightHandMap, barreFret, position, isTapping, extraHints = []) {
+function buildHarmonicInstruction(techniques) {
+    switch (techniques.harmonicType) {
+        case 2:
+            return t('harmonicArtificialInstruction');
+        case 3:
+            return t('harmonicPinchInstruction');
+        case 4:
+            return t('harmonicTapInstruction');
+        case 5:
+            return t('harmonicSemiInstruction');
+        case 6:
+            return t('harmonicFeedbackInstruction');
+        default:
+            return t('harmonicInstruction');
+    }
+}
+
+function buildGraceInstruction(techniques) {
+    if (techniques.graceBend) return t('graceBendInstruction');
+    if (techniques.graceOnBeat) return t('graceOnBeatInstruction');
+    if (techniques.graceBeforeBeat) return t('graceBeforeBeatInstruction');
+    return null;
+}
+
+function buildRestInstructions(beatTechniques) {
+    const techniques = extractTechniques([], beatTechniques);
+    const instructions = [t('restInstruction')];
+
+    if (techniques.fadeIn) instructions.push(t('fadeInInstruction'));
+    if (techniques.crescendo) instructions.push(t('crescendoInstruction'));
+    if (techniques.decrescendo) instructions.push(t('decrescendoInstruction'));
+
+    const graceInstruction = buildGraceInstruction(techniques);
+    if (graceInstruction) instructions.push(graceInstruction);
+
+    return [...new Set(instructions)];
+}
+
+function buildPrimaryTechniqueHint(techniques, isTapping) {
+    if (techniques.isRest) return t('techniqueRest');
+    if (techniques.harmonic) return t('techniqueHarmonic');
+    if (techniques.dead) return t('techniqueDead');
+    if (techniques.hasBend) return t('techniqueBend');
+    if (techniques.whammyBar) return t('techniqueWhammyBar');
+    if (techniques.palmMute) return t('techniquePalmMute');
+    if (techniques.trill) return t('techniqueTrill');
+    if (techniques.ghost) return t('techniqueGhost');
+    if (techniques.letRing) return t('techniqueLetRing');
+    if (isTapping) return t('techniqueTapping');
+    if (techniques.slap) return t('techniqueSlap');
+    if (techniques.pop) return t('techniquePop');
+    if (techniques.rasgueado) return t('techniqueRasgueado');
+    if (techniques.tremoloPicking) return t('techniqueTremoloPicking');
+    if (techniques.legato) return t('techniqueLegato');
+    if (techniques.slide) return t('techniqueSlide');
+    if (techniques.vibrato || techniques.beatVibrato) return t('techniqueVibrato');
+    if (techniques.staccato) return t('techniqueStaccato');
+    if (techniques.graceOnBeat || techniques.graceBeforeBeat || techniques.graceBend) return t('techniqueGrace');
+    if (techniques.pickStrokeUp) return t('techniquePickStrokeUp');
+    if (techniques.pickStrokeDown) return t('techniquePickStrokeDown');
+    if (techniques.arpeggioUp) return t('techniqueArpeggioUp');
+    if (techniques.arpeggioDown) return t('techniqueArpeggioDown');
+    if (techniques.brushUp) return t('techniqueBrushUp');
+    if (techniques.brushDown) return t('techniqueBrushDown');
+    if (techniques.fadeIn) return t('techniqueFadeIn');
+    if (techniques.crescendo) return t('techniqueCrescendo');
+    if (techniques.decrescendo) return t('techniqueDecrescendo');
+    return null;
+}
+
+function buildInstructions(notes, rawNotes, beatTechniques, leftHandMap, rightHandMap, barreFret, position, isTapping, extraHints = []) {
     const instructions = [];
-    const techniques = extractTechniques(rawNotes);
+    const techniques = extractTechniques(rawNotes, beatTechniques);
     const frets = activeFrets(notes);
     const width = frets.length ? Math.max(...frets) - Math.min(...frets) : 0;
     const allTapped = notes.length > 0 && notes.every(note => note.isTapped);
@@ -154,44 +266,51 @@ function buildInstructions(notes, rawNotes, leftHandMap, rightHandMap, barreFret
     if (width > 3) instructions.push(t('wideStretchInstruction'));
     if (isTapping) instructions.push(t('tappingInstruction'));
     if (techniques.accent) instructions.push(t('accentInstruction'));
+    if (techniques.staccato) instructions.push(t('staccatoInstruction'));
     if (techniques.ghost) instructions.push(t('ghostInstruction'));
     if (techniques.dead) instructions.push(t('deadInstruction'));
     if (techniques.slap) instructions.push(t('slapInstruction'));
     if (techniques.pop) instructions.push(t('popInstruction'));
     if (techniques.letRing) instructions.push(t('letRingInstruction'));
     if (techniques.hasBend) instructions.push(t('bendInstruction'));
+    if (techniques.whammyBar) instructions.push(t('whammyBarInstruction'));
     if (techniques.vibrato) instructions.push(t('vibratoInstruction'));
+    if (techniques.beatVibrato) instructions.push(t('whammyVibratoInstruction'));
     if (techniques.slide) instructions.push(t('slideInstruction'));
     if (techniques.legato) {
         instructions.push(t('legatoInstruction'));
         instructions.push(t('tieInstruction'));
     }
     if (techniques.palmMute) instructions.push(t('palmMuteInstruction'));
-    if (techniques.harmonic) instructions.push(t('harmonicInstruction'));
+    if (techniques.harmonic) instructions.push(buildHarmonicInstruction(techniques));
     if (techniques.trill) instructions.push(t('trillInstruction'));
+    if (techniques.fadeIn) instructions.push(t('fadeInInstruction'));
+    if (techniques.rasgueado) instructions.push(t('rasgueadoInstruction'));
+    if (techniques.tremoloPicking) instructions.push(t('tremoloPickingInstruction'));
+    if (techniques.brushUp) instructions.push(t('brushUpInstruction'));
+    if (techniques.brushDown) instructions.push(t('brushDownInstruction'));
+    if (techniques.arpeggioUp) instructions.push(t('arpeggioUpInstruction'));
+    if (techniques.arpeggioDown) instructions.push(t('arpeggioDownInstruction'));
+    if (techniques.pickStrokeUp) instructions.push(t('pickStrokeUpInstruction'));
+    if (techniques.pickStrokeDown) instructions.push(t('pickStrokeDownInstruction'));
+    if (techniques.crescendo) instructions.push(t('crescendoInstruction'));
+    if (techniques.decrescendo) instructions.push(t('decrescendoInstruction'));
+
+    const graceInstruction = buildGraceInstruction(techniques);
+    if (graceInstruction) instructions.push(graceInstruction);
+
     if (!instructions.length) instructions.push(t('plainNoteInstruction'));
 
     return [...new Set(instructions.concat(extraHints))];
 }
 
-function buildContextHint(notes, rawNotes, barreFret, isTapping) {
-    const techniques = extractTechniques(rawNotes);
+function buildContextHint(notes, rawNotes, beatTechniques, barreFret, isTapping) {
+    const techniques = extractTechniques(rawNotes, beatTechniques);
     const frets = activeFrets(notes);
     const width = frets.length ? Math.max(...frets) - Math.min(...frets) : 0;
 
-    if (techniques.harmonic) return t('techniqueHarmonic');
-    if (techniques.dead) return t('techniqueDead');
-    if (techniques.hasBend) return t('techniqueBend');
-    if (techniques.palmMute) return t('techniquePalmMute');
-    if (techniques.trill) return t('techniqueTrill');
-    if (techniques.ghost) return t('techniqueGhost');
-    if (techniques.letRing) return t('techniqueLetRing');
-    if (isTapping) return t('techniqueTapping');
-    if (techniques.slap) return t('techniqueSlap');
-    if (techniques.pop) return t('techniquePop');
-    if (techniques.legato) return t('techniqueLegato');
-    if (techniques.slide) return t('techniqueSlide');
-    if (techniques.vibrato) return t('techniqueVibrato');
+    const primaryHint = buildPrimaryTechniqueHint(techniques, isTapping);
+    if (primaryHint) return primaryHint;
     if (barreFret !== null) return t('possibleBarre', { fret: barreFret });
     if (width > 3) return t('wideStretch');
     return null;
@@ -217,7 +336,7 @@ function buildRightHandPayload(notes, rightHandMap, rightHandLetters = {}) {
     });
 }
 
-function buildLeftHandPayload(notes, rawNotes, leftHandMap, leftHandPlacement, isTapping) {
+function buildLeftHandPayload(notes, rawNotes, beatTechniques, leftHandMap, leftHandPlacement, isTapping) {
     return notes.map((note, index) => {
         const rawNote = rawNotes[index];
         const key = `${note.string}_${note.fret}`;
@@ -258,8 +377,8 @@ function buildLeftHandPayload(notes, rawNotes, leftHandMap, leftHandPlacement, i
             hasHarmonic: !!rawNote.hasHarmonic,
             isTrill: !!rawNote.isTrill,
             isLetRing: !!rawNote.isLetRing,
-            isSlap: !!rawNote.isSlap,
-            isPop: !!rawNote.isPop,
+            isSlap: !!beatTechniques?.slap,
+            isPop: !!beatTechniques?.pop,
             isAccent: !!rawNote.accent,
             isTapping: !!note.isTapped || !!isTapping
         };
@@ -267,15 +386,40 @@ function buildLeftHandPayload(notes, rawNotes, leftHandMap, leftHandPlacement, i
 }
 
 function buildAnalysis(barIdx, analyzedBeat, nextAnalyzedBeat) {
+    if (analyzedBeat.isRest) {
+        return {
+            barIndex: barIdx + 1,
+            leftHand: [],
+            rightHand: [],
+            instructions: buildRestInstructions(analyzedBeat.beatTechniques),
+            barreFret: null,
+            contextHint: t('techniqueRest'),
+            nextLeftHand: []
+        };
+    }
+
+    const attacked = attackedNotes(analyzedBeat.notes);
+    const attackedSet = new Set(attacked.map(note => `${note.string}:${note.fret}:${note.isTapped ? 't' : 'n'}:${note.isDead ? 'x' : 'p'}`));
+    const attackedLeftNotes = [];
+    const attackedLeftRawNotes = [];
+    for (let i = 0; i < analyzedBeat.notes.length; i++) {
+        const note = analyzedBeat.notes[i];
+        const key = `${note.string}:${note.fret}:${note.isTapped ? 't' : 'n'}:${note.isDead ? 'x' : 'p'}`;
+        if (!attackedSet.has(key)) continue;
+        attackedLeftNotes.push(note);
+        attackedLeftRawNotes.push(analyzedBeat.rawNotes[i]);
+        attackedSet.delete(key);
+    }
     const leftHand = buildLeftHandPayload(
-        analyzedBeat.notes,
-        analyzedBeat.rawNotes,
+        attackedLeftNotes,
+        attackedLeftRawNotes,
+        analyzedBeat.beatTechniques,
         analyzedBeat.leftHandMap,
         analyzedBeat.leftHandPlacement,
         analyzedBeat.isTapping
     );
     const rightHand = buildRightHandPayload(
-        analyzedBeat.notes,
+        attacked,
         analyzedBeat.rightHandMap,
         analyzedBeat.rightHandLetters
     );
@@ -283,6 +427,7 @@ function buildAnalysis(barIdx, analyzedBeat, nextAnalyzedBeat) {
         ? buildLeftHandPayload(
             nextAnalyzedBeat.notes,
             nextAnalyzedBeat.rawNotes,
+            nextAnalyzedBeat.beatTechniques,
             nextAnalyzedBeat.leftHandMap,
             nextAnalyzedBeat.leftHandPlacement,
             nextAnalyzedBeat.isTapping
@@ -302,8 +447,9 @@ function buildAnalysis(barIdx, analyzedBeat, nextAnalyzedBeat) {
         leftHand,
         rightHand,
         instructions: buildInstructions(
-            analyzedBeat.notes,
+            attacked,
             analyzedBeat.rawNotes,
+            analyzedBeat.beatTechniques,
             analyzedBeat.leftHandMap,
             analyzedBeat.rightHandMap,
             analyzedBeat.barreFret,
@@ -315,6 +461,7 @@ function buildAnalysis(barIdx, analyzedBeat, nextAnalyzedBeat) {
         contextHint: buildContextHint(
             analyzedBeat.notes,
             analyzedBeat.rawNotes,
+            analyzedBeat.beatTechniques,
             analyzedBeat.barreFret,
             analyzedBeat.isTapping
         ),

@@ -111,7 +111,7 @@ internal fun BindTabViewerBridge(
                             message.startsWith("restore:") ||
                             message.startsWith("error")
                         )
-            if (important) {
+            if (important || message.startsWith("debugBeat:")) {
                 Log.d("AlphaTabStatus", message)
             }
             if (message.contains("soundFontLoaded")) {
