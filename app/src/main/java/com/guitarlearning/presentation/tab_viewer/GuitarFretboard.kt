@@ -58,6 +58,7 @@ import android.util.Log
 import com.guitarlearning.R
 import kotlinx.coroutines.launch
 import kotlin.math.max
+import androidx.compose.foundation.isSystemInDarkTheme
 
 private data class FretNote(
     val stringIndex: Int,
@@ -90,6 +91,7 @@ fun GuitarFretboard(
 ) {
     val textMeasurer = rememberTextMeasurer()
     val scheme = MaterialTheme.colorScheme
+    val isDarkTheme = isSystemInDarkTheme()
     val rawInstructions = analysis?.instructions?.filter { it.isNotBlank() } ?: emptyList()
     val allInstructions = rawInstructions
     val hintListState = rememberLazyListState()
@@ -207,8 +209,16 @@ fun GuitarFretboard(
                 val stringCount = 6
                 val fretCount = (endFret - startFret).coerceAtLeast(1)
                 val fretStep = (right - left) / fretCount
-                val lineColor = scheme.onSurface.copy(alpha = 0.38f)
-                val fretColor = scheme.outline
+                val lineColor = if (isDarkTheme) {
+                    Color(0xFFD9D4CF).copy(alpha = 0.52f)
+                } else {
+                    Color(0xFFF2ECE5).copy(alpha = 0.78f)
+                }
+                val fretColor = if (isDarkTheme) {
+                    scheme.outline
+                } else {
+                    Color(0xFFE7DED3)
+                }
                 val boardTop = top - 6f
                 val boardBottom = bottom + 6f
                 val nutX = left + 2f
