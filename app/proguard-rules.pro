@@ -25,6 +25,12 @@
     @android.webkit.JavascriptInterface <methods>;
 }
 
+# Keep annotations/signatures and model field names for Gson-based parsing.
+-keepattributes Signature,*Annotation*
+
+# Built-in lessons are loaded from assets/lessons/lessons.json at runtime.
+-keep class com.guitarlearning.data.model.LessonDto { *; }
+
 # Keep JSON field names for analysis payload parsed from WebView JS.
--keep class com.example.thetest1.presentation.tab_viewer.TabAnalysis { *; }
--keep class com.example.thetest1.presentation.tab_viewer.FingerInfo { *; }
+-keep class com.guitarlearning.presentation.tab_viewer.TabAnalysis { *; }
+-keep class com.guitarlearning.presentation.tab_viewer.FingerInfo { *; }

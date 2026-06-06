@@ -24,7 +24,6 @@ import com.guitarlearning.domain.repository.AppSettingsRepository
 import com.guitarlearning.domain.repository.TabPlaybackProgressRepository
 import com.guitarlearning.domain.repository.TabRepository
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -47,10 +46,11 @@ class TabRepositoryImpl @Inject constructor(
 ) : TabRepository {
     private val lessonsFromJson: List<LessonDto> by lazy {
         try {
-            val inputStream = context.assets.open("lessons/lessons.json")
-            val reader = InputStreamReader(inputStream)
-            val lessonListType = object : TypeToken<List<LessonDto>>() {}.type
-            Gson().fromJson(reader, lessonListType)
+            context.assets.open("lessons/lessons.json").use { inputStream ->
+                InputStreamReader(inputStream).use { reader ->
+                    Gson().fromJson(reader, Array<LessonDto>::class.java)?.toList().orEmpty()
+                }
+            }
         } catch (e: Exception) {
             emptyList()
         }

@@ -1,7 +1,9 @@
 package com.guitarlearning.data.model
 
+import androidx.annotation.Keep
 import com.google.gson.annotations.SerializedName
 
+@Keep
 data class LessonDto(
     val id: String,
     val level: String,
