@@ -68,6 +68,7 @@ internal fun TabViewer(
     val loopStartMeasure = model.loopStartMeasure
     val loopEndMeasure = model.loopEndMeasure
     val isLoopEnabled = model.isLoopEnabled
+    val showScoreContent = model.showScoreContent
 
     val onSpeedChange = handlers.onSpeedChange
     val onTabDisplayModeChange = handlers.onTabDisplayModeChange
@@ -419,6 +420,7 @@ internal fun TabViewer(
         webView = webView,
         isDark = isDark,
         showLoadingOverlay = showLoadingOverlay,
+        showScoreContent = showScoreContent,
         restorePending = restorePending,
         isReusedSession = isReusedSession,
         isPlaying = isPlaying,

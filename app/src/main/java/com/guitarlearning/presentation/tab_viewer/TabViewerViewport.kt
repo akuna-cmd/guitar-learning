@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -55,6 +56,7 @@ internal fun TabViewerViewport(
     webView: WebView,
     isDark: Boolean,
     showLoadingOverlay: Boolean,
+    showScoreContent: Boolean,
     restorePending: Boolean,
     isReusedSession: Boolean,
     isPlaying: Boolean,
@@ -72,39 +74,49 @@ internal fun TabViewerViewport(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                AndroidView(
-                    factory = {
-                        (webView.parent as? ViewGroup)?.removeView(webView)
-                        webView.animate().cancel()
-                        webView.alpha = if (shouldShowOverlay) 0f else 1f
-                        webView
-                    },
+            if (showScoreContent) {
+                Box(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AndroidView(
+                        factory = {
+                            (webView.parent as? ViewGroup)?.removeView(webView)
+                            webView.animate().cancel()
+                            webView.alpha = if (shouldShowOverlay) 0f else 1f
+                            webView
+                        },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .onGloballyPositioned { coords ->
+                                onWebYChanged(coords.boundsInRoot().top.toInt())
+                            },
+                        update = { view ->
+                            view.setBackgroundColor(
+                                if (isDark) android.graphics.Color.parseColor(TAB_VIEWER_DARK_BACKGROUND) else android.graphics.Color.WHITE
+                            )
+                            val targetVisible = !shouldShowOverlay
+                            if (targetVisible) {
+                                if (view.alpha != 1f) {
+                                    view.animate().cancel()
+                                    view.animate().alpha(1f).setDuration(140L).start()
+                                }
+                            } else {
+                                view.animate().cancel()
+                                view.alpha = 0f
+                            }
+                        }
+                    )
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(0.dp)
                         .onGloballyPositioned { coords ->
                             onWebYChanged(coords.boundsInRoot().top.toInt())
-                        },
-                    update = { view ->
-                        view.setBackgroundColor(
-                            if (isDark) android.graphics.Color.parseColor(TAB_VIEWER_DARK_BACKGROUND) else android.graphics.Color.WHITE
-                        )
-                        val targetVisible = !shouldShowOverlay
-                        if (targetVisible) {
-                            if (view.alpha != 1f) {
-                                view.animate().cancel()
-                                view.animate().alpha(1f).setDuration(140L).start()
-                            }
-                        } else {
-                            view.animate().cancel()
-                            view.alpha = 0f
                         }
-                    }
                 )
             }
 

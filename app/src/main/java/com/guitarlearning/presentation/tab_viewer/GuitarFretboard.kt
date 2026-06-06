@@ -180,6 +180,7 @@ fun GuitarFretboard(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .background(scheme.background)
             .padding(vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {

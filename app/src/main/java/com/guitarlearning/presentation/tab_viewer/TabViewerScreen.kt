@@ -1,5 +1,6 @@
 package com.guitarlearning.presentation.tab_viewer
 
+import android.content.res.Configuration
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -55,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -98,6 +100,8 @@ fun TabViewerScreen(
     val isPlayingState by viewModel.isPlaying.collectAsStateWithLifecycle()
 
     val themeUiState by themeViewModel.uiState.collectAsStateWithLifecycle()
+    val configuration = LocalConfiguration.current
+    val isLandscapeWideMode = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val lesson = uiState.lesson?.takeIf { it.id == lessonId }
     val rawDisplayReady = lesson != null && uiState.isScoreLoaded
     var isDisplayUnlocked by remember(lessonId) { mutableStateOf(false) }
@@ -225,6 +229,7 @@ fun TabViewerScreen(
                     }
                 }
                 var previousPlayingState by remember(lesson.id) { mutableStateOf(isPlayingState) }
+                val tabletPracticeFocusMode = isLandscapeWideMode && isPracticeMode
 
                 LaunchedEffect(isPlayingState, isLoopEnabled, isLoopAccelerationEnabled) {
                     if (isPlayingState && !previousPlayingState && isLoopEnabled && isLoopAccelerationEnabled) {
@@ -303,7 +308,8 @@ fun TabViewerScreen(
                             isPlaying = isPlayingState,
                             loopStartMeasure = loopStartMeasure,
                             loopEndMeasure = loopEndMeasure,
-                            isLoopEnabled = isLoopEnabled
+                            isLoopEnabled = isLoopEnabled,
+                            showScoreContent = !tabletPracticeFocusMode
                         ),
                         handlers = TabViewerHandlers(
                             onSpeedChange = { currentSpeed = it },
@@ -365,23 +371,47 @@ fun TabViewerScreen(
                         tabViewModel = viewModel,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f)
+                            .then(
+                                if (tabletPracticeFocusMode) {
+                                    Modifier.height(56.dp)
+                                } else {
+                                    Modifier.weight(1f)
+                                }
+                            )
                             .padding(top = 16.dp, start = 8.dp, end = 8.dp)
                     )
 
-                    androidx.compose.animation.AnimatedVisibility(visible = isPracticeMode && uiState.isScoreLoaded) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(380.dp)
-                        ) {
-                            GuitarFretboard(
-                                analysis = uiState.tabAnalysis,
-                                isPlaying = isPlayingState,
+                    if (isPracticeMode && uiState.isScoreLoaded) {
+                        if (tabletPracticeFocusMode) {
+                            Box(
                                 modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 8.dp)
-                            )
+                                    .fillMaxWidth()
+                                    .weight(1f)
+                            ) {
+                                GuitarFretboard(
+                                    analysis = uiState.tabAnalysis,
+                                    isPlaying = isPlayingState,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 8.dp)
+                                )
+                            }
+                        } else {
+                            androidx.compose.animation.AnimatedVisibility(visible = true) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(380.dp)
+                                ) {
+                                    GuitarFretboard(
+                                        analysis = uiState.tabAnalysis,
+                                        isPlaying = isPlayingState,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(horizontal = 8.dp)
+                                    )
+                                }
+                            }
                         }
                     }
 

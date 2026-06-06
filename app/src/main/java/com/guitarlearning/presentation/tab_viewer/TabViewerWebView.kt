@@ -193,7 +193,8 @@ internal data class TabViewerModel(
     val isPlaying: Boolean,
     val loopStartMeasure: Int,
     val loopEndMeasure: Int,
-    val isLoopEnabled: Boolean
+    val isLoopEnabled: Boolean,
+    val showScoreContent: Boolean
 )
 
 internal data class TabViewerHandlers(
