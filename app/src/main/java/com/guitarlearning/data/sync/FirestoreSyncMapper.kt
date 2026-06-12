@@ -12,6 +12,9 @@ import com.guitarlearning.domain.model.TabPlaybackProgress
 import com.guitarlearning.domain.model.TextNote
 import com.guitarlearning.domain.model.normalizeTabFolder
 import com.google.firebase.firestore.DocumentSnapshot
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import java.io.File
 
 internal class FirestoreSyncMapper(
@@ -199,41 +202,45 @@ internal class FirestoreSyncMapper(
         }.getOrNull()
     }
 
-    suspend fun importRemoteTabs(documents: List<DocumentSnapshot>): RemoteTabsImportResult {
-        val tabs = mutableListOf<TabItem>()
-        val unresolvedRemoteIds = mutableSetOf<String>()
-
-        documents.forEach { document ->
-            val remoteId = document.getString("id") ?: document.id
-            val importedTab = toTabItem(document)
-            if (importedTab != null) {
-                tabs += importedTab
-            } else if (document.getBoolean("isUserTab") == true) {
-                unresolvedRemoteIds += remoteId
+    suspend fun importRemoteTabs(documents: List<DocumentSnapshot>): RemoteTabsImportResult = coroutineScope {
+        val imported = documents.map { document ->
+            async {
+                val remoteId = document.getString("id") ?: document.id
+                val importedTab = toTabItem(document)
+                ImportedRemoteTab(
+                    tab = importedTab,
+                    unresolvedUserTabId = remoteId.takeIf {
+                        importedTab == null && document.getBoolean("isUserTab") == true
+                    }
+                )
             }
-        }
+        }.awaitAll()
 
-        return RemoteTabsImportResult(tabs = tabs, unresolvedRemoteIds = unresolvedRemoteIds)
+        RemoteTabsImportResult(
+            tabs = imported.mapNotNull { it.tab },
+            unresolvedRemoteIds = imported.mapNotNullTo(mutableSetOf()) { it.unresolvedUserTabId }
+        )
     }
 
     fun importRemoteSessions(documents: List<DocumentSnapshot>) = importRemoteItems(documents, ::toSession)
 
     fun importRemoteTextNotes(documents: List<DocumentSnapshot>) = importRemoteItems(documents, ::toTextNote)
 
-    suspend fun importRemoteAudioNotes(documents: List<DocumentSnapshot>): RemoteImportResult<AudioNote> {
-        val audioNotes = mutableListOf<AudioNote>()
-        val unresolvedRemoteIds = mutableSetOf<String>()
-
-        documents.forEach { document ->
-            val audioNote = toAudioNote(document)
-            if (audioNote != null) {
-                audioNotes += audioNote
-            } else {
-                unresolvedRemoteIds += document.id
+    suspend fun importRemoteAudioNotes(documents: List<DocumentSnapshot>): RemoteImportResult<AudioNote> = coroutineScope {
+        val imported = documents.map { document ->
+            async {
+                val audioNote = toAudioNote(document)
+                ImportedRemoteAudioNote(
+                    audioNote = audioNote,
+                    unresolvedId = document.id.takeIf { audioNote == null }
+                )
             }
-        }
+        }.awaitAll()
 
-        return RemoteImportResult(items = audioNotes, unresolvedRemoteIds = unresolvedRemoteIds)
+        RemoteImportResult(
+            items = imported.mapNotNull { it.audioNote },
+            unresolvedRemoteIds = imported.mapNotNullTo(mutableSetOf()) { it.unresolvedId }
+        )
     }
 
     fun canonicalTabIdentity(tab: TabItem): String = firestoreCanonicalTabIdentity(tab)
@@ -254,3 +261,13 @@ internal class FirestoreSyncMapper(
         return null
     }
 }
+
+private data class ImportedRemoteTab(
+    val tab: TabItem?,
+    val unresolvedUserTabId: String?
+)
+
+private data class ImportedRemoteAudioNote(
+    val audioNote: AudioNote?,
+    val unresolvedId: String?
+)

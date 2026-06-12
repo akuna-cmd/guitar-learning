@@ -23,6 +23,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -118,12 +121,16 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             Log.w(LogTag, "clearRemoteData:start uid=${user.uid}")
             val userRef = firestore.collection("users").document(user.uid)
             val collections = listOf("tabs", "sessions", "goals", "progress", "text_notes", "audio_notes")
-            collections.forEach { name ->
-                val snapshot = userRef.collection(name).get().await()
-                if (snapshot.isEmpty) return@forEach
-                val batch = firestore.batch()
-                snapshot.documents.forEach { batch.delete(it.reference) }
-                batch.commit().await()
+            coroutineScope {
+                collections.map { name ->
+                    async {
+                        val snapshot = userRef.collection(name).get().await()
+                        if (snapshot.isEmpty) return@async
+                        val batch = firestore.batch()
+                        snapshot.documents.forEach { batch.delete(it.reference) }
+                        batch.commit().await()
+                    }
+                }.awaitAll()
             }
             userRef.collection("settings").document("app").delete().await()
             fileStore.deleteAllUserTabFiles(user.uid)
@@ -176,14 +183,22 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
     private suspend fun fetchRemoteState(
         userRef: com.google.firebase.firestore.DocumentReference,
         syncContext: SyncContext
-    ): RemoteSyncState {
-        val settingsDocument = userRef.collection("settings").document("app").get().await()
-        val tabsSnapshot = userRef.collection("tabs").get().await()
-        val sessionsSnapshot = userRef.collection("sessions").get().await()
-        val goalsSnapshot = userRef.collection("goals").get().await()
-        val progressSnapshot = userRef.collection("progress").get().await()
-        val textNotesSnapshot = userRef.collection("text_notes").get().await()
-        val audioNotesSnapshot = userRef.collection("audio_notes").get().await()
+    ): RemoteSyncState = coroutineScope {
+        val settingsDeferred = async { userRef.collection("settings").document("app").get().await() }
+        val tabsDeferred = async { userRef.collection("tabs").get().await() }
+        val sessionsDeferred = async { userRef.collection("sessions").get().await() }
+        val goalsDeferred = async { userRef.collection("goals").get().await() }
+        val progressDeferred = async { userRef.collection("progress").get().await() }
+        val textNotesDeferred = async { userRef.collection("text_notes").get().await() }
+        val audioNotesDeferred = async { userRef.collection("audio_notes").get().await() }
+
+        val settingsDocument = settingsDeferred.await()
+        val tabsSnapshot = tabsDeferred.await()
+        val sessionsSnapshot = sessionsDeferred.await()
+        val goalsSnapshot = goalsDeferred.await()
+        val progressSnapshot = progressDeferred.await()
+        val textNotesSnapshot = textNotesDeferred.await()
+        val audioNotesSnapshot = audioNotesDeferred.await()
 
         val remoteStoragePathsByTabId = tabsSnapshot.documents.associate { it.id to it.getString("storagePath") }
         val remoteAudioStoragePathsById = audioNotesSnapshot.documents.associate { it.id to it.getString("storagePath") }
@@ -233,7 +248,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             fallbackLogMessage = "syncData:using settings audio note backups because collection docs are unreadable"
         )
 
-        return RemoteSyncState(
+        RemoteSyncState(
             settings = mapper.toSettings(settingsDocument),
             settingsDocument = DocumentReferenceSnapshotBundle(settingsDocument),
             tabsSnapshot = tabsSnapshot,
@@ -280,8 +295,11 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
     private suspend fun applyRemoteState(
         syncContext: SyncContext,
         remoteState: RemoteSyncState
-    ): LocalSyncState {
-        val localSettings = appSettingsRepository.getSettings()
+    ): LocalSyncState = coroutineScope {
+        val localSettingsDeferred = async { appSettingsRepository.getSettings() }
+        val localTabsDeferred = async { tabRepository.getAllTabsSync() }
+
+        val localSettings = localSettingsDeferred.await()
         val mergedSettings = mergePolicy.mergeSettings(
             local = localSettings,
             remote = remoteState.settings,
@@ -289,7 +307,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
         )
         appSettingsRepository.replaceSettings(mergedSettings)
 
-        val localTabs = tabRepository.getAllTabsSync()
+        val localTabs = localTabsDeferred.await()
         val mergedTabsResult = mergePolicy.mergeTabCollections(localTabs, remoteState.tabs)
         if (mergedTabsResult.tabsToDelete.isNotEmpty()) {
             tabRepository.deleteTabs(mergedTabsResult.tabsToDelete)
@@ -298,7 +316,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             tabRepository.upsertTabs(mergedTabsResult.tabs)
         }
 
-        val availableTabIds = tabRepository.getAllTabsSync().mapTo(mutableSetOf()) { it.id }
+        val availableTabIds = mergedTabsResult.tabs.mapTo(mutableSetOf()) { it.id }
         val sanitizedSessions = remoteState.sessions.sanitizeForAvailableTabs(availableTabIds)
         val droppedSessions = remoteState.sessions.size - sanitizedSessions.size
         val droppedPracticedTabs = remoteState.sessions.sumOf { it.practicedTabs.size } -
@@ -311,18 +329,23 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
         }
         sessionRepository.importHistory(sanitizedSessions)
 
-        val localGoals = goalRepository.getGoalsSync()
+        val localGoalsDeferred = async { goalRepository.getGoalsSync() }
+        val localProgressDeferred = async { progressRepository.observeAll().first() }
+        val localTextNotesDeferred = async { textNoteDao.getAllTextNotes().map { it.toDomain() } }
+        val localAudioNotesDeferred = async { audioNoteDao.getAllNotes().map { it.toDomain() } }
+
+        val localGoals = localGoalsDeferred.await()
         val mergedGoals = mergePolicy.mergeGoals(localGoals, remoteState.goals)
         goalRepository.clearGoals()
         if (mergedGoals.isNotEmpty()) {
             goalRepository.upsertGoals(mergedGoals)
         }
 
-        val localProgress = progressRepository.observeAll().first()
+        val localProgress = localProgressDeferred.await()
         progressRepository.replaceAll(mergePolicy.mergeProgress(localProgress, remoteState.progress))
 
-        val localTextNotes = textNoteDao.getAllTextNotes().map { it.toDomain() }
-        val localAudioNotes = audioNoteDao.getAllNotes().map { it.toDomain() }
+        val localTextNotes = localTextNotesDeferred.await()
+        val localAudioNotes = localAudioNotesDeferred.await()
         val useRemoteNotesAsSourceOfTruth = syncContext.preferRemoteState
         val mergedTextNotes = if (useRemoteNotesAsSourceOfTruth) {
             mergePolicy.mergeTextNotes(localTextNotes, remoteState.textNotes)
@@ -344,7 +367,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             audioNoteDao.insertAll(mergedAudioNotes.map { it.copy(id = 0).toEntity() })
         }
 
-        return LocalSyncState(
+        LocalSyncState(
             localSettings = localSettings,
             localTabs = localTabs,
             localGoals = localGoals,
@@ -370,14 +393,22 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
     private suspend fun collectUploadState(
         userUid: String,
         remoteState: RemoteSyncState
-    ): UploadSyncState {
-        val finalTabs = tabRepository.getAllTabsSync()
-        val finalSessions = sessionRepository.getAllSessionsSync()
-        val finalGoals = goalRepository.getGoalsSync()
-        val finalProgress = progressRepository.observeAll().first()
-        val finalTextNotes = textNoteDao.getAllTextNotes().map { it.toDomain() }
-        val finalAudioNotes = audioNoteDao.getAllNotes().map { it.toDomain() }
-        val finalSettings = appSettingsRepository.getSettings()
+    ): UploadSyncState = coroutineScope {
+        val finalTabsDeferred = async { tabRepository.getAllTabsSync() }
+        val finalSessionsDeferred = async { sessionRepository.getAllSessionsSync() }
+        val finalGoalsDeferred = async { goalRepository.getGoalsSync() }
+        val finalProgressDeferred = async { progressRepository.observeAll().first() }
+        val finalTextNotesDeferred = async { textNoteDao.getAllTextNotes().map { it.toDomain() } }
+        val finalAudioNotesDeferred = async { audioNoteDao.getAllNotes().map { it.toDomain() } }
+        val finalSettingsDeferred = async { appSettingsRepository.getSettings() }
+
+        val finalTabs = finalTabsDeferred.await()
+        val finalSessions = finalSessionsDeferred.await()
+        val finalGoals = finalGoalsDeferred.await()
+        val finalProgress = finalProgressDeferred.await()
+        val finalTextNotes = finalTextNotesDeferred.await()
+        val finalAudioNotes = finalAudioNotesDeferred.await()
+        val finalSettings = finalSettingsDeferred.await()
 
         val finalTabIds = finalTabs.map { it.id }.toSet() + remoteState.tabsImport.unresolvedRemoteIds
         val finalUserTabIds = finalTabs.filter { it.isUserTab }.map { it.id }.toSet() + remoteState.tabsImport.unresolvedRemoteIds
@@ -387,25 +418,35 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
 
         val uploadedStoragePaths = finalTabs
             .filter { it.isUserTab }
-            .associate { tab ->
-                tab.id to fileStore.prepareCloudTabFilePayload(
-                    userId = userUid,
-                    tab = tab,
-                    existingStoragePath = remoteState.remoteStoragePathsByTabId[tab.id]
-                )
+            .map { tab ->
+                async {
+                    tab.id to fileStore.prepareCloudTabFilePayload(
+                        userId = userUid,
+                        tab = tab,
+                        existingStoragePath = remoteState.remoteStoragePathsByTabId[tab.id]
+                    )
+                }
             }
+            .awaitAll()
+            .toMap()
 
         val uploadedAudioStoragePaths = finalAudioNotes.associate { audioNote ->
             val documentId = mapper.audioNoteDocumentId(audioNote)
-            documentId to fileStore.prepareCloudAudioNoteFilePayload(
-                userId = userUid,
-                documentId = documentId,
-                audioNote = audioNote,
-                existingStoragePath = remoteState.remoteAudioStoragePathsById[documentId]
-            )
+            documentId to audioNote
+        }.map { (documentId, audioNote) ->
+            async {
+                documentId to fileStore.prepareCloudAudioNoteFilePayload(
+                    userId = userUid,
+                    documentId = documentId,
+                    audioNote = audioNote,
+                    existingStoragePath = remoteState.remoteAudioStoragePathsById[documentId]
+                )
+            }
         }
+            .awaitAll()
+            .toMap()
 
-        return UploadSyncState(
+        UploadSyncState(
             finalSettings = finalSettings,
             finalTabs = finalTabs,
             finalSessions = finalSessions,

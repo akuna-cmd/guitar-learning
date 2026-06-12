@@ -8,6 +8,9 @@ import com.guitarlearning.domain.model.AudioNote
 import com.guitarlearning.domain.model.TabItem
 import com.google.firebase.storage.FirebaseStorage
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.tasks.await
 import java.io.File
 import javax.inject.Inject
@@ -170,17 +173,20 @@ internal class FirestoreSyncFileStore @Inject constructor(
         userId: String,
         remoteIds: Set<String>,
         localIds: Set<String>
-    ) {
-        (remoteIds - localIds).forEach { staleId ->
-            deleteUserTabFile(userId, staleId)
-        }
+    ) = coroutineScope {
+        (remoteIds - localIds)
+            .map { staleId -> async { deleteUserTabFile(userId, staleId) } }
+            .awaitAll()
+        Unit
     }
 
     suspend fun deleteAllUserTabFiles(userId: String) {
         runCatching {
             val listResult = storage.reference.child("users/$userId/tabs").listAll().await()
-            listResult.items.forEach { item ->
-                runCatching { item.delete().await() }
+            coroutineScope {
+                listResult.items
+                    .map { item -> async { runCatching { item.delete().await() } } }
+                    .awaitAll()
             }
         }
     }
@@ -190,19 +196,26 @@ internal class FirestoreSyncFileStore @Inject constructor(
         remoteIds: Set<String>,
         localIds: Set<String>,
         remoteStoragePathsById: Map<String, String?>
-    ) {
-        (remoteIds - localIds).forEach { staleId ->
-            val storagePath = remoteStoragePathsById[staleId]
-                ?: storagePathForAudioNote(userId, staleId, extension = null)
-            deleteAudioNoteFile(storagePath)
-        }
+    ) = coroutineScope {
+        (remoteIds - localIds)
+            .map { staleId ->
+                async {
+                    val storagePath = remoteStoragePathsById[staleId]
+                        ?: storagePathForAudioNote(userId, staleId, extension = null)
+                    deleteAudioNoteFile(storagePath)
+                }
+            }
+            .awaitAll()
+        Unit
     }
 
     suspend fun deleteAllAudioNoteFiles(userId: String) {
         runCatching {
             val listResult = storage.reference.child("users/$userId/audio_notes").listAll().await()
-            listResult.items.forEach { item ->
-                runCatching { item.delete().await() }
+            coroutineScope {
+                listResult.items
+                    .map { item -> async { runCatching { item.delete().await() } } }
+                    .awaitAll()
             }
         }
     }
