@@ -294,6 +294,12 @@ internal fun TabViewer(
         }
     }
 
+    LaunchedEffect(isPracticeMode, isReady, isScoreLoaded) {
+        if (isPracticeMode && isReady && isScoreLoaded) {
+            webView.evaluateJavascript("window.requestFullAnalysis();", null)
+        }
+    }
+
     LaunchedEffect(fileName, tabBytesReady, soundFontReady, isReady, loadedSourceForCurrentLesson) {
         if (isReady) {
             val modeStr = tabDisplayMode.toJsMode()
@@ -462,7 +468,15 @@ internal fun TabViewer(
         showLearningSheet = showLearningSheet,
         onDismissLearningSheet = { showLearningSheet = false },
         learningSheetState = learningSheetState,
-        onOpenAiAssistant = onOpenAiAssistant,
+        onOpenAiAssistant = {
+            if (isReady && isScoreLoaded) {
+                webView.evaluateJavascript("window.ensureFullAnalysis();") {
+                    onOpenAiAssistant()
+                }
+            } else {
+                onOpenAiAssistant()
+            }
+        },
         onOpenNotes = onOpenNotes,
         onOpenLoop = onOpenLoop,
         metronomeEnabled = metronomeEnabled,
