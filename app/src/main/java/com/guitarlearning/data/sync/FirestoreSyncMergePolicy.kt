@@ -22,8 +22,16 @@ internal class FirestoreSyncMergePolicy(
         preferRemote: Boolean
     ): AppSettingsSnapshot {
         if (remote == null) return local
-        if (preferRemote) return remote
-        return if (remote.updatedAt > local.updatedAt) remote else local
+        val base = if (preferRemote) {
+            remote
+        } else if (remote.updatedAt > local.updatedAt) {
+            remote
+        } else {
+            local
+        }
+        return base.copy(
+            hasSeenOnboarding = local.hasSeenOnboarding || remote.hasSeenOnboarding
+        )
     }
 
     fun mergeTabCollections(

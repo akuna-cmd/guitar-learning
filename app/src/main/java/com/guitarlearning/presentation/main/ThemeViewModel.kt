@@ -25,6 +25,7 @@ data class ThemeUiState(
     val normalTabScale: Float = 1.5f,
     val practiceTabScale: Float = 1.5f,
     val tabDisplayMode: TabDisplayMode = TabDisplayMode.TAB_ONLY,
+    val hasSeenOnboarding: Boolean = false,
     val isLoading: Boolean = true
 )
 
@@ -45,6 +46,7 @@ class ThemeViewModel @Inject constructor(
                 normalTabScale = settings.normalTabScale,
                 practiceTabScale = settings.practiceTabScale,
                 tabDisplayMode = settings.tabDisplayMode,
+                hasSeenOnboarding = settings.hasSeenOnboarding,
                 isLoading = false
             )
         }
@@ -111,6 +113,12 @@ class ThemeViewModel @Inject constructor(
     fun setTabDisplayMode(mode: TabDisplayMode) {
         viewModelScope.launch {
             appSettingsRepository.setTabDisplayMode(mode)
+        }
+    }
+
+    fun dismissOnboarding() {
+        viewModelScope.launch {
+            appSettingsRepository.setHasSeenOnboarding(true)
         }
     }
 

@@ -10,6 +10,7 @@
     <string name="record_audio">Record audio</string>
     <string name="stop_recording">Stop recording</string>
     <string name="recording_in_progress">Recording in progress...</string>
+    <string name="close">Close</string>
     <string name="no_notes_yet">There are no notes yet.</string>
     <string name="delete">Delete</string>
     <string name="play">Play</string>
@@ -107,6 +108,22 @@ Tabs:
 
 Question:
 %6$s]]></string>
+    <string name="onboarding_topbar_title">Quick guide</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_close_cta">Start using the app</string>
+    <string name="onboarding_intro_title">Thank you for downloading the app.</string>
+    <string name="onboarding_intro_body">It helps you study Guitar Pro tablatures and track your progress. Inside, you will find an AI assistant and other useful learning tools.</string>
+    <string name="onboarding_section_home_title">Home</string>
+    <string name="onboarding_section_home_body">Here you can see your overall learning statistics and continue from where you left off. Tap “Start practice” and your play time will be automatically added to the history of played songs.</string>
+    <string name="onboarding_section_learning_title">Learning</string>
+    <string name="onboarding_section_learning_intro">This section contains the typical learning path inside the app.</string>
+    <string name="onboarding_section_learning_bullet_tabs">“My tabs” lets you add your own files.</string>
+    <string name="onboarding_section_learning_bullet_lessons">“Lessons” contains ready-made tablatures organized by difficulty level. We recommend starting here.</string>
+    <string name="onboarding_section_learning_outro">On the tablature screen, tap the eye icon to adjust the view, for example the scale. Tap the graduation cap icon to open learning tools, such as the AI assistant. Practice mode gives you real-time playing hints.</string>
+    <string name="onboarding_section_progress_title">Progress</string>
+    <string name="onboarding_section_progress_body">A history of played songs, plus goals and notes for practice tracking.</string>
+    <string name="onboarding_section_settings_title">Settings</string>
+    <string name="onboarding_section_settings_body">Data sync, choosing a different AI assistant, and global tablature settings.</string>
     <string name="profile_picture_description">Profile picture</string>
     <string name="add_tab">Add tab</string>
     <string name="my_tabs_tab">My tabs</string>

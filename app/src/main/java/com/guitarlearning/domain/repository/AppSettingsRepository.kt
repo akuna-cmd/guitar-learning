@@ -48,6 +48,8 @@ interface AppSettingsRepository {
 
     suspend fun setTabDisplayMode(mode: TabDisplayMode)
 
+    suspend fun setHasSeenOnboarding(seen: Boolean)
+
     suspend fun replaceSettings(snapshot: AppSettingsSnapshot)
 
     suspend fun resetSettingsToDefaults()

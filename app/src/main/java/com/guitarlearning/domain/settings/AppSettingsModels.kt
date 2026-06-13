@@ -18,5 +18,6 @@ data class AppSettingsSnapshot(
     val normalTabScale: Float = 1.5f,
     val practiceTabScale: Float = 1.5f,
     val tabDisplayMode: TabDisplayMode = TabDisplayMode.TAB_ONLY,
+    val hasSeenOnboarding: Boolean = false,
     val updatedAt: Long = 0L
 )

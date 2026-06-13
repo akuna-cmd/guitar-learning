@@ -44,6 +44,7 @@ import com.guitarlearning.presentation.main.MainViewModel
 import com.guitarlearning.presentation.main.SessionHistoryScreen
 import com.guitarlearning.presentation.navigation.BottomNavItem
 import com.guitarlearning.presentation.navigation.lessonsNavGraph
+import com.guitarlearning.presentation.onboarding.OnboardingScreen
 import com.guitarlearning.presentation.settings.SettingsScreen
 import com.guitarlearning.presentation.ui.AppBar
 import com.guitarlearning.presentation.ui.theme.GuitarLearningTheme
@@ -79,7 +80,13 @@ class MainActivity : ComponentActivity() {
             }
 
             GuitarLearningTheme(darkTheme = isDarkTheme) {
-                MainScreen(mainViewModel = mainViewModel)
+                if (themeUiState.hasSeenOnboarding) {
+                    MainScreen(mainViewModel = mainViewModel)
+                } else {
+                    OnboardingScreen(
+                        onClose = themeViewModel::dismissOnboarding
+                    )
+                }
             }
         }
     }

@@ -47,6 +47,7 @@ internal fun AppSettingsSnapshot.toFirestoreMap(): Map<String, Any> {
         "normalTabScale" to normalTabScale,
         "practiceTabScale" to practiceTabScale,
         "tabDisplayMode" to tabDisplayMode.name,
+        "hasSeenOnboarding" to hasSeenOnboarding,
         "updatedAt" to updatedAt
     )
 }
@@ -162,6 +163,7 @@ internal fun DocumentSnapshot.toSettingsOrNull(): AppSettingsSnapshot? {
         normalTabScale = getDouble("normalTabScale")?.toFloat() ?: 1.0f,
         practiceTabScale = getDouble("practiceTabScale")?.toFloat() ?: 1.0f,
         tabDisplayMode = enumValueOrDefault(getString("tabDisplayMode"), defaults.tabDisplayMode),
+        hasSeenOnboarding = getBoolean("hasSeenOnboarding") ?: defaults.hasSeenOnboarding,
         updatedAt = getLong("updatedAt") ?: 0L
     )
 }

@@ -10,6 +10,7 @@
     <string name="record_audio">Записати аудіо</string>
     <string name="stop_recording">Зупинити запис</string>
     <string name="recording_in_progress">Йде запис...</string>
+    <string name="close">Закрити</string>
     <string name="no_notes_yet">Тут ще немає нотаток.</string>
     <string name="delete">Видалити</string>
     <string name="play">Грати</string>
@@ -27,6 +28,7 @@
     <string name="lessons">Уроки</string>
     <string name="profile">Профіль</string>
     <string name="learning">Навчання</string>
+    <string name="settings">Налаштування</string>
     <string name="goals">Цілі</string>
     <string name="beginner">Початківець</string>
     <string name="intermediate">Середній</string>
@@ -107,6 +109,22 @@
 
 Питання:
 %6$s]]></string>
+    <string name="onboarding_topbar_title">Короткий гід</string>
+    <string name="onboarding_skip">Пропустити</string>
+    <string name="onboarding_close_cta">Почати користуватися</string>
+    <string name="onboarding_intro_title">Дякуємо, що завантажили застосунок.</string>
+    <string name="onboarding_intro_body">Він допоможе вам вивчати табулатури у форматі Guitar Pro та відстежувати прогрес. Усередині — ШІ-помічник та інші корисні інструменти.</string>
+    <string name="onboarding_section_home_title">Головна</string>
+    <string name="onboarding_section_home_body">Тут — загальна статистика навчання та можливість продовжити з того місця, де зупинились. Натисніть «Почати практику» — і час гри буде автоматично враховано в історії зіграних пісень.</string>
+    <string name="onboarding_section_learning_title">Навчання</string>
+    <string name="onboarding_section_learning_intro">У цьому розділі зосереджений типовий маршрут навчання.</string>
+    <string name="onboarding_section_learning_bullet_tabs">«Мої табулатури» — додавайте власні файли.</string>
+    <string name="onboarding_section_learning_bullet_lessons">«Уроки» — готові табулатури, структуровані за рівнем складності. Рекомендуємо почати звідси.</string>
+    <string name="onboarding_section_learning_outro">На екрані конкретної табулатури натисніть на іконку ока, щоб налаштувати відображення, наприклад масштаб. Натисніть на іконку шапки магістра, щоб відкрити інструменти навчання, наприклад ШІ-помічника. Режим «Розбір» дає підказки щодо гри в реальному часі.</string>
+    <string name="onboarding_section_progress_title">Прогрес</string>
+    <string name="onboarding_section_progress_body">Історія зіграних пісень, а також можливість ставити цілі та робити нотатки.</string>
+    <string name="onboarding_section_settings_title">Налаштування</string>
+    <string name="onboarding_section_settings_body">Синхронізація даних, вибір іншого ШІ-помічника та глобальні налаштування табулатур.</string>
     <string name="profile_picture_description">Profile picture</string>
     <string name="add_tab">Додати табулатуру</string>
     <string name="my_tabs_tab">Мої табулатури</string>
@@ -122,7 +140,6 @@
     <string name="user_tab_ascii_placeholder">ASCII таби для %1$s</string>
     <string name="user_tab_invalid_format">Непідтримуваний формат файлу. Доступні лише Guitar Pro файли: %1$s</string>
     <string name="user_tab_open_failed">Не вдалося прочитати вибраний файл. Спробуйте інший Guitar Pro файл.</string>
-    <string name="settings">Налаштування</string>
     <string name="settings_theme_title">Тема</string>
     <string name="settings_language_title">Мова</string>
     <string name="settings_language_ukrainian">Українська</string>

@@ -3,6 +3,7 @@ package com.guitarlearning.data.settings
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.MutablePreferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
@@ -34,6 +35,7 @@ class DataStoreAppSettingsRepository @Inject constructor(
         val normalTabScale = floatPreferencesKey("normal_tab_scale")
         val practiceTabScale = floatPreferencesKey("practice_tab_scale")
         val tabDisplayMode = stringPreferencesKey("tab_display_mode")
+        val hasSeenOnboarding = booleanPreferencesKey("has_seen_onboarding")
         val settingsUpdatedAt = longPreferencesKey("settings_updated_at")
         val syncOwnerUid = stringPreferencesKey("cloud_sync_owner_uid")
         val lastCloudSyncAt = longPreferencesKey("last_cloud_sync_at")
@@ -128,6 +130,8 @@ class DataStoreAppSettingsRepository @Inject constructor(
 
     override suspend fun setTabDisplayMode(mode: TabDisplayMode) = updateSettings { it.copy(tabDisplayMode = mode) }
 
+    override suspend fun setHasSeenOnboarding(seen: Boolean) = updateSettings { it.copy(hasSeenOnboarding = seen) }
+
     override suspend fun replaceSettings(snapshot: AppSettingsSnapshot) {
         dataStore.edit { preferences ->
             writeSnapshot(preferences, snapshot)
@@ -135,7 +139,13 @@ class DataStoreAppSettingsRepository @Inject constructor(
     }
 
     override suspend fun resetSettingsToDefaults() {
-        replaceSettings(AppSettingsSnapshot(updatedAt = System.currentTimeMillis()))
+        val current = getSettings()
+        replaceSettings(
+            AppSettingsSnapshot(
+                hasSeenOnboarding = current.hasSeenOnboarding,
+                updatedAt = System.currentTimeMillis()
+            )
+        )
     }
 
     private suspend fun updateSettings(transform: (AppSettingsSnapshot) -> AppSettingsSnapshot) {
@@ -161,6 +171,7 @@ class DataStoreAppSettingsRepository @Inject constructor(
             tabDisplayMode = TabDisplayMode.valueOf(
                 preferences[Keys.tabDisplayMode] ?: TabDisplayMode.TAB_ONLY.name
             ),
+            hasSeenOnboarding = preferences[Keys.hasSeenOnboarding] ?: false,
             updatedAt = preferences[Keys.settingsUpdatedAt] ?: 0L
         )
     }
@@ -175,6 +186,7 @@ class DataStoreAppSettingsRepository @Inject constructor(
         preferences[Keys.normalTabScale] = snapshot.normalTabScale
         preferences[Keys.practiceTabScale] = snapshot.practiceTabScale
         preferences[Keys.tabDisplayMode] = snapshot.tabDisplayMode.name
+        preferences[Keys.hasSeenOnboarding] = snapshot.hasSeenOnboarding
         preferences[Keys.settingsUpdatedAt] = snapshot.updatedAt
     }
 }
