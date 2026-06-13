@@ -10,6 +10,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -38,6 +41,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -94,6 +98,7 @@ fun AiAssistantScreen(
     lesson: Lesson,
     asciiTab: String?,
     compactTabs: String?,
+    isAnalysisLoading: Boolean,
     totalMeasures: Int,
     initialMeasureRange: IntRange? = null
 ) {
@@ -119,12 +124,75 @@ fun AiAssistantScreen(
             defaultMeasureRange.first.toFloat()..defaultMeasureRange.last.toFloat()
         )
     }
+    var showExampleQuestions by rememberSaveable { mutableStateOf(true) }
+    val exampleQuestions = listOf(
+        stringResource(R.string.ai_example_question_measure),
+        stringResource(R.string.ai_example_question_mistakes),
+        stringResource(R.string.ai_example_question_difficult_parts)
+    )
+
+    fun submitQuestion(rawQuestion: String) {
+        val trimmedQuestion = rawQuestion.trim()
+        if (trimmedQuestion.isBlank()) return
+
+        val selectedRange = if (isFullContext) {
+            null
+        } else {
+            measureRange.start.toInt()..measureRange.endInclusive.toInt()
+        }
+
+        val tabsToSend = buildAiTabsContext(
+            asciiTab = asciiTab,
+            fallbackAscii = lesson.tabsAscii,
+            compactTabs = compactTabs,
+            selectedRange = selectedRange,
+            isFullContext = isFullContext
+        )
+
+        viewModel.askQuestion(
+            question = trimmedQuestion,
+            theory = lesson.text,
+            tabs = tabsToSend,
+            measureRange = selectedRange
+        )
+        showExampleQuestions = false
+        question = ""
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
+        if (isAnalysisLoading) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                ),
+                border = appBlockBorder()
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.ai_analysis_pending_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = stringResource(R.string.ai_analysis_pending_body),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
         LazyColumn(
             modifier = Modifier.weight(1f)
         ) {
@@ -143,56 +211,111 @@ fun AiAssistantScreen(
 
         @OptIn(ExperimentalMaterial3Api::class)
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                val options = listOf(R.string.ai_full_context, R.string.ai_select_measures)
-                options.forEachIndexed { index, labelRes ->
-                    SegmentedButton(
-                        selected = if (index == 0) isFullContext else !isFullContext,
-                        onClick = { isFullContext = index == 0 },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size)
-                    ) {
-                        Text(stringResource(labelRes))
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                border = appBlockBorder()
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.ai_context_section_title),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        val options = listOf(R.string.ai_full_context, R.string.ai_select_measures)
+                        options.forEachIndexed { index, labelRes ->
+                            SegmentedButton(
+                                selected = if (index == 0) isFullContext else !isFullContext,
+                                onClick = { isFullContext = index == 0 },
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size)
+                            ) {
+                                Text(stringResource(labelRes))
+                            }
+                        }
+                    }
+
+                    if (isFullContext) {
+                        Text(
+                            text = stringResource(R.string.ai_full_context_warning),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+
+                    if (!isFullContext && totalMeasures > 1) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    stringResource(R.string.measure_from, measureRange.start.toInt()),
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp
+                                )
+                                Text(
+                                    stringResource(R.string.measure_to, measureRange.endInclusive.toInt()),
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp
+                                )
+                            }
+                            RangeSlider(
+                                value = measureRange,
+                                onValueChange = { measureRange = it },
+                                valueRange = 1f..totalMeasures.toFloat(),
+                                steps = if (totalMeasures > 2) totalMeasures - 2 else 0
+                            )
+                        }
+                    } else if (!isFullContext) {
+                        Text(
+                            text = stringResource(R.string.ai_single_measure_only),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
-            if (isFullContext) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.ai_full_context_warning),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.tertiary
-                )
-            }
-            if (!isFullContext && totalMeasures > 1) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+
+            if (showExampleQuestions) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    border = appBlockBorder()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            stringResource(R.string.measure_from, measureRange.start.toInt()),
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.sp
+                            text = stringResource(R.string.ai_example_questions_title),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            stringResource(R.string.measure_to, measureRange.endInclusive.toInt()),
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.sp
+                            text = stringResource(R.string.ai_example_questions_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        ExampleQuestionChips(
+                            questions = exampleQuestions,
+                            onQuestionClick = { submitQuestion(it) }
                         )
                     }
-                    RangeSlider(
-                        value = measureRange,
-                        onValueChange = { measureRange = it },
-                        valueRange = 1f..totalMeasures.toFloat(),
-                        steps = if (totalMeasures > 2) totalMeasures - 2 else 0
-                    )
                 }
             }
         }
@@ -225,27 +348,7 @@ fun AiAssistantScreen(
                 )
                 IconButton(
                     onClick = {
-                        val selectedRange = if (isFullContext) {
-                            null
-                        } else {
-                            measureRange.start.toInt()..measureRange.endInclusive.toInt()
-                        }
-
-                        val tabsToSend = buildAiTabsContext(
-                            asciiTab = asciiTab,
-                            fallbackAscii = lesson.tabsAscii,
-                            compactTabs = compactTabs,
-                            selectedRange = selectedRange,
-                            isFullContext = isFullContext
-                        )
-
-                        viewModel.askQuestion(
-                            question = question,
-                            theory = lesson.text,
-                            tabs = tabsToSend,
-                            measureRange = selectedRange
-                        )
-                        question = ""
+                        submitQuestion(question)
                     },
                     enabled = question.isNotBlank()
                 ) {
@@ -297,6 +400,34 @@ fun ChatMessageItem(message: ChatMessage) {
                 }
                 MarkdownView(markdown = message.text.asString())
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ExampleQuestionChips(
+    questions: List<String>,
+    onQuestionClick: (String) -> Unit
+) {
+    FlowRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        questions.forEach { question ->
+            AssistChip(
+                onClick = { onQuestionClick(question) },
+                shape = RoundedCornerShape(14.dp),
+                label = {
+                    Text(
+                        text = question,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            )
         }
     }
 }

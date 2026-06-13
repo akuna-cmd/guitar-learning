@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -35,17 +36,20 @@ internal fun RoundControlButton(
     icon: ImageVector,
     contentDescription: String,
     backgroundColor: Color,
-    iconTint: Color
+    iconTint: Color,
+    enabled: Boolean = true
 ) {
     Box(
         modifier = Modifier
             .size(40.dp)
+            .alpha(if (enabled) 1f else 0.45f)
             .border(appBlockBorder(), CircleShape)
             .clip(CircleShape)
             .background(backgroundColor)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
+                enabled = enabled,
                 onClick = onClick
             ),
         contentAlignment = Alignment.Center

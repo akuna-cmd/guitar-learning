@@ -312,9 +312,6 @@ function sendForTick(tick) {
     }
 
     if (best >= 0) {
-        if (typeof postStatus === 'function') {
-            postStatus(`debugBeat:sendForTick tick=${tick} bestIndex=${best} sourceTick=${tickArr[best].tick} ${debugAnalysisSummary(tickArr[best].json)}`);
-        }
         postToAndroid(tickArr[best].json);
     }
 }
@@ -323,18 +320,12 @@ function sendForBeat(beat) {
     if (!beat) return;
     const key = beatKey(beat);
     if (key && beatMap.has(key)) {
-        if (typeof postStatus === 'function') {
-            postStatus(`debugBeat:sendForBeat keyHit key=${key} tick=${getBeatTick(beat)} ${debugAnalysisSummary(beatMap.get(key))}`);
-        }
         postToAndroid(beatMap.get(key));
         return;
     }
 
     const tick = getBeatTick(beat);
     if (tick != null) {
-        if (typeof postStatus === 'function') {
-            postStatus(`debugBeat:sendForBeat fallback key=${key} tick=${tick}`);
-        }
         sendForTick(tick);
     }
 }
@@ -344,10 +335,21 @@ function runFullAnalysis(score) {
     tickArr.length = 0;
     try {
         const track = getActiveTrack(score);
-        if (!track?.staves?.length) return;
+        if (!track?.staves?.length) {
+            if (typeof postStatus === 'function') postStatus('analysisEmpty:noTrackStaves');
+            return false;
+        }
 
         const beatData = extractBeatData(track);
+        if (!beatData.length) {
+            if (typeof postStatus === 'function') postStatus('analysisEmpty:noBeatData');
+            return false;
+        }
         const analyzedBeats = optimizeBeatSequence(beatData);
+        if (!analyzedBeats.length) {
+            if (typeof postStatus === 'function') postStatus(`analysisEmpty:noAnalyzedBeats beatData=${beatData.length}`);
+            return false;
+        }
         const canonicalIndexes = analyzedBeats.map((_, index) => findCanonicalAnalysisIndex(analyzedBeats, index));
         const analysisJsonByIndex = analyzedBeats.map((_, index) => {
             const canonical = analyzedBeats[canonicalIndexes[index]];
@@ -373,13 +375,25 @@ function runFullAnalysis(score) {
         }
 
         tickArr.sort((a, b) => a.tick - b.tick);
+        if (!tickArr.length) {
+            if (typeof postStatus === 'function') postStatus(`analysisEmpty:noTickEntries analyzed=${analyzedBeats.length}`);
+            return false;
+        }
         if (firstJson) postToAndroid(firstJson);
 
         const compactTabs = buildCompactTabs(track);
         if (window.Android?.postCompactTabs) {
             window.Android.postCompactTabs(compactTabs);
         }
+        if (typeof postStatus === 'function') {
+            postStatus(`analysisBuilt:beats=${beatData.length}:analyzed=${analyzedBeats.length}:ticks=${tickArr.length}`);
+        }
+        return true;
     } catch (error) {
         console.error('runFullAnalysis:', error);
+        if (typeof postStatus === 'function') {
+            postStatus(`analysisError:${error?.message || error}`);
+        }
+        return false;
     }
 }

@@ -1,5 +1,7 @@
 package com.guitarlearning.presentation.tab_list
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -22,9 +24,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -207,6 +211,8 @@ internal fun TabProgressLine(
 
 @Composable
 internal fun EmptyTabsState(onAddFirstTab: () -> Unit) {
+    val context = LocalContext.current
+    val googleQuery = stringResource(R.string.empty_tabs_google_query)
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -243,6 +249,29 @@ internal fun EmptyTabsState(onAddFirstTab: () -> Unit) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                    border = appBlockBorder()
+                ) {
+                    Text(
+                        text = googleQuery,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                OutlinedButton(
+                    onClick = {
+                        val url = "https://www.google.com/search?q=${Uri.encode(googleQuery)}"
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.search_tabs_in_google))
+                }
                 Button(onClick = onAddFirstTab) {
                     Text(stringResource(R.string.upload_first_gp))
                 }

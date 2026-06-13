@@ -344,6 +344,7 @@ fun TabViewerScreen(
                             onAsciiTabGenerated = { ascii -> viewModel.setAsciiTab(ascii) },
                             onTabAnalysis = { analysis -> viewModel.setTabAnalysis(analysis) },
                             onCompactTabsGenerated = { tabs -> viewModel.setCompactTabs(tabs) },
+                            onAnalysisLoadingChange = { isLoading -> viewModel.markAnalysisLoading(isLoading) },
                             onTotalMeasuresLoaded = { measures ->
                                 totalMeasures = measures
                                 viewModel.markScoreLoaded(measures)
@@ -390,6 +391,7 @@ fun TabViewerScreen(
                             ) {
                                 GuitarFretboard(
                                     analysis = uiState.tabAnalysis,
+                                    isAnalysisLoading = uiState.isAnalysisLoading,
                                     isPlaying = isPlayingState,
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -405,6 +407,7 @@ fun TabViewerScreen(
                                 ) {
                                     GuitarFretboard(
                                         analysis = uiState.tabAnalysis,
+                                        isAnalysisLoading = uiState.isAnalysisLoading,
                                         isPlaying = isPlayingState,
                                         modifier = Modifier
                                             .fillMaxSize()
@@ -433,6 +436,7 @@ fun TabViewerScreen(
                                 lesson = lesson,
                                 asciiTab = uiState.asciiTab,
                                 compactTabs = uiState.compactTabs,
+                                isAnalysisLoading = uiState.isAnalysisLoading,
                                 totalMeasures = totalMeasures,
                                 initialMeasureRange = if (isLoopEnabled) {
                                     loopStartMeasure..loopEndMeasure

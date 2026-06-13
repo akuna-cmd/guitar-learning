@@ -61,6 +61,8 @@ internal fun TabViewerViewport(
     isReusedSession: Boolean,
     isPlaying: Boolean,
     controlsVisible: Boolean,
+    playbackBlocked: Boolean,
+    showAnalysisOverlay: Boolean,
     onPlayPause: () -> Unit,
     onOpenDisplaySheet: () -> Unit,
     onOpenLearningSheet: () -> Unit,
@@ -109,6 +111,37 @@ internal fun TabViewerViewport(
                             }
                         }
                     )
+
+                    if (showAnalysisOverlay && !shouldShowOverlay) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.padding(horizontal = 24.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(28.dp),
+                                    strokeWidth = 2.5.dp
+                                )
+                                Text(
+                                    text = stringResource(R.string.practice_analysis_loading_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = stringResource(R.string.practice_analysis_loading_body),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
                 }
             } else {
                 Box(
@@ -141,7 +174,8 @@ internal fun TabViewerViewport(
                             icon = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                             contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
                             backgroundColor = MaterialTheme.colorScheme.primaryContainer,
-                            iconTint = MaterialTheme.colorScheme.onPrimaryContainer
+                            iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            enabled = !playbackBlocked
                         )
 
                         Row(

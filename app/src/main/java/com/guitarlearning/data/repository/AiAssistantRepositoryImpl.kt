@@ -76,7 +76,7 @@ class AiAssistantRepositoryImpl @Inject constructor(
     }
 
     override suspend fun testConnection(provider: AiProvider, localServerUrl: String): String {
-        val prompt = "Привітайся та коротко скажи, яка ти модель. У 1-2 речення."
+        val prompt = "Привітайтеся та коротко скажіть, яка це модель. У 1-2 речення."
         return when (provider) {
             AiProvider.GEMINI -> generateWithGemini(prompt)
 

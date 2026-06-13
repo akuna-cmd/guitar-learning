@@ -65,6 +65,15 @@
     <string name="ai_full_context">Вся пісня</string>
     <string name="ai_select_measures">Вибрати такти</string>
     <string name="ai_full_context_warning">Уся пісня може коштувати багато токенів і значно сповільнити відповідь ШІ, особливо для локальної моделі.</string>
+    <string name="ai_analysis_pending_title">Триває аналіз табулатури</string>
+    <string name="ai_analysis_pending_body">AI-помічник уже доступний. Ви можете поставити питання зараз, але після завершення аналізу відповідь буде точнішою.</string>
+    <string name="ai_context_section_title">Область запитання</string>
+    <string name="ai_example_questions_title">Готові запитання</string>
+    <string name="ai_example_questions_subtitle">Швидкий старт для першого питання.</string>
+    <string name="ai_example_question_measure">Як правильно зіграти цей такт?</string>
+    <string name="ai_example_question_mistakes">Які основні помилки можна тут допустити та як їх уникнути?</string>
+    <string name="ai_example_question_difficult_parts">Які тут складні місця?</string>
+    <string name="ai_single_measure_only">Для цієї табулатури доступний лише один такт.</string>
     <string name="measure_from">Від: %1$d</string>
     <string name="measure_to">До: %1$d</string>
     <string name="user_icon_description">Іконка користувача</string>
@@ -72,18 +81,18 @@
     <string name="ai_error_generic">Сталася помилка. Спробуйте ще раз.</string>
     <string name="ai_error_gemini_key_missing">Gemini недоступний: серверний ключ не налаштований.</string>
     <string name="ai_error_gemini_worker_missing">Gemini недоступний: сервіс ще не налаштований.</string>
-    <string name="ai_error_gemini_auth_required">Щоб користуватися Gemini, увійди в акаунт.</string>
+    <string name="ai_error_gemini_auth_required">Щоб користуватися Gemini, увійдіть в акаунт.</string>
     <string name="ai_error_gemini_worker_unavailable">Gemini тимчасово недоступний.</string>
     <string name="ai_error_gemini_worker_failed">Не вдалося отримати відповідь від Gemini.</string>
     <string name="ai_error_local_server_missing">Вкажіть адресу локального llama.cpp сервера в налаштуваннях.</string>
     <string name="ai_error_local_server_unreachable">Не вдалося підключитися до локального сервера %1$s. %2$s</string>
     <string name="ai_error_local_server_loopback">Адреса %1$s не підходить для підключення з телефону. Вкажіть локальну IP-адресу комп’ютера в мережі, наприклад 192.168.x.x:8080.</string>
-    <string name="ai_error_local_server_connect_hint">Не вдалося підключитися до локального сервера %1$s. %2$s\n\nПеревір, що сервер запущений, слухає не тільки `localhost`, а `0.0.0.0`, і що ця адреса доступна саме з телефона.</string>
-    <string name="ai_error_local_server_timeout_hint">Локальний сервер %1$s не відповів вчасно. %2$s\n\nПеревір, що модель уже завантажена і сервер не завис на першому запиті.</string>
-    <string name="ai_error_local_server_ssl_hint">Не вдалося встановити HTTPS-з’єднання з %1$s. %2$s\n\nДля `llama.cpp` зазвичай потрібно використовувати `http://`, якщо ти окремо не налаштовував TLS.</string>
-    <string name="ai_prompt_role_instruction"><![CDATA[Ти - високопрофесійний викладач з гітари, інтегрований в Android застосунок для навчання гри на гітарі.]]></string>
-    <string name="ai_prompt_output_instruction"><![CDATA[На основі поданої теорії або табів дай змістовну, професійну і зрозумілу відповідь українською мовою. Відповідай стисло, але по суті: зазвичай 1-2 абзаци або 3-5 речень. Починай одразу з відповіді на запитання, без вступів на кшталт "так", "згідно з інструкціями", "у цьому фрагменті", "ви питаєте про" або "я проаналізував". Не переповідай службові правила, не коментуй діапазон тактів, не пояснюй, що ти щось ігноруєш. Не копіюй у відповідь технічні заголовки або розмітку з контексту, зокрема "Measure 1:", "Event 2 inside this measure", списки, службові мітки чи JSON-подібні фрагменти. Відповідай природно і по суті питання: якщо користувач питає про гармонію, пояснюй гармонію; якщо питає як зіграти, давай практичну пораду; якщо даних недостатньо для однозначного висновку, коротко скажи про це без зайвої обережної багатослівності. Коротко пояснюй логіку, звертай увагу на ноти, інтервали, акордову функцію, ритм і аплікатурний сенс лише там, де це справді допомагає відповісти. Без зайвих повторів і розтягнутих міркувань.]]></string>
-    <string name="ai_prompt_measure_range_template"><![CDATA[Приховане правило для аналізу: користувач питає тільки про такти з %1$d по %2$d. Аналізуй лише цей діапазон і повністю ігноруй інші такти, але не пиши у відповіді, що ти щось "аналізував лише в цьому діапазоні" або "ігнорував інші такти". У контексті структура завжди така: рядок "Measure N:" позначає номер такту, а всі наступні рядки до наступного "Measure" належать саме цьому такту. Рядки на кшталт "Event 1 inside this measure", "Event 2 inside this measure" або просто пронумеровані пункти всередині одного блоку "Measure N:" — це події, ноти або ритмічні позиції всередині одного такту, а не окремі такти. Ніколи не перетворюй такі номери на "такти 1, 2, 3...". Якщо бачиш "Measure 1:" і під ним "Event 1", "Event 2", "Event 3", то це все ще один і той самий перший такт. У фінальній відповіді не використовуй технічні позначення "Measure", "Event" або службову нумерацію; перетворюй це на природні формулювання на кшталт "на початку такту", "далі", "у середині такту", "наприкінці такту" або "перша/друга/третя нота в межах цього такту".]]></string>
+    <string name="ai_error_local_server_connect_hint">Не вдалося підключитися до локального сервера %1$s. %2$s\n\nПеревірте, що сервер запущений, слухає не тільки `localhost`, а `0.0.0.0`, і що ця адреса доступна саме з телефона.</string>
+    <string name="ai_error_local_server_timeout_hint">Локальний сервер %1$s не відповів вчасно. %2$s\n\nПеревірте, що модель уже завантажена і сервер не завис на першому запиті.</string>
+    <string name="ai_error_local_server_ssl_hint">Не вдалося встановити HTTPS-з’єднання з %1$s. %2$s\n\nДля `llama.cpp` зазвичай потрібно використовувати `http://`, якщо ви окремо не налаштовували TLS.</string>
+    <string name="ai_prompt_role_instruction"><![CDATA[Ви - високопрофесійний викладач з гітари, інтегрований в Android застосунок для навчання гри на гітарі.]]></string>
+    <string name="ai_prompt_output_instruction"><![CDATA[На основі поданої теорії або табів дайте змістовну, професійну і зрозумілу відповідь українською мовою. Відповідайте стисло, але по суті: зазвичай 1-2 абзаци або 3-5 речень. Починайте одразу з відповіді на запитання, без вступів на кшталт "так", "згідно з інструкціями", "у цьому фрагменті", "ви питаєте про" або "я проаналізував". Не переповідайте службові правила, не коментуйте діапазон тактів, не пояснюйте, що ви щось ігноруєте. Не копіюйте у відповідь технічні заголовки або розмітку з контексту, зокрема "Measure 1:", "Event 2 inside this measure", списки, службові мітки чи JSON-подібні фрагменти. Відповідайте природно і по суті питання: якщо користувач питає про гармонію, пояснюйте гармонію; якщо питає як зіграти, давайте практичну пораду; якщо даних недостатньо для однозначного висновку, коротко скажіть про це без зайвої обережної багатослівності. Коротко пояснюйте логіку, звертайте увагу на ноти, інтервали, акордову функцію, ритм і аплікатурний сенс лише там, де це справді допомагає відповісти. Без зайвих повторів і розтягнутих міркувань.]]></string>
+    <string name="ai_prompt_measure_range_template"><![CDATA[Приховане правило для аналізу: користувач питає тільки про такти з %1$d по %2$d. Аналізуйте лише цей діапазон і повністю ігноруйте інші такти, але не пишіть у відповіді, що ви щось "аналізували лише в цьому діапазоні" або "ігнорували інші такти". У контексті структура завжди така: рядок "Measure N:" позначає номер такту, а всі наступні рядки до наступного "Measure" належать саме цьому такту. Рядки на кшталт "Event 1 inside this measure", "Event 2 inside this measure" або просто пронумеровані пункти всередині одного блоку "Measure N:" — це події, ноти або ритмічні позиції всередині одного такту, а не окремі такти. Ніколи не перетворюйте такі номери на "такти 1, 2, 3...". Якщо бачите "Measure 1:" і під ним "Event 1", "Event 2", "Event 3", то це все ще один і той самий перший такт. У фінальній відповіді не використовуйте технічні позначення "Measure", "Event" або службову нумерацію; перетворюйте це на природні формулювання на кшталт "на початку такту", "далі", "у середині такту", "наприкінці такту" або "перша/друга/третя нота в межах цього такту".]]></string>
     <string name="ai_prompt_template"><![CDATA[%1$s
 
 %2$s
@@ -122,7 +131,7 @@
     <string name="settings_ai_provider_description">Оберіть, який рушій використовувати для відповідей AI-помічника.</string>
     <string name="settings_ai_provider_gemini">Gemini (хмарна модель)</string>
     <string name="settings_ai_gemini_key_missing">Gemini зараз недоступний: серверний ключ або Worker ще не налаштовані.</string>
-    <string name="settings_ai_gemini_auth_required">Щоб використовувати Gemini, спочатку увійди в акаунт у цьому застосунку.</string>
+    <string name="settings_ai_gemini_auth_required">Щоб використовувати Gemini, спочатку увійдіть в акаунт у цьому застосунку.</string>
     <string name="settings_ai_provider_local">Локальна модель через llama.cpp server</string>
     <string name="settings_ai_server_label">IP адреса або URL сервера</string>
     <string name="settings_ai_server_placeholder">192.168.0.15:8080</string>
@@ -140,9 +149,9 @@
     <string name="settings_ai_test_prompt_value">Привітайся у 2–3 реченнях.</string>
     <string name="settings_ai_local_setup_full">Запустіть llama.cpp сервер командою на кшталт:\n\n./llama-server -m /шлях/до/моделі.gguf --host 0.0.0.0 --port 8080\n\nПараметр --host 0.0.0.0 дозволяє підключення з інших пристроїв.\n\nДалі дізнайтеся IP машини, на якій запущено сервер. На Linux/macOS це ip a або ifconfig, на Windows — ipconfig. Потрібен локальний IPv4 типу 192.168.x.x або 10.x.x.x.\n\nВаш телефон має бути в тій самій локальній мережі (той самий Wi-Fi або LAN). У застосунку вкажіть адресу у форматі http://IP:порт, наприклад http://192.168.1.15:8080.</string>
     <string name="settings_ai_setup_title">Як цим користуватися</string>
-    <string name="settings_ai_setup_step_1">Запусти llama.cpp server на комп’ютері в локальній мережі або локально на Android через Termux.</string>
-    <string name="settings_ai_setup_step_2">Введи IP:порт або повний URL. Наприклад: http://192.168.0.15:8080.</string>
-    <string name="settings_ai_setup_step_3">Якщо сервер запущений на іншому пристрої, не використовуй localhost або 127.0.0.1.</string>
+    <string name="settings_ai_setup_step_1">Запустіть llama.cpp server на комп’ютері в локальній мережі або локально на Android через Termux.</string>
+    <string name="settings_ai_setup_step_2">Введіть IP:порт або повний URL. Наприклад: http://192.168.0.15:8080.</string>
+    <string name="settings_ai_setup_step_3">Якщо сервер запущений на іншому пристрої, не використовуйте localhost або 127.0.0.1.</string>
     <string name="settings_ai_setup_step_4">Для llama.cpp зазвичай правильний варіант це http://. https:// працюватиме лише якщо сервер окремо налаштований на TLS.</string>
     <string name="settings_theme_system">Системна</string>
     <string name="settings_theme_light">Світла</string>
@@ -250,14 +259,20 @@
     <string name="silent_mode">Без звуку</string>
     <string name="silent_mode_desc">Прокрутка табів без відтворення аудіо</string>
     <string name="loop_section">Зациклення</string>
-    <string name="empty_tabs_title">Тут поки що порожньо</string>
-    <string name="empty_tabs_subtitle">Додайте перший файл, щоб почати практикуватися.</string>
+    <string name="empty_tabs_title">Ваших табулатур поки що немає</string>
+    <string name="empty_tabs_subtitle">Поки що ви можете перейти до розділу «Уроки» — там уже є готові табулатури для вивчення. Щоб знайти табулатуру потрібної пісні, введіть у Google такий запит:</string>
+    <string name="empty_tabs_google_query">Завантажити табулатуру [Назва потрібної пісні] у форматі Guitar Pro</string>
+    <string name="search_tabs_in_google">Шукати табулатуру в Google</string>
     <string name="upload_first_gp">Завантажити перший Guitar Pro файл</string>
     <string name="empty_goals_title">Немає цілей</string>
-    <string name="empty_goals_subtitle">Створи першу ціль, щоб відстежувати прогрес у практиці.</string>
+    <string name="empty_goals_subtitle">Цілі допомагають планувати практику: час занять, кількість уроків або власну задачу. Додайте першу ціль, щоб бачити прогрес і не втрачати фокус.</string>
     <string name="add_first_goal">Додати першу ціль</string>
     <string name="empty_sessions_title">Ще немає історії сесій практики</string>
-    <string name="empty_sessions_subtitle">Перейдіть на головну сторінку, натисніть «Почати практику» і почніть грати пісні. Тоді під час сесії будуть фіксуватися назви пісень і тривалість їх гри.</string>
+    <string name="empty_sessions_subtitle">Історія показує, коли ви практикувалися, скільки часу грали й над якими піснями працювали. Перейдіть на головну сторінку, натисніть «Почати практику» і відкрийте табулатуру — застосунок зафіксує результат сесії.</string>
+    <string name="session_history_empty_filtered">За вибраними фільтрами сесій немає. Змініть пошук або фільтри, щоб побачити інші заняття.</string>
+    <string name="no_audio_notes_subtitle">Аудіонотатки зручні для запису власного виконання, коментарів викладача або коротких ідей під час розбору пісні.</string>
+    <string name="no_text_notes_subtitle">Текстові нотатки допомагають фіксувати складні місця, аплікатуру, домашні завдання та поради для наступної практики.</string>
+    <string name="no_notes_subtitle">Нотатки зберігають важливі спостереження під час навчання: текстові підказки, аудіозаписи й обрані матеріали.</string>
     <string name="metronome">Метроном</string>
     <string name="metronome_bpm">%1$d BPM</string>
     <string name="metronome_increase">Збільшити BPM</string>
@@ -277,7 +292,7 @@
     <string name="tab_list_folder_name">Назва папки</string>
     <string name="tab_list_create">Створити</string>
     <string name="tab_list_move_to">Перемістити у</string>
-    <string name="tab_list_no_folders_yet">Ще немає папок. Створи першу папку нижче.</string>
+    <string name="tab_list_no_folders_yet">Ще немає папок. Створіть першу папку нижче.</string>
     <string name="tab_list_create_and_move">Створити і перемістити</string>
     <string name="tab_list_folder_title">Папка: %1$s</string>
     <string name="tab_list_rename_folder_title">Перейменувати папку</string>
@@ -290,6 +305,10 @@
     <string name="fretboard_hint_finger">Палець = цифра в колі</string>
     <string name="fretboard_hint_fret">L = лад, 0 = відкрита</string>
     <string name="fretboard_hint_technique">Мітки = прийоми</string>
+    <string name="practice_analysis_loading_title">Триває аналіз табулатури</string>
+    <string name="practice_analysis_loading_body">Підготовлюємо ноти на грифі та поради. Програвання буде доступне після завершення аналізу.</string>
+    <string name="practice_analysis_unavailable_title">Підказки недоступні</string>
+    <string name="practice_analysis_unavailable_body">Не вдалося підготувати ноти на грифі для цієї табулатури. Ви можете продовжити у звичайному режимі.</string>
     <string name="loop_config_title">Зациклити відрізок</string>
     <string name="loop_enable">Увімкнути зациклення</string>
     <string name="loop_start_measure">Початковий такт: %1$d</string>

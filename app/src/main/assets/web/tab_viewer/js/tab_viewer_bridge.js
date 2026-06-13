@@ -32,6 +32,7 @@ let _manualAnalysisSuppressUntil = 0;
 let _analysisReady = false;
 let _analysisRunning = false;
 let _analysisTimer = null;
+let _playbackBlocked = false;
 
 function shouldSuppressAutoAnalysisDispatch() {
     return Date.now() < _manualAnalysisSuppressUntil;
@@ -241,18 +242,45 @@ function resetAnalysisState() {
     if (typeof tickArr !== 'undefined') tickArr.length = 0;
 }
 
-function requestFullAnalysis(reason, delayMs = 0) {
-    if (!api?.score || _analysisReady || _analysisRunning) return _analysisReady;
+function dispatchCurrentAnalysis(reason) {
+    try {
+        if (typeof tickArr === 'undefined' || !tickArr.length) return false;
+        const tick = api?.tickPosition ?? 0;
+        if (tick > 0 && typeof sendForTick === 'function') {
+            sendForTick(tick);
+        } else if (typeof postToAndroid === 'function') {
+            postToAndroid(tickArr[0].json);
+        }
+        postStatus(`analysisDispatched:${reason || 'unknown'}`);
+        return true;
+    } catch (error) {
+        postStatus(`analysisDispatchError:${error?.message || error}`);
+        return false;
+    }
+}
+
+function requestFullAnalysisInternal(reason, delayMs = 0) {
+    if (!api?.score) return false;
+    if (_analysisReady) {
+        dispatchCurrentAnalysis(reason || 'requestReady');
+        return true;
+    }
+    if (_analysisRunning) return false;
     if (_analysisTimer != null) return false;
 
     const run = () => {
         _analysisTimer = null;
-        if (!api?.score || _analysisReady || _analysisRunning) return;
+        if (!api?.score) return;
+        if (_analysisReady) {
+            dispatchCurrentAnalysis(reason || 'scheduledReady');
+            return;
+        }
+        if (_analysisRunning) return;
         _analysisRunning = true;
         try {
-            runFullAnalysis(api.score);
-            _analysisReady = true;
-            postStatus(`analysisReady:${reason || 'unknown'}`);
+            const built = runFullAnalysis(api.score);
+            _analysisReady = !!built;
+            postStatus(`${_analysisReady ? 'analysisReady' : 'analysisNotReady'}:${reason || 'unknown'}`);
         } finally {
             _analysisRunning = false;
         }
@@ -272,9 +300,12 @@ function requestFullAnalysis(reason, delayMs = 0) {
     return false;
 }
 
-function ensureFullAnalysis(reason) {
+function ensureFullAnalysisInternal(reason) {
     if (!api?.score) return false;
-    if (_analysisReady) return true;
+    if (_analysisReady) {
+        dispatchCurrentAnalysis(reason || 'ensureReady');
+        return true;
+    }
     if (_analysisTimer != null) {
         clearTimeout(_analysisTimer);
         _analysisTimer = null;
@@ -282,10 +313,10 @@ function ensureFullAnalysis(reason) {
     if (_analysisRunning) return false;
     _analysisRunning = true;
     try {
-        runFullAnalysis(api.score);
-        _analysisReady = true;
-        postStatus(`analysisReady:${reason || 'ensure'}`);
-        return true;
+        const built = runFullAnalysis(api.score);
+        _analysisReady = !!built;
+        postStatus(`${_analysisReady ? 'analysisReady' : 'analysisNotReady'}:${reason || 'ensure'}`);
+        return _analysisReady;
     } finally {
         _analysisRunning = false;
     }
@@ -467,7 +498,7 @@ function applyRestore() {
                         window.Android.onRestoreApplied(appliedTick, appliedBar, requestedBar);
                     }
                 } catch {}
-                if (_restorePlay) {
+                if (_restorePlay && !_playbackBlocked) {
                     tryResumeAudio();
                     try { api.play(); } catch {}
                 }
@@ -621,7 +652,6 @@ function initAlphaTab() {
             _scoreLoadedFired = true;
             if (_restoreTick != null) applyRestore();
             scheduleScoreLoadedNotification();
-            requestFullAnalysis('postRenderIdle', 1800);
         });
         api.playerPositionChanged.on(args => {
             if (args?.currentBeat && !shouldSuppressAutoAnalysisDispatch()) sendForBeat(args.currentBeat);
@@ -666,7 +696,6 @@ function initAlphaTab() {
         api.beatMouseDown.on(beat => {
             if (!beat) return;
             _manualAnalysisSuppressUntil = Date.now() + 350;
-            postStatus(`debugBeat:mouseDown bar=${(beat.voice?.bar?.index ?? -1) + 1} beatIndex=${beat.index ?? -1} tick=${getBeatTick(beat)} start=${beat.start ?? -1} abs=${beat.absoluteDisplayStart ?? -1}`);
             sendForBeat(beat);
             try {
                 const tValue = getBeatTick(beat);
@@ -758,8 +787,8 @@ window.loadTabFromBase64 = (base64) => {
     api.load(bytes);
 };
 
-window.requestFullAnalysis = () => requestFullAnalysis('hostRequest', 0);
-window.ensureFullAnalysis = () => ensureFullAnalysis('hostEnsure');
+window.requestFullAnalysis = () => requestFullAnalysisInternal('hostRequest', 0);
+window.ensureFullAnalysis = () => ensureFullAnalysisInternal('hostEnsure');
 
 function tryResumeAudio() {
     try {
@@ -772,7 +801,29 @@ function tryResumeAudio() {
     } catch {}
 }
 
-window.playPause = () => { if (api) { tryResumeAudio(); api.playPause(); } };
+window.playPause = () => {
+    if (!api || _playbackBlocked) return false;
+    tryResumeAudio();
+    api.playPause();
+    return true;
+};
+window.startPlayback = () => {
+    if (!api || _playbackBlocked) return false;
+    tryResumeAudio();
+    if (api.playerState !== 1) api.play();
+    return true;
+};
+window.pausePlayback = () => {
+    _restorePlay = false;
+    if (!api || api.playerState !== 1) return false;
+    api.pause();
+    return true;
+};
+window.setPlaybackBlocked = (blocked) => {
+    _playbackBlocked = !!blocked;
+    if (_playbackBlocked) window.pausePlayback();
+    return true;
+};
 window.stopAudio = () => { if (api) { api.stop(); stopPoller(); } stopMetronome(); };
 window.setPlaybackSpeed = (s) => { if (api) api.playbackSpeed = parseFloat(s); };
 window.setRestoreLock = (locked) => {
@@ -835,7 +886,7 @@ window.applyLearningTools = (trackIndex, transposeSemitones) => {
     api.updateSettings();
     api.renderTracks([track]);
     resetAnalysisState();
-    requestFullAnalysis('learningTools', 0);
+    requestFullAnalysisInternal('learningTools', 0);
     postStatus(`learningTools:track=${_selectedTrackIndex}:transpose=${_transposeSemitones}`);
     return true;
 };

@@ -171,7 +171,10 @@ fun NotesScreen(
             }
             if (filteredAudioNotes.isEmpty()) {
                 item {
-                    EmptyNotesSection(message = stringResource(R.string.no_audio_notes_yet))
+                    EmptyNotesSection(
+                        message = stringResource(R.string.no_audio_notes_yet),
+                        supportingMessage = stringResource(R.string.no_audio_notes_subtitle)
+                    )
                 }
             } else {
                 items(filteredAudioNotes, key = { "audio_${it.id}" }) { note ->
@@ -208,7 +211,10 @@ fun NotesScreen(
             }
             if (filteredTextNotes.isEmpty()) {
                 item {
-                    EmptyNotesSection(message = stringResource(R.string.no_text_notes_yet))
+                    EmptyNotesSection(
+                        message = stringResource(R.string.no_text_notes_yet),
+                        supportingMessage = stringResource(R.string.no_text_notes_subtitle)
+                    )
                 }
             } else {
                 items(filteredTextNotes, key = { "text_${it.id}" }) { note ->
@@ -224,7 +230,10 @@ fun NotesScreen(
 
         if (!showAudioSection && !showTextSection) {
             item {
-                EmptyNotesSection(message = stringResource(R.string.no_notes_yet))
+                EmptyNotesSection(
+                    message = stringResource(R.string.no_notes_yet),
+                    supportingMessage = stringResource(R.string.no_notes_subtitle)
+                )
             }
         }
 

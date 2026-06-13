@@ -88,7 +88,8 @@ data class TabViewerUiState(
     val restoreTickPosition: Long? = null,
     val restoreBarIndex: Int? = null,
     val restorePending: Boolean = false,
-    val isScoreLoaded: Boolean = false
+    val isScoreLoaded: Boolean = false,
+    val isAnalysisLoading: Boolean = false
 )
 
 @HiltViewModel
@@ -105,7 +106,6 @@ class TabViewerViewModel @Inject constructor(
         const val RESTORE_TAG = "TabRestoreFlow"
         const val LOAD_TAG = "TabLoadPerf"
         const val ENABLE_PERF_LOGS = false
-        const val ANALYSIS_DEBUG_TAG = "TabAnalysisDebug"
         private val tabBase64Cache = LinkedHashMap<String, String>(32, 0.75f, true)
         private var soundFontBase64Cache: String? = null
     }
@@ -282,15 +282,15 @@ class TabViewerViewModel @Inject constructor(
         runCatching {
             gson.fromJson(analysisJson, TabAnalysis::class.java)
         }.onSuccess { analysis ->
-            if (BuildConfig.DEBUG) {
-                val left = analysis.leftHand.joinToString("|") { "${it.string}:${it.fret}:${it.finger}" }
-                val right = analysis.rightHand.joinToString("|") { "${it.string}:${it.finger}" }
-                val instr = analysis.instructions.take(2).joinToString(" || ")
-                Log.d(ANALYSIS_DEBUG_TAG, "setTabAnalysis bar=${analysis.barIndex} left=$left right=$right instr=$instr")
-            }
-            _uiState.update { it.copy(tabAnalysis = analysis) }
+            _uiState.update { it.copy(tabAnalysis = analysis, isAnalysisLoading = false) }
         }.onFailure { error ->
             Log.e("TabViewerViewModel", "Error parsing analysis", error)
+        }
+    }
+
+    fun markAnalysisLoading(isLoading: Boolean) {
+        _uiState.update { state ->
+            if (state.isAnalysisLoading == isLoading) state else state.copy(isAnalysisLoading = isLoading)
         }
     }
 

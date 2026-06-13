@@ -84,6 +84,7 @@ internal fun TabViewer(
     val onAsciiTabGenerated = handlers.onAsciiTabGenerated
     val onTabAnalysis = handlers.onTabAnalysis
     val onCompactTabsGenerated = handlers.onCompactTabsGenerated
+    val onAnalysisLoadingChange = handlers.onAnalysisLoadingChange
     val onTotalMeasuresLoaded = handlers.onTotalMeasuresLoaded
     val onLoopIterationCompleted = handlers.onLoopIterationCompleted
 
@@ -122,6 +123,10 @@ internal fun TabViewer(
     var trackOptions by remember(fileName) { mutableStateOf<List<TabTrackOption>>(emptyList()) }
     var selectedTrackIndex by remember(fileName) { mutableStateOf(0) }
     var transposeSemitones by remember(fileName) { mutableStateOf(0) }
+    var learningToolsTouched by remember(fileName) { mutableStateOf(false) }
+    var practiceAnalysisLoading by remember(fileName) { mutableStateOf(false) }
+    var practiceAnalysisReady by remember(fileName) { mutableStateOf(false) }
+    var resumePlaybackAfterAnalysis by remember(fileName) { mutableStateOf(false) }
     val displaySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val learningSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var lastControlsY by remember { mutableStateOf<Int?>(null) }
@@ -284,8 +289,19 @@ internal fun TabViewer(
         }
     }
 
-    LaunchedEffect(selectedTrackIndex, transposeSemitones, isReady, isScoreLoaded) {
-        if (isReady && isScoreLoaded) {
+    LaunchedEffect(selectedTrackIndex, transposeSemitones, isReady, isScoreLoaded, learningToolsTouched) {
+        if (learningToolsTouched && isReady && isScoreLoaded) {
+            practiceAnalysisReady = false
+            if (isPracticeMode) {
+                practiceAnalysisLoading = true
+                onAnalysisLoadingChange(true)
+                if (isPlaying) {
+                    resumePlaybackAfterAnalysis = true
+                }
+                webView.evaluateJavascript("window.setPlaybackBlocked(true);", null)
+                if (isPlaying) onPlayStateChange(false)
+                delay(80)
+            }
             webView.evaluateJavascript(
                 "window.applyLearningTools($selectedTrackIndex, $transposeSemitones);"
             ) {
@@ -296,7 +312,39 @@ internal fun TabViewer(
 
     LaunchedEffect(isPracticeMode, isReady, isScoreLoaded) {
         if (isPracticeMode && isReady && isScoreLoaded) {
-            webView.evaluateJavascript("window.requestFullAnalysis();", null)
+            practiceAnalysisLoading = !practiceAnalysisReady
+            onAnalysisLoadingChange(!practiceAnalysisReady)
+            if (!practiceAnalysisReady) {
+                if (isPlaying) {
+                    resumePlaybackAfterAnalysis = true
+                }
+                webView.evaluateJavascript("window.setPlaybackBlocked(true);", null)
+                if (isPlaying) onPlayStateChange(false)
+            }
+            if (!practiceAnalysisReady) {
+                delay(80)
+            }
+            webView.evaluateJavascript("window.ensureFullAnalysis();") { result ->
+                val analysisReady = result == "true"
+                practiceAnalysisReady = analysisReady
+                practiceAnalysisLoading = false
+                onAnalysisLoadingChange(false)
+                val shouldResume = analysisReady && resumePlaybackAfterAnalysis
+                resumePlaybackAfterAnalysis = false
+                val js =
+                    if (shouldResume) {
+                        "window.pausePlayback(); window.setPlaybackBlocked(false); window.startPlayback();"
+                    } else {
+                        "window.pausePlayback(); window.setPlaybackBlocked(false);"
+                    }
+                webView.evaluateJavascript(js, null)
+                onPlayStateChange(shouldResume)
+            }
+        } else {
+            practiceAnalysisLoading = false
+            resumePlaybackAfterAnalysis = false
+            onAnalysisLoadingChange(false)
+            webView.evaluateJavascript("window.setPlaybackBlocked(false);", null)
         }
     }
 
@@ -431,7 +479,10 @@ internal fun TabViewer(
         isReusedSession = isReusedSession,
         isPlaying = isPlaying,
         controlsVisible = controlsVisible,
+        playbackBlocked = isPracticeMode && practiceAnalysisLoading,
+        showAnalysisOverlay = isPracticeMode && practiceAnalysisLoading,
         onPlayPause = {
+            if (isPracticeMode && practiceAnalysisLoading) return@TabViewerViewport
             webView.evaluateJavascript("window.playPause();", null)
             onPlayStateChange(!isPlaying)
         },
@@ -469,13 +520,7 @@ internal fun TabViewer(
         onDismissLearningSheet = { showLearningSheet = false },
         learningSheetState = learningSheetState,
         onOpenAiAssistant = {
-            if (isReady && isScoreLoaded) {
-                webView.evaluateJavascript("window.ensureFullAnalysis();") {
-                    onOpenAiAssistant()
-                }
-            } else {
-                onOpenAiAssistant()
-            }
+            onOpenAiAssistant()
         },
         onOpenNotes = onOpenNotes,
         onOpenLoop = onOpenLoop,
@@ -489,7 +534,13 @@ internal fun TabViewer(
         trackOptions = trackOptions,
         selectedTrackIndex = selectedTrackIndex,
         transposeSemitones = transposeSemitones,
-        onTrackSelected = { selectedTrackIndex = it },
-        onTransposeChange = { transposeSemitones = it.coerceIn(-36, 36) }
+        onTrackSelected = {
+            learningToolsTouched = true
+            selectedTrackIndex = it
+        },
+        onTransposeChange = {
+            learningToolsTouched = true
+            transposeSemitones = it.coerceIn(-36, 36)
+        }
     )
 }

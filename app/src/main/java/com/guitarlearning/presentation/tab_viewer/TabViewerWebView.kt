@@ -212,6 +212,7 @@ internal data class TabViewerHandlers(
     val onAsciiTabGenerated: (String) -> Unit,
     val onTabAnalysis: (String) -> Unit,
     val onCompactTabsGenerated: (String) -> Unit,
+    val onAnalysisLoadingChange: (Boolean) -> Unit,
     val onTotalMeasuresLoaded: (Int) -> Unit,
     val onLoopIterationCompleted: () -> Unit
 )

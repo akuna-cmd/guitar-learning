@@ -54,7 +54,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.res.stringResource
-import android.util.Log
 import com.guitarlearning.R
 import kotlinx.coroutines.launch
 import kotlin.math.max
@@ -86,6 +85,7 @@ private data class FretNote(
 @Composable
 fun GuitarFretboard(
     analysis: TabAnalysis?,
+    isAnalysisLoading: Boolean = false,
     isPlaying: Boolean = true,
     modifier: Modifier = Modifier
 ) {
@@ -147,24 +147,9 @@ fun GuitarFretboard(
         }
     }
 
-    if (analysis != null) {
-        val left = analysis.leftHand.joinToString("|") { "${it.string}:${it.fret}:${it.finger}" }
-        val right = analysis.rightHand.joinToString("|") { "${it.string}:${it.finger}" }
-        Log.d("TabAnalysisDebug", "GuitarFretboard bar=${analysis.barIndex} left=$left right=$right")
-    }
-
     val fretted = notes.mapNotNull { it.fret }.filter { it > 0 }
     val startFret = if (fretted.isEmpty()) 0 else max(0, (fretted.minOrNull() ?: 1) - 1)
     val endFret = max(startFret + 5, (fretted.maxOrNull() ?: 0) + 1)
-    val boardOverlayTitle = remember(analysis) {
-        analysis?.contextHint?.takeIf { it.isNotBlank() }
-            ?: analysis?.instructions?.firstOrNull { it.isNotBlank() }
-    }
-    val boardOverlayBody = remember(analysis, boardOverlayTitle) {
-        analysis?.instructions
-            ?.firstOrNull { it.isNotBlank() && it != boardOverlayTitle }
-    }
-    val showBoardOverlay = notes.isEmpty() && (boardOverlayTitle != null || boardOverlayBody != null)
     val hintBackground = scheme.surfaceContainerHighest
     val hintTextColor = scheme.onSurface
     val hintAccent = scheme.primary
@@ -413,43 +398,6 @@ fun GuitarFretboard(
                 }
             }
 
-            if (showBoardOverlay) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(horizontal = 20.dp)
-                        .background(
-                            scheme.surface.copy(alpha = 0.94f),
-                            RoundedCornerShape(14.dp)
-                        )
-                        .border(1.dp, scheme.outlineVariant, RoundedCornerShape(14.dp))
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        boardOverlayTitle?.let { title ->
-                            Text(
-                                text = title,
-                                color = scheme.primary,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                        boardOverlayBody?.let { body ->
-                            Text(
-                                text = body,
-                                color = scheme.onSurfaceVariant,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                }
-            }
         }
 
         if (allInstructions.isNotEmpty()) {

@@ -65,6 +65,15 @@
     <string name="ai_full_context">Full song</string>
     <string name="ai_select_measures">Select measures</string>
     <string name="ai_full_context_warning">Full-song context may use many tokens and significantly slow down the AI response, especially for a local model.</string>
+    <string name="ai_analysis_pending_title">Tab analysis is in progress</string>
+    <string name="ai_analysis_pending_body">The AI assistant is already available. You can ask now, but the answer may be more accurate after analysis finishes.</string>
+    <string name="ai_context_section_title">Question scope</string>
+    <string name="ai_example_questions_title">Ready-made questions</string>
+    <string name="ai_example_questions_subtitle">A quick start for the first question.</string>
+    <string name="ai_example_question_measure">How should I play this measure correctly?</string>
+    <string name="ai_example_question_mistakes">What common mistakes can happen here and how do I avoid them?</string>
+    <string name="ai_example_question_difficult_parts">What are the difficult spots here?</string>
+    <string name="ai_single_measure_only">Only one measure is available for this tab.</string>
     <string name="measure_from">From: %1$d</string>
     <string name="measure_to">To: %1$d</string>
     <string name="user_icon_description">User icon</string>
@@ -250,14 +259,20 @@ Question:
     <string name="silent_mode">Silent mode</string>
     <string name="silent_mode_desc">Scroll tabs without audio playback</string>
     <string name="loop_section">Looping</string>
-    <string name="empty_tabs_title">It is empty here for now</string>
-    <string name="empty_tabs_subtitle">Add your first file to start practicing.</string>
+    <string name="empty_tabs_title">You have no personal tabs yet</string>
+    <string name="empty_tabs_subtitle">For now, you can open the “Lessons” section — it already contains ready-made tabs for learning. To find a tab for a specific song, search Google with this query:</string>
+    <string name="empty_tabs_google_query">Download [Song name] tablature in Guitar Pro format</string>
+    <string name="search_tabs_in_google">Search tabs in Google</string>
     <string name="upload_first_gp">Upload first Guitar Pro file</string>
     <string name="empty_goals_title">No goals</string>
-    <string name="empty_goals_subtitle">Create your first goal to track practice progress.</string>
+    <string name="empty_goals_subtitle">Goals help plan practice: session time, lesson count, or a custom task. Add the first goal to track progress and keep focus.</string>
     <string name="add_first_goal">Add first goal</string>
     <string name="empty_sessions_title">No practice session history yet</string>
-    <string name="empty_sessions_subtitle">Go to the home screen, tap “Start practice”, and start playing songs. Then the song titles and the time spent playing them during the practice session will be recorded.</string>
+    <string name="empty_sessions_subtitle">History shows when you practiced, how long you played, and which songs you worked on. Go to the home screen, tap “Start practice”, and open a tab — the app will record the session result.</string>
+    <string name="session_history_empty_filtered">No sessions match the selected filters. Change the search or filters to see other practice sessions.</string>
+    <string name="no_audio_notes_subtitle">Audio notes are useful for recording your own playing, teacher comments, or quick ideas while studying a song.</string>
+    <string name="no_text_notes_subtitle">Text notes help capture difficult sections, fingering, homework, and advice for the next practice session.</string>
+    <string name="no_notes_subtitle">Notes keep important learning observations in one place: text hints, audio recordings, and favorite materials.</string>
     <string name="metronome">Metronome</string>
     <string name="metronome_bpm">%1$d BPM</string>
     <string name="metronome_increase">Increase BPM</string>
@@ -290,6 +305,10 @@ Question:
     <string name="fretboard_hint_finger">Finger = number in circle</string>
     <string name="fretboard_hint_fret">L = fret, 0 = open</string>
     <string name="fretboard_hint_technique">Tags = techniques</string>
+    <string name="practice_analysis_loading_title">Analyzing the tab</string>
+    <string name="practice_analysis_loading_body">Preparing fretboard notes and tips. Playback will be available after analysis finishes.</string>
+    <string name="practice_analysis_unavailable_title">Tips unavailable</string>
+    <string name="practice_analysis_unavailable_body">Fretboard notes could not be prepared for this tab. You can continue in normal mode.</string>
     <string name="loop_config_title">Loop section</string>
     <string name="loop_enable">Enable looping</string>
     <string name="loop_start_measure">Start measure: %1$d</string>

@@ -14,6 +14,9 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -28,11 +31,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.guitarlearning.R
 import com.guitarlearning.domain.model.Session
+import com.guitarlearning.presentation.ui.theme.appBlockBorder
 import java.util.concurrent.TimeUnit
 
 private enum class SessionDateFilter {
@@ -148,11 +154,21 @@ fun SessionHistoryScreen(
             ) {
                 if (filteredSessions.isEmpty()) {
                     item {
-                        Text(
-                            text = stringResource(R.string.session_history_empty),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 16.dp)
+                        EmptySessionHistoryState(
+                            title = stringResource(
+                                if (sessions.isEmpty()) {
+                                    R.string.empty_sessions_title
+                                } else {
+                                    R.string.session_history_empty
+                                }
+                            ),
+                            subtitle = stringResource(
+                                if (sessions.isEmpty()) {
+                                    R.string.empty_sessions_subtitle
+                                } else {
+                                    R.string.session_history_empty_filtered
+                                }
+                            )
                         )
                     }
                 } else {
@@ -161,6 +177,44 @@ fun SessionHistoryScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun EmptySessionHistoryState(
+    title: String,
+    subtitle: String
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.elevatedCardColors(),
+        elevation = CardDefaults.elevatedCardElevation(),
+        border = appBlockBorder()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Timer,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

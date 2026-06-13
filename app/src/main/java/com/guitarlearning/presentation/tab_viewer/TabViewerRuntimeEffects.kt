@@ -53,9 +53,21 @@ internal fun BindTabViewerBridge(
         loadRequestAtMs,
         jsReadyAtMs
     ) {
-        bridge.onAsciiTabCallback = onAsciiTabGenerated
-        bridge.onTabAnalysisCallback = onTabAnalysis
-        bridge.onCompactTabsCallback = onCompactTabsGenerated
+        bridge.onAsciiTabCallback = { ascii ->
+            Handler(Looper.getMainLooper()).post {
+                onAsciiTabGenerated(ascii)
+            }
+        }
+        bridge.onTabAnalysisCallback = { analysis ->
+            Handler(Looper.getMainLooper()).post {
+                onTabAnalysis(analysis)
+            }
+        }
+        bridge.onCompactTabsCallback = { compactTabs ->
+            Handler(Looper.getMainLooper()).post {
+                onCompactTabsGenerated(compactTabs)
+            }
+        }
         bridge.onJsReadyCallback = {
             Handler(Looper.getMainLooper()).post {
                 webEntry.jsReady = true
@@ -111,8 +123,18 @@ internal fun BindTabViewerBridge(
                             message.startsWith("restore:") ||
                             message.startsWith("error")
                         )
-            if (important || message.startsWith("debugBeat:")) {
+            if (important) {
                 Log.d("AlphaTabStatus", message)
+            }
+            if (
+                message.startsWith("analysisReady") ||
+                message.startsWith("analysisNotReady") ||
+                message.startsWith("analysisError") ||
+                message.startsWith("analysisEmpty")
+            ) {
+                Handler(Looper.getMainLooper()).post {
+                    tabViewModel.markAnalysisLoading(false)
+                }
             }
             if (message.contains("soundFontLoaded")) {
                 webEntry.soundFontLoaded = true
