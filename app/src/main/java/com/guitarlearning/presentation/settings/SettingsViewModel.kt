@@ -5,6 +5,7 @@ import android.net.Uri
 import com.guitarlearning.R
 import com.guitarlearning.core.locale.AppLocaleManager
 import com.guitarlearning.domain.settings.AiProvider
+import com.guitarlearning.di.ApplicationScope
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.guitarlearning.domain.repository.AiAssistantRepository
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -36,6 +38,7 @@ data class SettingsUiState(
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
+    @ApplicationScope private val applicationScope: CoroutineScope,
     private val exportSessionHistoryUseCase: ExportSessionHistoryUseCase,
     private val importSessionHistoryUseCase: ImportSessionHistoryUseCase,
     private val sessionRepository: SessionRepository,
@@ -89,7 +92,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun syncCloud() {
-        viewModelScope.launch {
+        applicationScope.launch {
             val result = syncRepository.syncData()
             if (result.isSuccess) {
                 _uiState.value = _uiState.value.copy(message = localizedString(R.string.settings_message_sync_success))
