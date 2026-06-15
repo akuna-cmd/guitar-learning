@@ -158,6 +158,7 @@
     <string name="settings_ai_save">Зберегти</string>
     <string name="settings_ai_test">Тест</string>
     <string name="settings_ai_test_running">Триває перевірка AI-з’єднання...</string>
+    <string name="settings_ai_test_cancelled">Перевірку AI-з’єднання скасовано.</string>
     <string name="settings_ai_status_saved">Поточні AI-налаштування збережено.</string>
     <string name="settings_ai_status_unsaved">Є незбережені зміни. Натисніть «Зберегти», щоб застосувати їх.</string>
     <string name="settings_ai_current_backend">Збережений backend для AI-помічника на екрані табулатури: %1$s.</string>

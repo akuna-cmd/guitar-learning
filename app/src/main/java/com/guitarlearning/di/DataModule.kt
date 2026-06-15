@@ -3,8 +3,6 @@ package com.guitarlearning.di
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.PreferenceDataStoreFactory
-import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.Room
 import com.guitarlearning.BuildConfig
 import com.guitarlearning.data.local.AppDatabase
@@ -19,6 +17,7 @@ import com.guitarlearning.data.local.dao.SessionDao
 import com.guitarlearning.data.local.dao.TabDao
 import com.guitarlearning.data.local.dao.TextNoteDao
 import com.guitarlearning.data.remote.AiAssistantConfig
+import com.guitarlearning.data.settings.AppPreferencesDataStore
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.remoteconfig.FirebaseRemoteConfig
@@ -40,9 +39,7 @@ object DataModule {
     fun providePreferencesDataStore(
         @ApplicationContext context: Context
     ): DataStore<Preferences> {
-        return PreferenceDataStoreFactory.create {
-            context.preferencesDataStoreFile("settings")
-        }
+        return AppPreferencesDataStore.getInstance(context)
     }
 
     @Provides

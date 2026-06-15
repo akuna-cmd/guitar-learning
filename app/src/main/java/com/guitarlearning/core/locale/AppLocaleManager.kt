@@ -3,12 +3,15 @@ package com.guitarlearning.core.locale
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.res.Configuration
+import androidx.datastore.preferences.core.stringPreferencesKey
+import com.guitarlearning.data.settings.AppPreferencesDataStore
+import com.guitarlearning.domain.settings.AppLanguage
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import java.util.Locale
 
 object AppLocaleManager {
-    private const val PREFS_NAME = "app_locale_prefs"
-    private const val KEY_LANGUAGE_TAG = "language_tag"
-    private const val DEFAULT_LANGUAGE_TAG = "uk"
+    private val appLanguageKey = stringPreferencesKey("app_language")
 
     fun wrap(context: Context): ContextWrapper {
         val languageTag = getSavedLanguageTag(context)
@@ -21,18 +24,23 @@ object AppLocaleManager {
         return ContextWrapper(context.createConfigurationContext(configuration))
     }
 
-    fun persistLanguage(context: Context, languageTag: String) {
-        context.applicationContext
-            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_LANGUAGE_TAG, languageTag)
-            .apply()
+    fun getSavedLanguageTag(context: Context): String {
+        val appContext = context.applicationContext
+        val appLanguageName = runBlocking {
+            AppPreferencesDataStore.getInstance(appContext).data.first()[appLanguageKey]
+        }
+
+        return appLanguageName
+            ?.let(::appLanguageFromName)
+            ?.languageTag
+            ?: AppLanguage.UKRAINIAN.languageTag
     }
 
-    fun getSavedLanguageTag(context: Context): String {
-        return context.applicationContext
-            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString(KEY_LANGUAGE_TAG, DEFAULT_LANGUAGE_TAG)
-            ?: DEFAULT_LANGUAGE_TAG
+    private fun appLanguageFromName(name: String): AppLanguage? {
+        return try {
+            AppLanguage.valueOf(name)
+        } catch (_: IllegalArgumentException) {
+            null
+        }
     }
 }

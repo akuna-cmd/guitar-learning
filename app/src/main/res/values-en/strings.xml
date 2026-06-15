@@ -158,6 +158,7 @@ Question:
     <string name="settings_ai_save">Save</string>
     <string name="settings_ai_test">Test</string>
     <string name="settings_ai_test_running">Testing AI connection...</string>
+    <string name="settings_ai_test_cancelled">AI connection test was cancelled.</string>
     <string name="settings_ai_status_saved">Current AI settings are saved.</string>
     <string name="settings_ai_status_unsaved">There are unsaved changes. Press “Save” to apply them.</string>
     <string name="settings_ai_current_backend">Saved backend for the AI assistant on the tablature screen: %1$s.</string>

@@ -24,6 +24,7 @@ import java.net.ConnectException
 import java.net.URI
 import java.net.SocketTimeoutException
 import java.net.URL
+import java.util.Collections
 import javax.net.ssl.SSLException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -39,6 +40,7 @@ class AiAssistantRepositoryImpl @Inject constructor(
 
     @Volatile
     private var cachedLocalServerInfo: CachedLocalServerInfo? = null
+    private val activeTestConnections = Collections.synchronizedSet(mutableSetOf<HttpURLConnection>())
 
     private companion object {
         const val Tag = "AiAssistantRepo"
@@ -78,17 +80,26 @@ class AiAssistantRepositoryImpl @Inject constructor(
     override suspend fun testConnection(provider: AiProvider, localServerUrl: String): String {
         val prompt = "Привітайтеся та коротко скажіть, яка це модель. У 1-2 речення."
         return when (provider) {
-            AiProvider.GEMINI -> generateWithGemini(prompt)
+            AiProvider.GEMINI -> generateWithGemini(prompt, trackAsTest = true)
 
             AiProvider.LOCAL_LLAMA_CPP -> generateWithLocalLlama(
                 prompt = prompt,
                 rawBaseUrl = localServerUrl,
-                options = LocalGenerationOptions(maxTokens = LocalMaxTokens)
+                options = LocalGenerationOptions(maxTokens = LocalMaxTokens),
+                trackAsTest = true
             ).text
         }
     }
 
-    private suspend fun generateWithGemini(prompt: String): String {
+    override fun cancelTestConnection() {
+        val connections = synchronized(activeTestConnections) { activeTestConnections.toList() }
+        connections.forEach { connection ->
+            runCatching { connection.disconnect() }
+        }
+        activeTestConnections.clear()
+    }
+
+    private suspend fun generateWithGemini(prompt: String, trackAsTest: Boolean = false): String {
         return withContext(Dispatchers.IO) {
             val workerUrl = configProvider.getWorkerUrl()
                 .takeIf { it.isNotBlank() }
@@ -109,7 +120,8 @@ class AiAssistantRepositoryImpl @Inject constructor(
                 val responseBody = postJson(
                     urlString = workerUrl,
                     body = body,
-                    headers = mapOf("Authorization" to "Bearer $idToken")
+                    headers = mapOf("Authorization" to "Bearer $idToken"),
+                    trackAsTest = trackAsTest
                 )
                 val payload = JSONObject(responseBody)
                 val text = payload.optString("text").trim()
@@ -137,7 +149,8 @@ class AiAssistantRepositoryImpl @Inject constructor(
     private suspend fun generateWithLocalLlama(
         prompt: String,
         rawBaseUrl: String,
-        options: LocalGenerationOptions = LocalGenerationOptions()
+        options: LocalGenerationOptions = LocalGenerationOptions(),
+        trackAsTest: Boolean = false
     ): LocalGenerationResult = withContext(Dispatchers.IO) {
         val primaryBaseUrl = normalizeBaseUrl(rawBaseUrl)
             ?: throw IllegalStateException(context.getString(R.string.ai_error_local_server_missing))
@@ -167,7 +180,7 @@ class AiAssistantRepositoryImpl @Inject constructor(
 
         var lastError: Exception? = null
         runCatching {
-            postJson(attempt.url, attempt.body.toString())
+            postJson(attempt.url, attempt.body.toString(), trackAsTest = trackAsTest)
         }.onSuccess { responseBody ->
             val parsed = parseLocalLlamaResponse(responseBody)
             val text = parsed.text
@@ -245,7 +258,8 @@ class AiAssistantRepositoryImpl @Inject constructor(
     private fun postJson(
         urlString: String,
         body: String,
-        headers: Map<String, String> = emptyMap()
+        headers: Map<String, String> = emptyMap(),
+        trackAsTest: Boolean = false
     ): String {
         val connection = (URL(urlString).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
@@ -255,6 +269,9 @@ class AiAssistantRepositoryImpl @Inject constructor(
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Accept", "application/json")
             headers.forEach { (name, value) -> setRequestProperty(name, value) }
+        }
+        if (trackAsTest) {
+            activeTestConnections.add(connection)
         }
         return try {
             connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
@@ -271,6 +288,9 @@ class AiAssistantRepositoryImpl @Inject constructor(
             }
             responseText
         } finally {
+            if (trackAsTest) {
+                activeTestConnections.remove(connection)
+            }
             connection.disconnect()
         }
     }

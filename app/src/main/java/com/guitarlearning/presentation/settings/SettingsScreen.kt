@@ -88,9 +88,9 @@ fun SettingsScreen() {
 
     LaunchedEffect(uiState.appLanguage) {
         val savedLanguageTag = AppLocaleManager.getSavedLanguageTag(context)
+        val currentLanguageTag = context.resources.configuration.locales[0]?.toLanguageTag()
         val targetLanguageTag = uiState.appLanguage.languageTag
-        if (savedLanguageTag != targetLanguageTag) {
-            AppLocaleManager.persistLanguage(context, targetLanguageTag)
+        if (savedLanguageTag == targetLanguageTag && currentLanguageTag != targetLanguageTag) {
             activity.overridePendingTransition(0, 0)
             activity.recreate()
             activity.overridePendingTransition(0, 0)
@@ -323,20 +323,30 @@ fun SettingsScreen() {
 
                         OutlinedButton(
                             onClick = {
-                                themeViewModel.saveAiSettings(aiProviderDraft, aiServerUrlDraft.trim())
-                                settingsViewModel.testAiConnection(
-                                    provider = aiProviderDraft,
-                                    localServerUrl = aiServerUrlDraft.trim()
-                                )
+                                if (settingsUiState.isTestingAi) {
+                                    settingsViewModel.cancelAiConnectionTest()
+                                } else {
+                                    themeViewModel.saveAiSettings(aiProviderDraft, aiServerUrlDraft.trim())
+                                    settingsViewModel.testAiConnection(
+                                        provider = aiProviderDraft,
+                                        localServerUrl = aiServerUrlDraft.trim()
+                                    )
+                                }
                             },
-                            enabled = !settingsUiState.isTestingAi && !isLocalWithoutUrl && !isGeminiAuthMissing,
+                            enabled = settingsUiState.isTestingAi || (!isLocalWithoutUrl && !isGeminiAuthMissing),
                             modifier = Modifier.weight(1f)
                         ) {
                             if (settingsUiState.isTestingAi) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    strokeWidth = 2.dp
-                                )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                    Text(stringResource(R.string.cancel))
+                                }
                             } else {
                                 Text(stringResource(R.string.settings_ai_test))
                             }

@@ -15,6 +15,7 @@ import com.guitarlearning.domain.usecase.ExportSessionHistoryUseCase
 import com.guitarlearning.domain.usecase.ImportSessionHistoryUseCase
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -46,6 +48,7 @@ class SettingsViewModel @Inject constructor(
     private val aiAssistantRepository: AiAssistantRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SettingsUiState())
+    private var aiTestJob: Job? = null
     
     val uiState: StateFlow<SettingsUiState> = combine(
         _uiState,
@@ -115,21 +118,46 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun testAiConnection(provider: AiProvider, localServerUrl: String) {
-        viewModelScope.launch {
+        aiTestJob?.cancel()
+        aiAssistantRepository.cancelTestConnection()
+        aiTestJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 isTestingAi = true,
                 aiTestMessage = appContext.getString(R.string.settings_ai_test_running)
             )
-            val result = runCatching {
-                aiAssistantRepository.testConnection(provider, localServerUrl)
-            }
-            _uiState.value = _uiState.value.copy(
-                isTestingAi = false,
-                aiTestMessage = result.getOrElse { error ->
-                    error.localizedMessage ?: appContext.getString(R.string.ai_error_generic)
+            try {
+                val result = aiAssistantRepository.testConnection(provider, localServerUrl)
+                _uiState.value = _uiState.value.copy(
+                    isTestingAi = false,
+                    aiTestMessage = result
+                )
+            } catch (_: CancellationException) {
+                _uiState.value = _uiState.value.copy(
+                    isTestingAi = false,
+                    aiTestMessage = localizedString(R.string.settings_ai_test_cancelled)
+                )
+                throw CancellationException()
+            } catch (error: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isTestingAi = false,
+                    aiTestMessage = error.localizedMessage ?: appContext.getString(R.string.ai_error_generic)
+                )
+            } finally {
+                if (aiTestJob === kotlinx.coroutines.currentCoroutineContext()[Job]) {
+                    aiTestJob = null
                 }
-            )
+            }
         }
+    }
+
+    fun cancelAiConnectionTest() {
+        aiAssistantRepository.cancelTestConnection()
+        aiTestJob?.cancel()
+        aiTestJob = null
+        _uiState.value = _uiState.value.copy(
+            isTestingAi = false,
+            aiTestMessage = localizedString(R.string.settings_ai_test_cancelled)
+        )
     }
 
     fun clearAiTestMessage() {
@@ -138,6 +166,13 @@ class SettingsViewModel @Inject constructor(
 
     fun clearMessage() {
         _uiState.value = _uiState.value.copy(message = null)
+    }
+
+    override fun onCleared() {
+        aiAssistantRepository.cancelTestConnection()
+        aiTestJob?.cancel()
+        aiTestJob = null
+        super.onCleared()
     }
 
     private fun localizedString(resId: Int, vararg formatArgs: Any): String {

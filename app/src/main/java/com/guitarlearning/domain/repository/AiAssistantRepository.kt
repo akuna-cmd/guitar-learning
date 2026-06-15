@@ -11,4 +11,5 @@ data class AiAnswerResult(
 interface AiAssistantRepository {
     suspend fun generateAnswer(request: AiAssistantRequest): AiAnswerResult
     suspend fun testConnection(provider: AiProvider, localServerUrl: String): String
+    fun cancelTestConnection()
 }
