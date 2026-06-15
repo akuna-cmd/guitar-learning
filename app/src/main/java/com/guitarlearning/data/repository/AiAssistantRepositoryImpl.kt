@@ -46,7 +46,7 @@ class AiAssistantRepositoryImpl @Inject constructor(
         const val Tag = "AiAssistantRepo"
         const val EmptyResponseError = "empty_response"
         const val ConnectTimeoutMs = 4_000
-        const val ReadTimeoutMs = 120_000
+        const val ReadTimeoutMs = 300_000
         const val LocalMaxTokens = 2048
     }
 
