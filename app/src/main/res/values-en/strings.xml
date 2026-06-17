@@ -182,6 +182,7 @@ Question:
     <string name="settings_auth_sign_in">Sign in</string>
     <string name="settings_auth_sign_up">Sign up</string>
     <string name="settings_auth_name">Name</string>
+    <string name="settings_auth_email">Email</string>
     <string name="settings_auth_password">Password</string>
     <string name="settings_auth_repeat_password">Repeat password</string>
     <string name="settings_auth_password_mismatch">Passwords do not match</string>

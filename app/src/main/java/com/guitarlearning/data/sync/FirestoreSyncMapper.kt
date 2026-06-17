@@ -133,7 +133,7 @@ internal class FirestoreSyncMapper(
                 isFavorite = document.getBooleanCompat("isFavorite") ?: false
             )
         }.onFailure { error ->
-            Log.w(logTag, "toAudioNote:unreadable docId=${document.id} data=${document.data.orEmpty()}", error)
+            Log.w(logTag, "toAudioNote:unreadable docId=${document.id}", error)
         }.getOrNull()
     }
 
@@ -257,7 +257,7 @@ internal class FirestoreSyncMapper(
 
     private fun <T> T?.alsoLogFailure(document: DocumentSnapshot, operation: String): T? {
         if (this != null) return this
-        Log.w(logTag, "$operation:unreadable docId=${document.id} data=${document.data.orEmpty()}")
+        Log.w(logTag, "$operation:unreadable docId=${document.id}")
         return null
     }
 }

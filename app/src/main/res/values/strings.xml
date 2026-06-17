@@ -125,7 +125,7 @@
     <string name="onboarding_section_progress_body">Історія зіграних пісень, а також можливість ставити цілі та робити нотатки.</string>
     <string name="onboarding_section_settings_title">Налаштування</string>
     <string name="onboarding_section_settings_body">Синхронізація даних, вибір іншого ШІ-помічника та глобальні налаштування табулатур.</string>
-    <string name="profile_picture_description">Profile picture</string>
+    <string name="profile_picture_description">Фото профілю</string>
     <string name="add_tab">Додати табулатуру</string>
     <string name="my_tabs_tab">Мої табулатури</string>
     <string name="lessons_tab">Уроки</string>
@@ -182,6 +182,7 @@
     <string name="settings_auth_sign_in">Вхід</string>
     <string name="settings_auth_sign_up">Реєстрація</string>
     <string name="settings_auth_name">Ім’я</string>
+    <string name="settings_auth_email">Електронна пошта</string>
     <string name="settings_auth_password">Пароль</string>
     <string name="settings_auth_repeat_password">Повторіть пароль</string>
     <string name="settings_auth_password_mismatch">Паролі не збігаються</string>

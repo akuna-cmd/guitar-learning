@@ -2,6 +2,7 @@ package com.guitarlearning.data.sync
 
 import android.content.Context
 import android.util.Log
+import com.guitarlearning.BuildConfig
 import com.guitarlearning.R
 import com.guitarlearning.data.local.dao.AudioNoteDao
 import com.guitarlearning.data.local.dao.TextNoteDao
@@ -89,24 +90,24 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
 
         syncingState.value = true
         return runCatching {
-            Log.d(LogTag, "syncData:start uid=${user.uid} email=${user.email.orEmpty()}")
+            debugLog("syncData:start")
             val userRef = firestore.collection("users").document(user.uid)
             val syncContext = buildSyncContext(user.uid)
-            logSyncContext(user.uid, syncContext)
-            clearLocalStateForAccountSwitch(user.uid, syncContext)
+            logSyncContext(syncContext)
+            clearLocalStateForAccountSwitch(syncContext)
 
             val remoteState = fetchRemoteState(userRef, syncContext)
-            logRemoteState(user.uid, remoteState)
+            logRemoteState(remoteState)
 
             val localState = applyRemoteState(syncContext, remoteState)
-            logLocalMergeState(user.uid, localState)
+            logLocalMergeState(localState)
 
             val uploadState = collectUploadState(user.uid, remoteState)
             writeRemoteState(userRef, user.uid, remoteState, uploadState)
             finalizeSync(user.uid, syncContext)
             Unit
         }.onFailure { error ->
-            Log.e(LogTag, "syncData:failure uid=${user.uid}", error)
+            Log.e(LogTag, "syncData:failure", error)
         }.also {
             syncingState.value = false
         }
@@ -118,7 +119,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
 
         syncingState.value = true
         return runCatching {
-            Log.w(LogTag, "clearRemoteData:start uid=${user.uid}")
+            Log.w(LogTag, "clearRemoteData:start")
             val userRef = firestore.collection("users").document(user.uid)
             val collections = listOf("tabs", "sessions", "goals", "progress", "text_notes", "audio_notes")
             coroutineScope {
@@ -135,7 +136,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             userRef.collection("settings").document("app").delete().await()
             fileStore.deleteAllUserTabFiles(user.uid)
             fileStore.deleteAllAudioNoteFiles(user.uid)
-            Log.w(LogTag, "clearRemoteData:success uid=${user.uid}")
+            Log.w(LogTag, "clearRemoteData:success")
             Unit
         }.also {
             syncingState.value = false
@@ -165,17 +166,16 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
         )
     }
 
-    private fun logSyncContext(userUid: String, syncContext: SyncContext) {
-        Log.d(
-            LogTag,
-            "syncData:context uid=$userUid previousOwnerUid=${syncContext.previousOwnerUid.orEmpty()} " +
+    private fun logSyncContext(syncContext: SyncContext) {
+        debugLog(
+            "syncData:context hasPreviousOwner=${!syncContext.previousOwnerUid.isNullOrBlank()} " +
                 "pendingDeletedTabs=${syncContext.pendingDeletedUserTabIds.size} isAccountSwitch=${syncContext.isAccountSwitch}"
         )
     }
 
-    private suspend fun clearLocalStateForAccountSwitch(userUid: String, syncContext: SyncContext) {
+    private suspend fun clearLocalStateForAccountSwitch(syncContext: SyncContext) {
         if (!syncContext.isAccountSwitch) return
-        Log.w(LogTag, "syncData:accountSwitch clearing local cloud-scoped data for uid=$userUid")
+        Log.w(LogTag, "syncData:accountSwitch clearing local cloud-scoped data")
         clearLocalCloudScopedData()
         ensureBuiltInTabsSeeded()
     }
@@ -281,10 +281,9 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
         )
     }
 
-    private fun logRemoteState(userUid: String, remoteState: RemoteSyncState) {
-        Log.d(
-            LogTag,
-            "syncData:remote uid=$userUid tabs=${remoteState.tabs.size}/${remoteState.tabsSnapshot.size()} unresolvedTabs=${remoteState.tabsImport.unresolvedRemoteIds.size} " +
+    private fun logRemoteState(remoteState: RemoteSyncState) {
+        debugLog(
+            "syncData:remote tabs=${remoteState.tabs.size}/${remoteState.tabsSnapshot.size()} unresolvedTabs=${remoteState.tabsImport.unresolvedRemoteIds.size} " +
                 "sessions=${remoteState.sessions.size}/${remoteState.sessionsSnapshot.size()} unresolvedSessions=${remoteState.sessionsImport.unresolvedRemoteIds.size} sessionFallback=${remoteState.usedSessionFallback} " +
                 "goals=${remoteState.goals.size}/${remoteState.goalsSnapshot.size()} progress=${remoteState.progress.size}/${remoteState.progressSnapshot.size()} " +
                 "textNotes=${remoteState.textNotes.size}/${remoteState.textNotesSnapshot.size()} unresolvedTextNotes=${remoteState.textNotesImport.unresolvedRemoteIds.size} textFallback=${remoteState.usedTextNoteFallback} " +
@@ -380,10 +379,9 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
         )
     }
 
-    private suspend fun logLocalMergeState(userUid: String, localState: LocalSyncState) {
-        Log.d(
-            LogTag,
-            "syncData:merge uid=$userUid localTabs=${localState.localTabs.size} localSessionsBefore=${sessionRepository.getAllSessionsSync().size} " +
+    private suspend fun logLocalMergeState(localState: LocalSyncState) {
+        debugLog(
+            "syncData:merge localTabs=${localState.localTabs.size} localSessionsBefore=${sessionRepository.getAllSessionsSync().size} " +
                 "localGoals=${localState.localGoals.size} localProgress=${localState.localProgress.size} localTextNotes=${localState.localTextNotes.size} localAudioNotes=${localState.localAudioNotes.size} " +
                 "mergedTextNotes=${localState.mergedTextNotes.size} mergedAudioNotes=${localState.mergedAudioNotes.size} " +
                 "useRemoteNotesAsSourceOfTruth=${localState.useRemoteNotesAsSourceOfTruth}"
@@ -482,7 +480,7 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
         }
         appSettingsRepository.setSyncOwnerUid(userUid)
         appSettingsRepository.setLastCloudSyncAt(syncTimestamp)
-        Log.d(LogTag, "syncData:success uid=$userUid syncedAt=$syncTimestamp")
+        debugLog("syncData:success syncedAt=$syncTimestamp")
     }
 
     private suspend fun clearLocalCloudScopedData() {
@@ -516,6 +514,12 @@ class FirestoreSyncRepositoryImpl @Inject constructor(
             backups
         } else {
             imported.items
+        }
+    }
+
+    private fun debugLog(message: String) {
+        if (BuildConfig.DEBUG) {
+            Log.d(LogTag, message)
         }
     }
 }

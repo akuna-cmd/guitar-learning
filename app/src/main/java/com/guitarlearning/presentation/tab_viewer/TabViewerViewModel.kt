@@ -28,13 +28,6 @@ import java.security.MessageDigest
 import javax.inject.Inject
 import kotlin.math.abs
 
-enum class LessonTab {
-    THEORY,
-    TABS,
-    AI_ASSISTANT,
-    NOTES
-}
-
 @Immutable
 data class FingerInfo(
     val finger: String,
@@ -75,9 +68,6 @@ data class TabAnalysis(
 data class TabViewerUiState(
     val lesson: Lesson? = null,
     val isUserTab: Boolean = false,
-    val tabs: List<LessonTab> = LessonTab.values().toList(),
-    val selectedTab: LessonTab = LessonTab.TABS,
-    val selectedTabIndex: Int = LessonTab.values().indexOf(LessonTab.TABS),
     val asciiTab: String? = null,
     val compactTabs: String? = null,
     val tabAnalysis: TabAnalysis? = null,
@@ -162,18 +152,6 @@ class TabViewerViewModel @Inject constructor(
 
             _uiState.update { currentState ->
                 val isUserTab = tabItem?.isUserTab == true
-                val tabs = if (isUserTab) {
-                    LessonTab.values().filter { it != LessonTab.THEORY }
-                } else {
-                    LessonTab.values().toList()
-                }
-
-                val selectedTab = if (currentState.selectedTab in tabs) {
-                    currentState.selectedTab
-                } else {
-                    tabs.firstOrNull() ?: LessonTab.TABS
-                }
-                val selectedTabIndex = tabs.indexOf(selectedTab)
 
                 _lastTickPosition.value = savedProgress?.lastTick
                 _lastBarIndex.value = savedProgress?.lastBarIndex
@@ -181,9 +159,6 @@ class TabViewerViewModel @Inject constructor(
                 currentState.copy(
                     lesson = lesson,
                     isUserTab = isUserTab,
-                    tabs = tabs,
-                    selectedTab = selectedTab,
-                    selectedTabIndex = if (selectedTabIndex != -1) selectedTabIndex else 0,
                     totalBars = savedProgress?.totalBars,
                     restoreTickPosition = savedProgress?.lastTick,
                     restoreBarIndex = savedProgress?.lastBarIndex,
@@ -365,20 +340,6 @@ class TabViewerViewModel @Inject constructor(
                     updatedAt = now
                 )
             )
-        }
-    }
-
-    fun selectTab(tab: LessonTab) {
-        _uiState.update { currentState ->
-            val selectedIndex = currentState.tabs.indexOf(tab)
-            if (selectedIndex != -1) {
-                currentState.copy(
-                    selectedTab = tab,
-                    selectedTabIndex = selectedIndex
-                )
-            } else {
-                currentState
-            }
         }
     }
 

@@ -1,6 +1,7 @@
 package com.guitarlearning.data.sync
 
 import android.util.Log
+import com.guitarlearning.BuildConfig
 import com.guitarlearning.domain.settings.AppSettingsSnapshot
 import com.guitarlearning.domain.model.AudioNote
 import com.guitarlearning.domain.model.Goal
@@ -165,7 +166,7 @@ internal class RemoteSyncWriter(
         writeTextNotes(userRef, remoteState, uploadState, batchWriter)
         writeAudioNotes(userRef, userUid, remoteState, uploadState, batchWriter)
 
-        logWriteState(userUid, uploadState)
+        logWriteState(uploadState)
         batchWriter.flush()
     }
 
@@ -290,10 +291,11 @@ internal class RemoteSyncWriter(
         )
     }
 
-    private fun logWriteState(userUid: String, uploadState: UploadSyncState) {
+    private fun logWriteState(uploadState: UploadSyncState) {
+        if (!BuildConfig.DEBUG) return
         Log.d(
             logTag,
-            "syncData:write uid=$userUid finalTabs=${uploadState.finalTabs.size} finalSessions=${uploadState.finalSessions.size} finalGoals=${uploadState.finalGoals.size} " +
+            "syncData:write finalTabs=${uploadState.finalTabs.size} finalSessions=${uploadState.finalSessions.size} finalGoals=${uploadState.finalGoals.size} " +
                 "finalProgress=${uploadState.finalProgress.size} finalTextNotes=${uploadState.finalTextNotes.size} finalAudioNotes=${uploadState.finalAudioNotes.size}"
         )
     }

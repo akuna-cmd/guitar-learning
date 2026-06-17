@@ -254,7 +254,7 @@ internal fun AuthCard(
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("Email") },
+                    label = { Text(stringResource(R.string.settings_auth_email)) },
                     leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
@@ -300,9 +300,11 @@ internal fun AuthCard(
                         },
                         singleLine = true,
                         isError = passwordMismatch,
-                        supportingText = if (passwordMismatch) {{
-                            Text(stringResource(R.string.settings_auth_password_mismatch))
-                        }} else null,
+                        supportingText = if (passwordMismatch) {
+                            { Text(stringResource(R.string.settings_auth_password_mismatch)) }
+                        } else {
+                            null
+                        },
                         visualTransformation = if (showConfirm) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         shape = RoundedCornerShape(12.dp),

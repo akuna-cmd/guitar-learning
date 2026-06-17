@@ -2,6 +2,7 @@ package com.guitarlearning.presentation.settings
 
 import android.content.Context
 import android.util.Log
+import com.guitarlearning.BuildConfig
 import com.guitarlearning.R
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
@@ -37,6 +38,9 @@ class AuthViewModel @Inject constructor(
     private val auth: FirebaseAuth,
     private val signOutUseCase: SignOutUseCase
 ) : ViewModel() {
+    private companion object {
+        const val LogTag = "AuthViewModel"
+    }
 
     private val _uiState = MutableStateFlow(AuthUiState(user = auth.currentUser))
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
@@ -49,7 +53,7 @@ class AuthViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
                 val webClientId = context.getString(com.guitarlearning.R.string.default_web_client_id)
-                Log.d("AuthViewModel", "CM: using webClientId=${webClientId.take(30)}…")
+                debugLog("CM: using configured web client id")
 
                 val credentialManager = CredentialManager.create(context)
 
@@ -70,30 +74,30 @@ class AuthViewModel @Inject constructor(
                     credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
                 ) {
                     val googleIdToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
-                    Log.d("AuthViewModel", "CM: got idToken=${googleIdToken.take(20)}…")
+                    debugLog("CM: received Google ID token")
                     val firebaseCredential = GoogleAuthProvider.getCredential(googleIdToken, null)
                     val authResult = auth.signInWithCredential(firebaseCredential).await()
-                    Log.d("AuthViewModel", "CM: Firebase sign-in success: ${authResult.user?.email}")
+                    debugLog("CM: Firebase sign-in success")
                     _uiState.value = _uiState.value.copy(user = authResult.user, isLoading = false)
                     onSuccess()
                 } else {
-                    Log.e("AuthViewModel", "CM: unexpected credential type: ${credential.type}")
+                    Log.e(LogTag, "CM: unexpected credential type: ${credential.type}")
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = appContext.getString(R.string.auth_error_unexpected_credential)
                     )
                 }
             } catch (e: GetCredentialCancellationException) {
-                Log.d("AuthViewModel", "CM: cancelled by user")
+                debugLog("CM: cancelled by user")
                 _uiState.value = _uiState.value.copy(isLoading = false, error = null)
             } catch (e: GetCredentialException) {
-                Log.e("AuthViewModel", "CM: GetCredentialException: ${e.type} - ${e.message}")
+                Log.e(LogTag, "CM: GetCredentialException: ${e.type} - ${e.message}")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = appContext.getString(R.string.auth_error_google_sign_in, e.message ?: "")
                 )
             } catch (e: Exception) {
-                Log.e("AuthViewModel", "CM: unexpected error", e)
+                Log.e(LogTag, "CM: unexpected error", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = appContext.getString(R.string.auth_error_generic, e.message ?: "")
@@ -171,5 +175,11 @@ class AuthViewModel @Inject constructor(
         "weak password" in msg -> appContext.getString(R.string.auth_error_weak_password)
         "network" in msg.lowercase() -> appContext.getString(R.string.auth_error_network)
         else -> msg
+    }
+
+    private fun debugLog(message: String) {
+        if (BuildConfig.DEBUG) {
+            Log.d(LogTag, message)
+        }
     }
 }
