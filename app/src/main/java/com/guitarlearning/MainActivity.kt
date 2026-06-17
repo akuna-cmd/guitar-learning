@@ -81,7 +81,10 @@ class MainActivity : ComponentActivity() {
 
             GuitarLearningTheme(darkTheme = isDarkTheme) {
                 if (themeUiState.hasSeenOnboarding) {
-                    MainScreen(mainViewModel = mainViewModel)
+                    MainScreen(
+                        mainViewModel = mainViewModel,
+                        isDarkTheme = isDarkTheme
+                    )
                 } else {
                     OnboardingScreen(
                         onClose = themeViewModel::dismissOnboarding
@@ -95,7 +98,8 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
-    mainViewModel: MainViewModel
+    mainViewModel: MainViewModel,
+    isDarkTheme: Boolean
 ) {
     val context = LocalContext.current
     val uiState by mainViewModel.uiState.collectAsStateWithLifecycle()
@@ -142,6 +146,16 @@ fun MainScreen(
         },
         bottomBar = {
             if (isBottomBarVisible) {
+                val selectedNavItemColor = if (isDarkTheme) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.primary
+                }
+                val selectedNavIndicatorColor = if (isDarkTheme) {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f)
+                } else {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                }
                 NavigationBar(
                     modifier = Modifier.navigationBarsPadding(),
                     tonalElevation = 3.dp
@@ -206,9 +220,9 @@ fun MainScreen(
                             },
                             alwaysShowLabel = true,
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onSurface,
-                                selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                                indicatorColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f),
+                                selectedIconColor = selectedNavItemColor,
+                                selectedTextColor = selectedNavItemColor,
+                                indicatorColor = selectedNavIndicatorColor,
                                 unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                 unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                             )
