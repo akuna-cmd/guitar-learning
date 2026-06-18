@@ -25,23 +25,27 @@ function buildBeatCandidates(beatData) {
         .slice(0, 20);
 }
 
+function singleAttackedPlayableFrettedMove(prevCandidate, candidate) {
+    const prevNotes = attackedNotes(prevCandidate.notes)
+        .filter(note => !note.isDead && !note.isTapped && note.fret > 0);
+    const nextNotes = attackedNotes(candidate.notes)
+        .filter(note => !note.isDead && !note.isTapped && note.fret > 0);
+
+    if (prevNotes.length !== 1 || nextNotes.length !== 1) return null;
+
+    return {
+        prevNote: prevNotes[0],
+        nextNote: nextNotes[0]
+    };
+}
+
 function isSingleSameStringMovement(prevCandidate, candidate) {
-    return prevCandidate.notes.length === 1 &&
-        candidate.notes.length === 1 &&
-        !prevCandidate.notes[0].isTapped &&
-        !candidate.notes[0].isTapped &&
-        prevCandidate.notes[0].string === candidate.notes[0].string;
+    const move = singleAttackedPlayableFrettedMove(prevCandidate, candidate);
+    return !!move && move.prevNote.string === move.nextNote.string;
 }
 
 function isSequentialSingleNoteMove(prevCandidate, candidate) {
-    return prevCandidate.notes.length === 1 &&
-        candidate.notes.length === 1 &&
-        !prevCandidate.notes[0].isDead &&
-        !candidate.notes[0].isDead &&
-        !prevCandidate.notes[0].isTapped &&
-        !candidate.notes[0].isTapped &&
-        prevCandidate.notes[0].fret > 0 &&
-        candidate.notes[0].fret > 0;
+    return !!singleAttackedPlayableFrettedMove(prevCandidate, candidate);
 }
 
 function computeRightHandTransitionCost(prevCandidate, candidate, speedFactor) {
@@ -174,8 +178,7 @@ function computeTransitionCost(prevCandidate, candidate) {
     }
 
     if (isSingleSameStringMovement(prevCandidate, candidate)) {
-        const prevNote = prevCandidate.notes[0];
-        const nextNote = candidate.notes[0];
+        const { prevNote, nextNote } = singleAttackedPlayableFrettedMove(prevCandidate, candidate);
         const fretDelta = Math.abs(prevNote.fret - nextNote.fret);
         const prevFinger = prevCandidate.leftHandPlacement[prevNote.string]?.finger;
         const nextFinger = candidate.leftHandPlacement[nextNote.string]?.finger;
@@ -202,8 +205,7 @@ function computeTransitionCost(prevCandidate, candidate) {
     }
 
     if (isSequentialSingleNoteMove(prevCandidate, candidate)) {
-        const prevNote = prevCandidate.notes[0];
-        const nextNote = candidate.notes[0];
+        const { prevNote, nextNote } = singleAttackedPlayableFrettedMove(prevCandidate, candidate);
         const prevFinger = prevCandidate.leftHandPlacement[prevNote.string]?.finger;
         const nextFinger = candidate.leftHandPlacement[nextNote.string]?.finger;
         const stringDelta = Math.abs(prevNote.string - nextNote.string);
@@ -220,17 +222,19 @@ function computeTransitionCost(prevCandidate, candidate) {
             cost += delta;
         }
 
-        if (!slideLike && !tiedLike && sameFret && stringDelta === 1 && prevFinger !== nextFinger) {
-            breakdown.sameFretStringMove -= 1.1;
-            cost -= 1.1;
+        if (!slideLike && !tiedLike && sameFret && stringDelta >= 1 && prevFinger !== nextFinger) {
+            const differentFingerBonus = stringDelta === 1 ? -1.1 : -0.65;
+            breakdown.sameFretStringMove += differentFingerBonus;
+            cost += differentFingerBonus;
 
             const movingToHigherString = prevNote.string > nextNote.string;
             const expectedFinger = movingToHigherString ? prevFinger + 1 : prevFinger - 1;
             const fingerDelta = nextFinger - prevFinger;
 
             if (nextFinger === expectedFinger) {
-                breakdown.sameFretStringMove -= 1.35;
-                cost -= 1.35;
+                const delta = stringDelta === 1 ? -1.35 : -1.1;
+                breakdown.sameFretStringMove += delta;
+                cost += delta;
             } else if ((movingToHigherString && fingerDelta < 0) || (!movingToHigherString && fingerDelta > 0)) {
                 breakdown.sameFretStringMove += 2.4;
                 cost += 2.4;

@@ -260,7 +260,11 @@ function assignLeftHand(notes, position, barre, forcedPlacements = null) {
         placement[note.string] = { fret: note.fret, finger: assignedFinger };
     }
 
-    return { leftHand, placement };
+    return {
+        leftHand,
+        placement,
+        assignmentCost: Number.isFinite(bestCost) ? bestCost : 0
+    };
 }
 
 function maxAbsFretDistance(notes, position) {
@@ -280,6 +284,7 @@ function buildLeftHandCandidate(beatData, position, barre, forcedPlacements = nu
     const reachCost = maxAbsFretDistance(beatData.notes, position) * 0.75;
     const barreCost = barre ? 0.8 + Math.max(0, (barre.toString - barre.fromString) - 2) * 0.2 : 0;
     const barreCoverageCost = barre?.coverage != null ? (1 - barre.coverage) * 1.6 : 0;
+    const fingerAssignmentCost = Math.min(leftHandResult.assignmentCost ?? 0, 18) * 0.35;
     let forcedPlacementCost = 0;
     if (forcedPlacements) {
         for (const note of beatData.notes) {
@@ -305,7 +310,14 @@ function buildLeftHandCandidate(beatData, position, barre, forcedPlacements = nu
             }
         }
     }
-    const stateCost = positionCost + widthPenalty + reachCost + barreCost + barreCoverageCost + forcedPlacementCost + arpeggioShapeCost;
+    const stateCost = positionCost +
+        widthPenalty +
+        reachCost +
+        barreCost +
+        barreCoverageCost +
+        fingerAssignmentCost +
+        forcedPlacementCost +
+        arpeggioShapeCost;
 
     return {
         position,
@@ -321,6 +333,7 @@ function buildLeftHandCandidate(beatData, position, barre, forcedPlacements = nu
             reachCost,
             barreCost,
             barreCoverageCost,
+            fingerAssignmentCost,
             forcedPlacementCost,
             arpeggioShapeCost
         }
@@ -401,6 +414,7 @@ function generateLeftHandCandidates(beatData) {
                 reachCost: 0,
                 barreCost: 0,
                 barreCoverageCost: 0,
+                fingerAssignmentCost: 0,
                 forcedPlacementCost: 0,
                 arpeggioShapeCost: 0
             }
